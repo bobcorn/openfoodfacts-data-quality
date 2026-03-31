@@ -1,0 +1,250 @@
+# yaml-language-server: $schema=../../dsl/schema/definitions.schema.json
+metadata:
+  parity_baseline: legacy
+  jurisdictions: [global]
+checks:
+  - id: en:main-language-code-missing
+    severity: bug
+    when:
+      field: product.lc
+      op: is_missing
+  - id: en:main-language-missing
+    severity: bug
+    when:
+      field: product.lang
+      op: is_missing
+  - id: en:main-language-unknown
+    severity: warning
+    when:
+      field: product.lang
+      op: eq
+      value: xx
+  - id: en:code-missing
+    severity: bug
+    when:
+      field: product.code
+      op: is_missing
+  - id: en:code-empty
+    severity: bug
+    when:
+      field: product.code
+      op: eq
+      value: ""
+  - id: en:created-missing
+    severity: bug
+    when:
+      field: product.created_t
+      op: is_missing
+  - id: en:created-zero
+    severity: bug
+    when:
+      field: product.created_t
+      op: eq
+      value: 0
+  - id: en:no-packaging-data
+    severity: info
+    when:
+      field: product.packagings
+      op: is_blank
+  - id: en:quantity-not-recognized
+    severity: warning
+    when:
+      all:
+        - not:
+            field: product.quantity
+            op: is_blank
+        - field: product.product_quantity
+          op: is_blank
+  - id: en:product-quantity-over-10kg
+    severity: warning
+    when:
+      field: product.product_quantity
+      op: gt
+      value: 10000
+  - id: en:nutrition-data-per-serving-serving-quantity-is-not-recognized
+    severity: warning
+    when:
+      all:
+        - not:
+            field: product.serving_size
+            op: is_blank
+        - field: product.serving_quantity
+          op: is_blank
+  - id: en:serving-quantity-defined-but-quantity-undefined
+    severity: warning
+    when:
+      all:
+        - not:
+            field: product.serving_quantity
+            op: is_blank
+        - field: product.product_quantity
+          op: is_blank
+  - id: en:serving-quantity-under-1g
+    severity: warning
+    when:
+      field: product.serving_quantity
+      op: lt
+      value: 1
+  - id: en:product-quantity-under-1g
+    severity: warning
+    when:
+      field: product.product_quantity
+      op: lt
+      value: 1
+  - id: en:serving-quantity-over-500g
+    severity: warning
+    when:
+      field: product.serving_quantity
+      op: gt
+      value: 500
+  - id: en:alcoholic-and-non-alcoholic-categories
+    severity: warning
+    when:
+      all:
+        - field: product.categories_tags
+          op: contains
+          value: en:alcoholic-beverages
+        - field: product.categories_tags
+          op: contains
+          value: en:non-alcoholic-beverages
+  - id: en:incompatible-categories-plant-milk-and-dairy
+    severity: warning
+    when:
+      all:
+        - field: product.categories_tags
+          op: contains
+          value: en:plant-milks
+        - field: product.categories_tags
+          op: contains
+          value: en:dairies
+  - id: en:no-fat-label-claim-but-fat-above-0.5
+    severity: warning
+    when:
+      all:
+        - field: product.labels_tags
+          op: contains
+          value: en:no-fat
+        - field: nutrition.as_sold.fat
+          op: gt
+          value: 0.5
+  - id: en:saturated-fat-free-label-claim-but-fat-above-0.1
+    severity: warning
+    when:
+      all:
+        - field: product.labels_tags
+          op: contains
+          value: en:saturated-fat-free
+        - field: nutrition.as_sold.saturated_fat
+          op: gt
+          value: 0.1
+  - id: en:sugar-free-label-claim-but-sugar-above-limitation
+    severity: warning
+    when:
+      all:
+        - field: flags.is_european_product
+          op: is_true
+        - field: product.labels_tags
+          op: contains
+          value: en:no-sugar
+        - field: nutrition.as_sold.sugars
+          op: gt
+          value: 0.5
+  - id: en:no-added-sugar-label-claim-but-contains-added-sugar
+    severity: warning
+    when:
+      all:
+        - field: flags.is_european_product
+          op: is_true
+        - field: product.labels_tags
+          op: contains
+          value: en:no-added-sugar
+        - field: product.ingredients_tags
+          op: contains
+          value: en:added-sugar
+  - id: en:ingredients-percent-analysis-not-ok
+    severity: warning
+    when:
+      field: product.ingredients_percent_analysis
+      op: lt
+      value: 0
+  - id: en:ingredients-percent-analysis-ok
+    severity: info
+    when:
+      field: product.ingredients_percent_analysis
+      op: gt
+      value: 0
+  - id: en:all-ingredients-with-specified-percent
+    severity: info
+    when:
+      all:
+        - field: product.ingredients_with_specified_percent_n
+          op: gt
+          value: 0
+        - field: product.ingredients_with_unspecified_percent_n
+          op: eq
+          value: 0
+  - id: en:all-but-one-ingredient-with-specified-percent
+    severity: info
+    when:
+      field: product.ingredients_with_unspecified_percent_n
+      op: eq
+      value: 1
+  - id: en:sum-of-ingredients-with-unspecified-percent-lesser-than-10
+    severity: info
+    when:
+      all:
+        - field: product.ingredients_with_specified_percent_n
+          op: gt
+          value: 0
+        - field: product.ingredients_with_specified_percent_sum
+          op: gte
+          value: 90
+        - field: product.ingredients_with_unspecified_percent_sum
+          op: lt
+          value: 10
+  - id: en:sum-of-ingredients-with-specified-percent-greater-than-100
+    severity: info
+    when:
+      all:
+        - field: product.ingredients_with_specified_percent_n
+          op: gt
+          value: 0
+        - field: product.ingredients_with_specified_percent_sum
+          op: gt
+          value: 100
+  - id: en:sum-of-ingredients-with-specified-percent-greater-than-200
+    severity: warning
+    when:
+      all:
+        - field: product.ingredients_with_specified_percent_n
+          op: gt
+          value: 0
+        - field: product.ingredients_with_specified_percent_sum
+          op: gt
+          value: 200
+  - id: en:product-name-to-be-completed
+    severity: completeness
+    when:
+      field: product.product_name
+      op: is_blank
+  - id: en:traceability-codes-to-be-completed
+    severity: completeness
+    when:
+      all:
+        - field: flags.is_european_product
+          op: is_true
+        - field: flags.has_animal_origin_category
+          op: is_true
+        - field: product.emb_codes
+          op: is_blank
+  - id: en:product-quantity-over-30kg
+    severity: error
+    when:
+      field: product.product_quantity
+      op: gt
+      value: 30000
+  - id: en:quantity-to-be-completed
+    severity: completeness
+    when:
+      field: product.quantity
+      op: is_blank

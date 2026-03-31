@@ -1,0 +1,92 @@
+name: Publish Python Release
+
+run-name: Publish Python release for ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-library:
+    name: Build And Attach Release Files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set Up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14.3"
+          cache: pip
+
+      - name: Install Build And Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[app,dev]' twine
+
+      - name: Run Repository Check
+        run: make check
+
+      - name: Verify Tag Matches Project Version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+          from pathlib import Path
+
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          version = pyproject["project"]["version"]
+          expected_tag = f"v{version}"
+          actual_tag = os.environ["GITHUB_REF_NAME"]
+          if actual_tag != expected_tag:
+              raise SystemExit(
+                  f"Release tag {actual_tag!r} does not match project version {expected_tag!r}."
+              )
+          PY
+
+      - name: Build Source And Wheel Distributions
+        run: make build
+
+      - name: Verify Distribution Metadata
+        run: python -m twine check --strict dist/*
+
+      - name: Smoke Test Built Wheel
+        shell: bash
+        run: |
+          python -m venv .artifact-smoke
+          source .artifact-smoke/bin/activate
+          pip install dist/*.whl
+          python scripts/verify_built_distribution.py
+
+      - name: Upload Distributions
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: openfoodfacts-data-quality-dist-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create Or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../dsl/schema/definitions.schema.json
+# Canada prototype checks deliberately operate on canonical claim tags and
+# per-100g OFF nutrient scalars until reference-amount modeling is introduced.
+# Source authority: Health Canada.
+# Source document: "Nutrition Labelling — Table of Permitted Nutrient Content
+# Statements and Claims" (published September 2, 2025).
+# Implemented reference items: 25, 41.
+metadata:
+  parity_baseline: none
+  jurisdictions: [ca]
+checks:
+  - id: ca:source-of-fibre-claim-but-fibre-below-threshold
+    severity: warning
+    when:
+      all:
+        - field: product.labels_tags
+          op: contains
+          value: en:source-of-fibre
+        - field: nutrition.as_sold.fiber
+          op: lt
+          value: 2
+  - id: ca:source-of-omega-3-polyunsaturates-claim-but-omega-3-below-threshold
+    severity: warning
+    when:
+      all:
+        - field: product.labels_tags
+          op: contains
+          value: en:source-of-omega-3-polyunsaturates
+        - field: nutrition.as_sold.omega_3
+          op: lt
+          value: 0.3

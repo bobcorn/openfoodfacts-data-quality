@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "kind": "openfoodfacts_dqm.dsl_capabilities",
+  "expression_model": "declarative_boolean_predicate_tree",
+  "logical_forms": ["all", "any", "not"],
+  "atom_operators": [
+    "is_missing",
+    "is_blank",
+    "is_true",
+    "is_false",
+    "eq",
+    "ne",
+    "gt",
+    "gte",
+    "lt",
+    "lte",
+    "contains",
+    "in",
+    "not_in"
+  ],
+  "field_constraints": {
+    "source": "normalized_context_path",
+    "must_exist_in_context_contract": true,
+    "must_be_dsl_allowed": true,
+    "helper_like_paths_forbidden": true,
+    "supported_context_roots": ["flags", "nutrition", "product"]
+  },
+  "type_rules": {
+    "is_true_is_false_require_boolean_field": true,
+    "gt_gte_lt_lte_require_numeric_field_and_numeric_literal": true,
+    "contains_requires_array_field_and_scalar_literal": true,
+    "in_not_in_require_scalar_literal_array": true,
+    "eq_ne_require_scalar_literal": true
+  },
+  "emission_constraints": {
+    "max_findings_per_check_evaluation": 1,
+    "static_severity": true,
+    "dynamic_observed_code": false,
+    "dynamic_emission_count": false
+  },
+  "metadata_capabilities": {
+    "parity_baselines": ["legacy", "none"],
+    "jurisdictions": ["global", "ca"],
+    "legacy_code_template_override": true
+  },
+  "unsupported_constructs": [
+    "iteration",
+    "aggregation",
+    "cross_field_arithmetic",
+    "field_to_field_comparison",
+    "dynamic_boolean_subexpressions",
+    "dynamic_emission_count",
+    "dynamic_observed_code",
+    "helper_calls",
+    "stateful_logic"
+  ]
+}

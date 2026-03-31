@@ -1,0 +1,7 @@
+{
+  "yaml.schemas": {
+    "src/openfoodfacts_data_quality/checks/dsl/schema/definitions.schema.json": [
+      "src/openfoodfacts_data_quality/checks/packs/dsl/*.yaml"
+    ]
+  }
+}

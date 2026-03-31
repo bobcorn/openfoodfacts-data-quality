@@ -1,0 +1,20 @@
+{
+  "absolute": true,
+  "minLines": 5,
+  "minTokens": 50,
+  "output": "artifacts/quality/jscpd",
+  "reporters": ["console", "json"],
+  "threshold": 0,
+  "ignore": [
+    "**/.git/**",
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
+    "**/.mypy_cache/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/artifacts/**",
+    "**/data/**"
+  ]
+}

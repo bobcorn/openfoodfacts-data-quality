@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Open Food Facts Data Quality - Migration Report</title>
+    <link rel="icon" href="favicon.ico" sizes="any">
+    <style>
+{% include "partials/report_styles.j2" %}
+    </style>
+  </head>
+  <body>
+    <main>
+{% include "partials/page_meta.j2" %}
+{% include "partials/overview.j2" %}
+
+      <section class="checks-shell shell">
+{% include "partials/checks_header.j2" %}
+
+        <section class="checks">
+          {% for check in report.checks %}
+{% include "partials/check_card.j2" %}
+          {% endfor %}
+        </section>
+
+        <section class="empty-state" id="empty-state" hidden>
+          <h3>{{ terms.empty_state.title }}</h3>
+          <p>{{ terms.empty_state.body }}</p>
+        </section>
+      </section>
+    </main>
+
+    <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+    <script>
+{% include "partials/report_scripts.j2" %}
+    </script>
+  </body>
+</html>

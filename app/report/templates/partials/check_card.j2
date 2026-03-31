@@ -1,0 +1,166 @@
+        <article
+          class="check {% if check.passed %}check--pass{% else %}check--fail{% endif %}"
+          data-status="{% if check.passed %}pass{% else %}fail{% endif %}"
+          data-definition-language="{{ check.definition.definition_language }}"
+          data-parity-outcome="{{ check.parity_outcome }}"
+          data-total-mismatches="{{ check.total_mismatches }}"
+          data-missing-count="{{ check.missing_count }}"
+          data-extra-count="{{ check.extra_count }}"
+          data-matched-count="{{ check.matched_count }}"
+          data-reference-count="{{ check.reference_count }}"
+          data-migrated-count="{{ check.migrated_count }}"
+          data-check-id="{{ check.definition.id | lower }}"
+          data-search-text="{{ check.search_text }}"
+        >
+          <div class="check-head">
+            <div class="check-topline">
+              <div class="check-title">
+                <h3>{{ check.definition.id }}</h3>
+              </div>
+              <div class="status-cluster">
+                <span
+                  class="status-indicator has-tooltip {% if check.passed %}status-indicator--pass{% else %}status-indicator--fail{% endif %}"
+                  data-tooltip="{% if check.passed %}{{ terms.composition.match_status_tooltip }}{% else %}{{ terms.composition.mismatch_status_tooltip }}{% endif %}"
+                  role="img"
+                  aria-label="{% if check.passed %}{{ terms.composition.match_status }}{% else %}{{ terms.composition.mismatch_status }}{% endif %}"
+                >
+                  {% if check.passed %}
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="m3.7 8.5 2.7 2.7 5.9-6.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
+                  </svg>
+                  {% else %}
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M8 2.2 14 13H2L8 2.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path>
+                    <path d="M8 5.7v3.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                    <circle cx="8" cy="11.4" r="0.85" fill="currentColor"></circle>
+                  </svg>
+                  {% endif %}
+                  <span class="sr-only">{% if check.passed %}{{ terms.composition.match_status }}{% else %}{{ terms.composition.mismatch_status }}{% endif %}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-body">
+            <div class="metrics">
+              <div class="metric">
+                <span class="metric__label"><span class="term" data-tooltip="Reference is the result emitted by the legacy backend for this check.">Reference</span></span>
+                <strong>{{ check.reference_count }}</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label"><span class="term" data-tooltip="Migrated is the result emitted by the migrated runtime for this check.">Migrated</span></span>
+                <strong>{{ check.migrated_count }}</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label"><span class="term" data-tooltip="Matched is the count of findings that are identical on both sides under strict parity.">Matched</span></span>
+                <strong>{{ check.matched_count }}</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label"><span class="term" data-tooltip="Missing findings exist in reference output but are absent from migrated output.">Missing in Migrated</span></span>
+                <strong>{{ check.missing_count }}</strong>
+              </div>
+              <div class="metric">
+                <span class="metric__label"><span class="term" data-tooltip="Extra findings exist in migrated output but not in reference output.">Extra in Migrated</span></span>
+                <strong>{{ check.extra_count }}</strong>
+              </div>
+            </div>
+
+            {% if check.missing_count or check.extra_count %}
+            <details class="disclosure">
+              <summary class="disclosure-summary">
+                <span class="disclosure-summary-copy">
+                  <span class="disclosure-summary-label">{{ terms.details.title }}</span>
+                </span>
+                <span class="disclosure-summary-indicator" aria-hidden="true"></span>
+              </summary>
+
+              <div class="details-grid">
+              {% if check.missing_count %}
+              <section class="panel">
+                <div class="panel-head">
+                  <h4><span class="term" data-tooltip="{{ terms.outcomes.legacy_only.panel_tooltip }}">{{ terms.outcomes.legacy_only.label }}</span></h4>
+                  <span>
+                    {{ check.missing_count }} item{% if check.missing_count != 1 %}s{% endif %}
+                    {% if check.missing_examples_count < check.missing_count %}
+                    · {{ terms.details.examples_suffix }} {{ check.missing_examples_count }}
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="table-wrap">
+                  <table class="findings-table">
+                    <thead>
+                      <tr>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.product.tooltip }}">{{ terms.details.columns.product.label }}</span></th>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.severity.tooltip }}">{{ terms.details.columns.severity.label }}</span></th>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.observed_code.tooltip }}">{{ terms.details.columns.observed_code.label }}</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for finding in check.missing %}
+                      <tr>
+                        <td><span class="code">{{ finding.product_id }}</span></td>
+                        <td>{{ finding.severity }}</td>
+                        <td><span class="code">{{ finding.observed_code }}</span></td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              {% endif %}
+
+              {% if check.extra_count %}
+              <section class="panel">
+                <div class="panel-head">
+                  <h4><span class="term" data-tooltip="{{ terms.outcomes.migrated_only.panel_tooltip }}">{{ terms.outcomes.migrated_only.label }}</span></h4>
+                  <span>
+                    {{ check.extra_count }} item{% if check.extra_count != 1 %}s{% endif %}
+                    {% if check.extra_examples_count < check.extra_count %}
+                    · {{ terms.details.examples_suffix }} {{ check.extra_examples_count }}
+                    {% endif %}
+                  </span>
+                </div>
+                <div class="table-wrap">
+                  <table class="findings-table">
+                    <thead>
+                      <tr>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.product.tooltip }}">{{ terms.details.columns.product.label }}</span></th>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.severity.tooltip }}">{{ terms.details.columns.severity.label }}</span></th>
+                        <th><span class="term" data-tooltip="{{ terms.details.columns.observed_code.tooltip }}">{{ terms.details.columns.observed_code.label }}</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for finding in check.extra %}
+                      <tr>
+                        <td><span class="code">{{ finding.product_id }}</span></td>
+                        <td>{{ finding.severity }}</td>
+                        <td><span class="code">{{ finding.observed_code }}</span></td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              {% endif %}
+              </div>
+            </details>
+            {% endif %}
+
+            {% for panel in check.code_snippet_panels %}
+            <details class="disclosure">
+              <summary class="disclosure-summary">
+                <span class="disclosure-summary-copy">
+                  <span class="disclosure-summary-label">{{ panel.title }}</span>
+                </span>
+                <span class="disclosure-summary-indicator" aria-hidden="true"></span>
+              </summary>
+
+              <div class="snippet-panel">
+                <div class="snippet-block">
+                  <pre><code>{{ panel.html | safe }}</code></pre>
+                </div>
+              </div>
+            </details>
+            {% endfor %}
+          </div>
+        </article>

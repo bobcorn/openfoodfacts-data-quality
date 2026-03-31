@@ -1,0 +1,31 @@
+{
+  "include": ["app", "src", "tests", "examples", "scripts"],
+  "exclude": [
+    ".venv",
+    "artifacts",
+    "build",
+    "data",
+    "dist",
+    "**/__pycache__"
+  ],
+  "extraPaths": ["app", "src", "scripts"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": true,
+  "reportMissingImports": true,
+  "reportUnknownMemberType": true,
+  "reportUnknownArgumentType": true,
+  "reportUnknownVariableType": true,
+  "reportUnknownLambdaType": true,
+  "reportUnknownParameterType": true,
+  "reportUnusedImport": true,
+  "reportUnusedVariable": true,
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["app", "src", "scripts"]
+    }
+  ]
+}

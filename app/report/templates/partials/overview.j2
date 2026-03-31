@@ -1,0 +1,79 @@
+      <section class="hero shell">
+        <div class="hero-top">
+          <div class="hero-copy">
+            <div class="hero-eyebrow">{{ terms.hero.eyebrow }}</div>
+            <h1>{{ terms.hero.title }}</h1>
+            <p>{{ terms.hero.subtitle }}</p>
+          </div>
+
+          <div class="hero-actions">
+            <div class="export-shell">
+              <button class="button button--quiet toolbar-button hero-action" id="export-toggle" type="button" aria-expanded="false" aria-controls="export-panel">
+                <span>{{ terms.hero.export_as }}</span>
+                <svg class="toolbar-button__icon" viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M4.25 6.25 8 10l3.75-3.75" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"></path>
+                </svg>
+              </button>
+
+              <div class="export-panel" id="export-panel" role="menu" aria-label="{{ terms.hero.export_as }}">
+                <button class="export-panel__action" id="export-html" type="button" role="menuitem">{{ terms.hero.export_html }}</button>
+                <button class="export-panel__action" id="export-pdf" type="button" role="menuitem">{{ terms.hero.export_pdf }}</button>
+                <button class="export-panel__action" id="export-json" type="button" role="menuitem">{{ terms.hero.export_json }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <button class="stat stat--interactive stat--hero stat--detail {% if failing_checks %}stat--fail{% else %}stat--pass{% endif %}" type="button" data-kind-filter="fail" aria-pressed="false">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.mismatching_tooltip }}">{{ terms.stats.mismatching_label }}</span></span>
+            <strong class="stat__value">{{ failing_checks }} / {{ compared_checks }}</strong>
+          </button>
+
+          <div class="stat stat--hero stat--detail stat--missing {% if missing_findings %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.missing_in_migrated_tooltip }}">{{ terms.stats.missing_in_migrated_label }}</span></span>
+            <strong class="stat__value">{{ missing_findings }}</strong>
+          </div>
+
+          <div class="stat stat--hero stat--detail stat--extra {% if extra_findings %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.extra_in_migrated_tooltip }}">{{ terms.stats.extra_in_migrated_label }}</span></span>
+            <strong class="stat__value">{{ extra_findings }}</strong>
+          </div>
+
+          <div class="stat stat--hero stat--detail {% if affected_products %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.affected_products_tooltip }}">{{ terms.stats.affected_products_label }}</span></span>
+            <strong class="stat__value">{{ affected_products }} / {{ report.product_count }}</strong>
+          </div>
+        </div>
+
+        <div class="composition">
+          <div class="composition-header">
+            <div class="composition-label">
+              <span class="term" data-tooltip="{{ terms.composition.tooltip }}">{{ terms.composition.title }}</span>
+            </div>
+          </div>
+          <div class="composition-bar" aria-label="Migration composition across compared checks">
+            {% for segment in composition_segments %}
+            {% if segment.count %}
+            <button
+              class="composition-segment composition-segment--{{ segment.id }}"
+              type="button"
+              data-kind-filter="{{ segment.id }}"
+              style="width: {{ '%.4f' | format(segment.percentage) }}%;"
+              title="{{ segment.label }}: {{ segment.count }}"
+              aria-label="{{ segment.label }}: {{ segment.count }}"
+            ></button>
+            {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="composition-legend">
+            {% for segment in composition_segments %}
+            <div class="composition-item">
+              <span class="composition-dot composition-dot--{{ segment.id }}"></span>
+              <span><span class="term" data-tooltip="{{ segment.tooltip }}">{{ segment.label }}</span> <strong>{{ segment.count }}</strong></span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>

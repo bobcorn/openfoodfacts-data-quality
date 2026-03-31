@@ -1,0 +1,34 @@
+name: openfoodfacts-data-quality
+
+services:
+  parity_engine:
+    image: openfoodfacts-data-quality:local
+    build:
+      context: .
+      target: runtime
+    init: true
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      DATABASE_PATH: /work/products.duckdb
+      BATCH_SIZE: "${BATCH_SIZE:-5000}"
+      LEGACY_BACKEND_WORKERS: "${LEGACY_BACKEND_WORKERS:-4}"
+      REFERENCE_RESULT_CACHE_DIR: /cache
+      MISMATCH_EXAMPLES_LIMIT: "${MISMATCH_EXAMPLES_LIMIT:-20}"
+      CHECK_PROFILE: "${CHECK_PROFILE:-full}"
+    volumes:
+      - type: bind
+        source: ${DATABASE_PATH:?Set DATABASE_PATH in .env}
+        target: /work/products.duckdb
+        read_only: true
+      - type: bind
+        source: ./artifacts
+        target: /opt/openfoodfacts-data-quality/artifacts
+      - type: bind
+        source: ./config
+        target: /opt/openfoodfacts-data-quality/config
+        read_only: true
+      - reference_result_cache:/cache
+
+volumes:
+  reference_result_cache:
