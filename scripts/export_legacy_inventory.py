@@ -1,25 +1,18 @@
-# ruff: noqa: I001
-
 from __future__ import annotations
 
 import argparse
 import csv
 import hashlib
 import json
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
-if __package__ in {None, ""}:
-    _ROOT = Path(__file__).resolve().parents[1]
-    _SRC_ROOT = _ROOT / "src"
-    if str(_ROOT) not in sys.path:
-        sys.path.insert(0, str(_ROOT))
-    if str(_SRC_ROOT) not in sys.path:
-        sys.path.insert(0, str(_SRC_ROOT))
+from _bootstrap import ROOT, bootstrap_paths
+
+bootstrap_paths()
 
 from app.report.legacy_source import (
     LegacySubroutineRecord,
@@ -35,9 +28,7 @@ from openfoodfacts_data_quality.checks.legacy import (
 
 LEGACY_FAMILIES_FILENAME = "legacy_families.json"
 ESTIMATION_SHEET_FILENAME = "estimation_sheet.csv"
-DEFAULT_OUTPUT_DIR = (
-    Path(__file__).resolve().parents[1] / "artifacts" / "legacy_inventory"
-)
+DEFAULT_OUTPUT_DIR = ROOT / "artifacts" / "legacy_inventory"
 _PERL_LANGUAGE: Literal["perl"] = "perl"
 _LOOP_NODE_TYPES = frozenset(
     {"cstyle_for_statement", "foreach_statement", "while_statement", "until_statement"}

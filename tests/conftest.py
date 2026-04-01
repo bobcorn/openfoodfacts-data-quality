@@ -1,25 +1,11 @@
-# ruff: noqa: I001
-
 from __future__ import annotations
 
-import sys
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Protocol
 
 import pytest
-
-TEST_ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_ROOT = TEST_ROOT / "scripts"
-if str(SCRIPTS_ROOT) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_ROOT))
-
-import _bootstrap  # noqa: F401
-
-assert _bootstrap.ROOT
-assert _bootstrap.SRC_ROOT
-
 from app.legacy_backend.input_projection import LegacyBackendInputProduct
 from app.parity.models import (
     CheckParityResult,
