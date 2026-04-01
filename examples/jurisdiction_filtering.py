@@ -1,4 +1,4 @@
-"""Show how jurisdiction filters change the active raw-surface checks."""
+"""Show how jurisdiction filters change the active raw surface checks."""
 
 import csv
 

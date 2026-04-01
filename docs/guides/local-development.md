@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Local Development
 
-Use Docker for parity work.
+Use Docker for application runs that need backend reference data.
 
 ## Requirements
 
@@ -13,7 +13,7 @@ For the normal application workflow:
 
 For Python only tooling outside Docker:
 
-- Python
+- Python 3.14
 - a local virtual environment
 
 ## First Local Run
@@ -41,6 +41,10 @@ The first local run:
   Named check subsets for application runs.
 - `DATABASE_PATH`
   The DuckDB snapshot used as the source input for the application.
+- `BATCH_WORKERS`
+  Concurrent batch workers for the application run loop.
+- `LEGACY_BACKEND_WORKERS`
+  Persistent backend workers used only for cache misses that need backend materialization.
 
 The starter `.env.example` points to the tracked sample DuckDB so the first run succeeds with local repository data.
 
@@ -48,8 +52,9 @@ The starter `.env.example` points to the tracked sample DuckDB so the first run 
 
 Choose Docker for:
 
-- parity execution
-- the legacy backend runtime
+- runs that may need reference results
+- compared execution
+- enriched application runs
 - report generation
 - a setup that mirrors the documented project workflow
 
@@ -69,31 +74,32 @@ Choose a local `.venv` for:
 Setup:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[app,dev]"
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -e ".[app,dev]"
 ```
 
 Useful commands:
 
 ```bash
+.venv/bin/python -m pytest -q tests/test_some_area.py
+.venv/bin/python scripts/validate_dsl.py
 make check
 make quality
-pytest -q tests/test_some_area.py
-python scripts/validate_dsl.py
 ```
 
 ## Development Loops
 
 - edit `config/check-profiles.toml` to narrow the active check set
-- use the bundled sample snapshot for short parity runs
+- use the bundled sample snapshot for short compared runs
 - switch to a richer local snapshot when you need more representative behavior
-- keep Docker for parity validation and use `.venv` for quicker Python only iterations
+- keep Docker for compared validation and use `.venv` for quicker Python only iterations
 
 ## Practical Notes
 
 - The Docker Compose flow does not mount the source tree, so code changes require a rebuild.
 - Reference side results are cached across runs to avoid repeating legacy backend work.
+- With a warm cache, compared and enriched runs can complete without starting a live backend worker for the covered products.
+- Source snapshot ids can come from a `.snapshot.json` sidecar beside the DuckDB file. The runtime writes that sidecar automatically when it has to hash the DuckDB file directly.
 
 ## Next Reads
 

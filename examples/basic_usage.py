@@ -1,4 +1,4 @@
-"""Minimal raw-surface example on the bundled CSV sample."""
+"""Minimal raw surface example on the bundled CSV sample."""
 
 import csv
 from pprint import pprint

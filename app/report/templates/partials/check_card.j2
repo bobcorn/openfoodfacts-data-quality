@@ -1,8 +1,8 @@
         <article
-          class="check {% if check.passed %}check--pass{% else %}check--fail{% endif %}"
-          data-status="{% if check.passed %}pass{% else %}fail{% endif %}"
+          class="check check--{{ check.card_status }}"
+          data-status="{{ check.card_status }}"
           data-definition-language="{{ check.definition.definition_language }}"
-          data-parity-outcome="{{ check.parity_outcome }}"
+          data-run-outcome="{{ check.run_outcome }}"
           data-total-mismatches="{{ check.total_mismatches }}"
           data-missing-count="{{ check.missing_count }}"
           data-extra-count="{{ check.extra_count }}"
@@ -19,23 +19,28 @@
               </div>
               <div class="status-cluster">
                 <span
-                  class="status-indicator has-tooltip {% if check.passed %}status-indicator--pass{% else %}status-indicator--fail{% endif %}"
-                  data-tooltip="{% if check.passed %}{{ terms.composition.match_status_tooltip }}{% else %}{{ terms.composition.mismatch_status_tooltip }}{% endif %}"
+                  class="status-indicator has-tooltip status-indicator--{{ check.card_status }}"
+                  data-tooltip="{% if check.card_status == 'pass' %}{{ terms.composition.match_status_tooltip }}{% elif check.card_status == 'fail' %}{{ terms.composition.mismatch_status_tooltip }}{% else %}{{ terms.composition.runtime_only_status_tooltip }}{% endif %}"
                   role="img"
-                  aria-label="{% if check.passed %}{{ terms.composition.match_status }}{% else %}{{ terms.composition.mismatch_status }}{% endif %}"
+                  aria-label="{% if check.card_status == 'pass' %}{{ terms.composition.match_status }}{% elif check.card_status == 'fail' %}{{ terms.composition.mismatch_status }}{% else %}{{ terms.composition.runtime_only_status }}{% endif %}"
                 >
-                  {% if check.passed %}
+                  {% if check.card_status == 'pass' %}
                   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="m3.7 8.5 2.7 2.7 5.9-6.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
                   </svg>
-                  {% else %}
+                  {% elif check.card_status == 'fail' %}
                   <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M8 2.2 14 13H2L8 2.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path>
                     <path d="M8 5.7v3.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
                     <circle cx="8" cy="11.4" r="0.85" fill="currentColor"></circle>
                   </svg>
+                  {% else %}
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <circle cx="8" cy="8" r="5.2" stroke="currentColor" stroke-width="1.4"></circle>
+                    <path d="M8 5.1v5.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+                  </svg>
                   {% endif %}
-                  <span class="sr-only">{% if check.passed %}{{ terms.composition.match_status }}{% else %}{{ terms.composition.mismatch_status }}{% endif %}</span>
+                  <span class="sr-only">{% if check.card_status == 'pass' %}{{ terms.composition.match_status }}{% elif check.card_status == 'fail' %}{{ terms.composition.mismatch_status }}{% else %}{{ terms.composition.runtime_only_status }}{% endif %}</span>
                 </span>
               </div>
             </div>
@@ -52,7 +57,7 @@
                 <strong>{{ check.migrated_count }}</strong>
               </div>
               <div class="metric">
-                <span class="metric__label"><span class="term" data-tooltip="Matched is the count of findings that are identical on both sides under strict parity.">Matched</span></span>
+                <span class="metric__label"><span class="term" data-tooltip="Matched is the count of findings that are identical on both sides under strict comparison.">Matched</span></span>
                 <strong>{{ check.matched_count }}</strong>
               </div>
               <div class="metric">
@@ -144,6 +149,18 @@
               {% endif %}
               </div>
             </details>
+            {% endif %}
+
+            {% if check.snippet_issue_messages %}
+            <div class="snippet-notes" role="note" aria-label="Snippet provenance warnings">
+              {% for message in check.snippet_issue_messages %}
+              <p class="snippet-note">{{ message }}</p>
+              {% endfor %}
+            </div>
+            {% elif check.legacy_snippet_status == "unavailable" %}
+            <div class="snippet-notes" role="note" aria-label="Snippet provenance warnings">
+              <p class="snippet-note">Legacy source unavailable for this check.</p>
+            </div>
             {% endif %}
 
             {% for panel in check.code_snippet_panels %}

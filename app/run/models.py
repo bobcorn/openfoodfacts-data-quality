@@ -3,29 +3,31 @@ from __future__ import annotations
 from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ParamSpec, Protocol
+from typing import TYPE_CHECKING, ParamSpec, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
 
     from app.legacy_backend.input_projection import LegacyBackendInputProduct
-    from app.parity.models import ObservedFinding, ParityResult
-    from app.pipeline.context_builders import SupportsCheckContextBuilder
-    from app.pipeline.profiles import ActiveCheckProfile
     from app.reference.models import ReferenceResult
+    from app.run.context_builders import SupportsCheckContextBuilder
+    from app.run.profiles import ActiveCheckProfile
     from openfoodfacts_data_quality.checks.registry import CheckEvaluator
     from openfoodfacts_data_quality.contracts.checks import (
         CheckDefinition,
         CheckParityBaseline,
     )
     from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
+    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+    from openfoodfacts_data_quality.contracts.raw import RawProductRow
+    from openfoodfacts_data_quality.contracts.run import RunResult
 
 _SubmitParams = ParamSpec("_SubmitParams")
 
 
 @dataclass(frozen=True)
 class BatchExecutionResult:
-    """Result of running one batch through the strict parity pipeline."""
+    """Result of running one batch through the current run loop."""
 
     batch_index: int
     row_count: int
@@ -33,7 +35,7 @@ class BatchExecutionResult:
     backend_run_count: int
     reference_finding_count: int
     migrated_finding_count: int
-    parity_result: ParityResult
+    run_result: RunResult
     elapsed_seconds: float
 
 
@@ -42,16 +44,6 @@ class ResolvedReferenceResults:
     """Ordered reference results together with execution telemetry."""
 
     reference_results: list[ReferenceResult]
-    cache_hit_count: int
-    backend_run_count: int
-
-
-@dataclass(frozen=True)
-class ResolvedBatchInputs:
-    """Neutral batch inputs consumed by the execution core."""
-
-    enriched_snapshots: list[EnrichedSnapshotResult]
-    reference_findings: list[ObservedFinding]
     cache_hit_count: int
     backend_run_count: int
 
@@ -67,8 +59,8 @@ class PreparedRun:
     check_context_builder: SupportsCheckContextBuilder
     reference_observer: SupportsReferenceObserver
     evaluators: dict[str, CheckEvaluator]
-    reference_result_cache_key: str
-    reference_result_cache_path: Path
+    reference_result_cache_key: str | None
+    reference_result_cache_path: Path | None
     python_count: int
     dsl_count: int
     legacy_parity_count: int
@@ -104,7 +96,7 @@ class PreparedRun:
 
     @property
     def requires_reference_findings(self) -> bool:
-        """Return whether parity needs reference findings for this run."""
+        """Return whether strict comparison needs reference findings for this run."""
         return self.reference_observer.requires_reference_results
 
     @property
@@ -115,10 +107,11 @@ class PreparedRun:
 
 @dataclass(frozen=True)
 class BatchRunPlan:
-    """Static batch-loop configuration for one pipeline run."""
+    """Static batch-loop configuration for one application run."""
 
     db_path: Path
     batch_size: int
+    batch_workers: int
     legacy_backend_workers: int
 
 
@@ -126,7 +119,9 @@ class BatchRunPlan:
 class BatchExecutionContext:
     """Shared services and metadata needed by every batch execution."""
 
-    batch_input_resolver: SupportsBatchInputResolver
+    reference_result_loader: SupportsReferenceResultLoader | None
+    enriched_snapshot_materializer: SupportsEnrichedSnapshotMaterializer | None
+    reference_finding_materializer: SupportsReferenceFindingMaterializer | None
     evaluators: dict[str, CheckEvaluator]
     active_checks: tuple[CheckDefinition, ...]
     check_context_builder: SupportsCheckContextBuilder
@@ -139,13 +134,7 @@ class ScheduledBatch:
     """One submitted batch of source rows."""
 
     batch_index: int
-    rows: list[dict[str, Any]]
-
-
-class SupportsBatchInputResolver(Protocol):
-    """Minimal neutral input-resolution surface needed by one batch execution."""
-
-    def resolve(self, rows: list[dict[str, Any]]) -> ResolvedBatchInputs: ...
+    rows: list[RawProductRow]
 
 
 class SupportsBatchExecutor(Protocol):
@@ -161,16 +150,13 @@ class SupportsBatchExecutor(Protocol):
 
 
 class SupportsReferenceResultLoader(Protocol):
-    """Minimal reference-result loading surface needed by a batch execution."""
+    """Minimal reference result loading surface needed by a batch execution."""
 
-    def load_many(
-        self,
-        backend_input_products: list[LegacyBackendInputProduct],
-    ) -> ResolvedReferenceResults: ...
+    def load_many(self, rows: list[RawProductRow]) -> ResolvedReferenceResults: ...
 
 
 class SupportsLegacyBackendRunner(Protocol):
-    """Minimal backend surface needed by the reference-result loader."""
+    """Minimal backend surface needed by the reference result loader."""
 
     def run(
         self,
@@ -179,7 +165,7 @@ class SupportsLegacyBackendRunner(Protocol):
 
 
 class SupportsReferenceResultCache(Protocol):
-    """Minimal cache surface needed by the reference-result loader."""
+    """Minimal cache surface needed by the reference result loader."""
 
     def load_many(self, codes: list[str]) -> dict[str, ReferenceResult]: ...
 
@@ -187,7 +173,7 @@ class SupportsReferenceResultCache(Protocol):
 
 
 class SupportsReferenceObserver(Protocol):
-    """Reference observation strategy selected for one pipeline run."""
+    """Reference observation strategy selected for one application run."""
 
     @property
     def requires_reference_results(self) -> bool: ...
@@ -198,7 +184,25 @@ class SupportsReferenceObserver(Protocol):
     def observe_findings(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[ObservedFinding]: ...
+    ) -> Iterable[ObservedFinding]: ...
+
+
+class SupportsEnrichedSnapshotMaterializer(Protocol):
+    """Projection surface for enriched runtime inputs."""
+
+    def materialize(
+        self,
+        reference_results: list[ReferenceResult],
+    ) -> list[EnrichedSnapshotResult]: ...
+
+
+class SupportsReferenceFindingMaterializer(Protocol):
+    """Projection surface for parity side observed findings."""
+
+    def materialize(
+        self,
+        reference_results: list[ReferenceResult],
+    ) -> Iterable[ObservedFinding]: ...
 
 
 class SupportsExecutionProgress(Protocol):
@@ -224,7 +228,7 @@ class SupportsExecutionProgress(Protocol):
     ) -> None: ...
 
 
-class SupportsParityAccumulator(Protocol):
+class SupportsRunAccumulator(Protocol):
     """Minimal accumulation surface needed by the batch loop."""
 
-    def add_batch(self, batch_result: ParityResult) -> None: ...
+    def add_batch(self, batch_result: RunResult) -> None: ...

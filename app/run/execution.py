@@ -6,28 +6,31 @@ from time import perf_counter
 from typing import TYPE_CHECKING
 
 from app.parity.comparator import evaluate_parity
-from app.parity.models import ParityRunMetadata, observed_migrated_finding
-from app.pipeline.models import (
+from app.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
     BatchRunPlan,
     ScheduledBatch,
 )
-from app.pipeline.scheduler import BatchScheduler
-from app.sources.duckdb_products import iter_source_batches
+from app.run.scheduler import BatchScheduler
+from app.source.duckdb_products import iter_source_batches
 from openfoodfacts_data_quality.checks.engine import (
     CheckRunOptions,
-    run_checks_with_evaluators,
+    iter_check_findings_with_evaluators,
 )
+from openfoodfacts_data_quality.contracts.observations import (
+    observed_migrated_finding,
+)
+from openfoodfacts_data_quality.contracts.run import RunMetadata
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from contextlib import AbstractContextManager
 
-    from app.pipeline.models import (
+    from app.run.models import (
         SupportsBatchExecutor,
         SupportsExecutionProgress,
-        SupportsParityAccumulator,
+        SupportsRunAccumulator,
     )
 
 
@@ -36,16 +39,16 @@ def run_batches(
     plan: BatchRunPlan,
     execution: BatchExecutionContext,
     execution_progress: SupportsExecutionProgress,
-    accumulator: SupportsParityAccumulator,
+    accumulator: SupportsRunAccumulator,
 ) -> None:
-    """Run the end-to-end batch loop for one prepared pipeline execution."""
+    """Run the end to end batch loop for one prepared application run."""
     run_scheduled_batches(
         batch_iterator=_iter_scheduled_batches(
             plan.db_path,
             batch_size=plan.batch_size,
         ),
         process_batch=lambda batch: execute_batch(batch, execution),
-        worker_limit=plan.legacy_backend_workers,
+        worker_limit=plan.batch_workers,
         execution_progress=execution_progress,
         accumulator=accumulator,
         executor_factory=lambda max_workers: ThreadPoolExecutor(
@@ -60,7 +63,7 @@ def run_scheduled_batches(
     process_batch: Callable[[ScheduledBatch], BatchExecutionResult],
     worker_limit: int,
     execution_progress: SupportsExecutionProgress,
-    accumulator: SupportsParityAccumulator,
+    accumulator: SupportsRunAccumulator,
     executor_factory: Callable[[int], AbstractContextManager[SupportsBatchExecutor]],
 ) -> None:
     """Run, merge, and log one scheduled batch stream until it is exhausted."""
@@ -108,28 +111,45 @@ def execute_batch(
     batch: ScheduledBatch,
     execution: BatchExecutionContext,
 ) -> BatchExecutionResult:
-    """Run one batch end-to-end through the strict parity pipeline."""
+    """Run one batch end to end through the current run model."""
     started = perf_counter()
-    batch_inputs = execution.batch_input_resolver.resolve(batch.rows)
-    contexts = execution.check_context_builder.build_contexts(
-        rows=batch.rows,
-        enriched_snapshots=batch_inputs.enriched_snapshots,
+    resolved_reference_results = (
+        execution.reference_result_loader.load_many(batch.rows)
+        if execution.reference_result_loader is not None
+        else None
     )
-    library_findings = run_checks_with_evaluators(
-        contexts,
-        execution.evaluators,
-        options=CheckRunOptions(
-            log_loaded=False,
-            log_progress=False,
+    reference_results = (
+        resolved_reference_results.reference_results
+        if resolved_reference_results is not None
+        else []
+    )
+    enriched_snapshots = (
+        execution.enriched_snapshot_materializer.materialize(reference_results)
+        if execution.enriched_snapshot_materializer is not None
+        else []
+    )
+    reference_findings = (
+        execution.reference_finding_materializer.materialize(reference_results)
+        if execution.reference_finding_materializer is not None
+        else ()
+    )
+    batch_run_result = evaluate_parity(
+        reference_findings=reference_findings,
+        migrated_findings=(
+            observed_migrated_finding(finding)
+            for finding in iter_check_findings_with_evaluators(
+                execution.check_context_builder.iter_contexts(
+                    rows=batch.rows,
+                    enriched_snapshots=enriched_snapshots,
+                ),
+                execution.evaluators,
+                options=CheckRunOptions(
+                    log_loaded=False,
+                    log_progress=False,
+                ),
+            )
         ),
-    )
-    migrated_findings = [
-        observed_migrated_finding(finding) for finding in library_findings
-    ]
-    batch_parity = evaluate_parity(
-        reference_findings=batch_inputs.reference_findings,
-        migrated_findings=migrated_findings,
-        run=ParityRunMetadata(
+        run=RunMetadata(
             run_id=execution.run_id,
             source_snapshot_id=execution.source_snapshot_id,
             product_count=len(batch.rows),
@@ -139,11 +159,22 @@ def execute_batch(
     return BatchExecutionResult(
         batch_index=batch.batch_index,
         row_count=len(batch.rows),
-        cache_hit_count=batch_inputs.cache_hit_count,
-        backend_run_count=batch_inputs.backend_run_count,
-        reference_finding_count=len(batch_inputs.reference_findings),
-        migrated_finding_count=len(migrated_findings),
-        parity_result=batch_parity,
+        cache_hit_count=(
+            resolved_reference_results.cache_hit_count
+            if resolved_reference_results is not None
+            else 0
+        ),
+        backend_run_count=(
+            resolved_reference_results.backend_run_count
+            if resolved_reference_results is not None
+            else 0
+        ),
+        reference_finding_count=batch_run_result.reference_total,
+        migrated_finding_count=(
+            batch_run_result.compared_migrated_total
+            + batch_run_result.runtime_only_migrated_total
+        ),
+        run_result=batch_run_result,
         elapsed_seconds=perf_counter() - started,
     )
 
@@ -164,14 +195,14 @@ def _log_batch_heartbeat(
 
 def _merge_completed_batches(
     *,
-    accumulator: SupportsParityAccumulator,
+    accumulator: SupportsRunAccumulator,
     execution_progress: SupportsExecutionProgress,
     processed_products: int,
     scheduler: BatchScheduler,
 ) -> int:
     """Merge contiguous completed batches and return the new processed count."""
     for batch_result in scheduler.merge_ready_batches():
-        accumulator.add_batch(batch_result.parity_result)
+        accumulator.add_batch(batch_result.run_result)
         processed_products += batch_result.row_count
         execution_progress.log_batch_completed(
             batch_result,

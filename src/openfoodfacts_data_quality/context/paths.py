@@ -39,7 +39,7 @@ PATHS_BY_NAME = {spec.path: spec for spec in PATH_SPECS}
 
 
 def path_spec_for(path: str) -> ContextPathSpec | None:
-    """Return metadata for one normalized-context path."""
+    """Return metadata for one normalized context path."""
     return PATHS_BY_NAME.get(path)
 
 

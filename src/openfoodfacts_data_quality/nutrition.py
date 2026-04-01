@@ -6,6 +6,8 @@ from openfoodfacts_data_quality.checks.context_dependencies import (
     depends_on_context_paths,
 )
 from openfoodfacts_data_quality.contracts.context import ContextSectionModel
+from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
+from openfoodfacts_data_quality.contracts.structured import NutritionInputSet
 from openfoodfacts_data_quality.structured_values import (
     StringObjectMapping,
     is_object_list,
@@ -15,13 +17,22 @@ from openfoodfacts_data_quality.structured_values import (
 
 @depends_on_context_paths("nutrition.input_sets")
 def first_non_estimated_as_sold_nutrients(
-    nutrition: Mapping[str, object] | ContextSectionModel,
+    nutrition: Mapping[str, object] | MappingViewModel | ContextSectionModel,
 ) -> StringObjectMapping:
     """Return the first non-estimated as-sold nutrient set as a mapping."""
     input_sets = nutrition.get("input_sets")
     if not is_object_list(input_sets):
         return {}
     for input_set in input_sets:
+        if isinstance(input_set, NutritionInputSet):
+            if input_set.source == "estimate":
+                continue
+            if input_set.preparation != "as_sold":
+                continue
+            return {
+                nutrient_id: nutrient.as_mapping()
+                for nutrient_id, nutrient in input_set.nutrients.items()
+            }
         if not is_string_object_mapping(input_set):
             continue
         if input_set.get("source") == "estimate":

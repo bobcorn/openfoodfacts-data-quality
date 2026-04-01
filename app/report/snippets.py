@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import inspect
 import json
-import re
 import textwrap
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
+import yaml
 from pygments.lexer import Lexer
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
-from app.report.legacy_source import (
+from app.legacy_source import (
     LegacySourceIndex,
     resolve_legacy_module_paths,
     resolve_legacy_source_root,
@@ -29,19 +30,33 @@ if TYPE_CHECKING:
 
     from openfoodfacts_data_quality.contracts.checks import CheckDefinitionLanguage
 
-SnippetOrigin = Literal["legacy", "migrated"]
+SnippetOrigin = Literal["implementation", "legacy"]
+LegacySnippetStatus = Literal["available", "not_applicable", "unavailable"]
 HighlightFunction = Callable[[str, Lexer, object], str]
 LexerFactory = Callable[[], Lexer]
 FormatterFactory = Callable[..., object]
 
-LEGACY_SNIPPET_TITLE = "Legacy Snippet"
-MIGRATED_SNIPPET_TITLE = "Migrated Snippet"
+LEGACY_SNIPPET_TITLE = "Legacy Source"
+IMPLEMENTATION_SNIPPET_TITLE = "Current Implementation"
+SNIPPETS_ARTIFACT_KIND = "openfoodfacts_data_quality.snippets_artifact"
+SNIPPETS_ARTIFACT_SCHEMA_VERSION = 4
 SNIPPETS_ARTIFACT_FILENAME = "snippets.json"
+
+
+type CodeSnippetValue = str | int | None
+type CodeSnippetPayload = dict[str, CodeSnippetValue]
+type SnippetCheckEntryPayload = dict[
+    str,
+    LegacySnippetStatus | list[CodeSnippetPayload],
+]
+type SnippetChecks = dict[str, SnippetCheckEntryPayload]
+type SnippetIssuePayload = dict[str, str | list[str]]
+type SnippetArtifact = dict[str, str | int | SnippetChecks | list[SnippetIssuePayload]]
 
 
 @dataclass(frozen=True)
 class CodeSnippet:
-    """Structured machine-readable snippet used by report and review tooling."""
+    """Structured snippet used by report and review tooling."""
 
     check_id: str
     origin: SnippetOrigin
@@ -51,7 +66,7 @@ class CodeSnippet:
     end_line: int
     code: str
 
-    def as_payload(self) -> dict[str, Any]:
+    def as_payload(self) -> CodeSnippetPayload:
         """Serialize one structured snippet for artifacts."""
         return {
             "check_id": self.check_id,
@@ -66,7 +81,7 @@ class CodeSnippet:
 
 @dataclass(frozen=True)
 class CodeSnippetPanel:
-    """One syntax-highlighted code snippet shown in the report."""
+    """One syntax highlighted code snippet shown in the report."""
 
     title: str
     html: str
@@ -83,31 +98,67 @@ class _TextSpan:
     end_line: int
 
 
+@dataclass(frozen=True)
+class SnippetIssue:
+    """One warning emitted while collecting optional snippet provenance."""
+
+    severity: Literal["warning"]
+    message: str
+    check_ids: tuple[str, ...] = ()
+
+    def as_payload(self) -> SnippetIssuePayload:
+        """Serialize one issue for the snippet artifact."""
+        return {
+            "severity": self.severity,
+            "message": self.message,
+            "check_ids": list(self.check_ids),
+        }
+
+
+@dataclass(frozen=True)
+class SnippetCollection:
+    """Collected snippets together with any optional provenance warnings."""
+
+    snippets_by_check: dict[str, list[CodeSnippet]]
+    legacy_snippet_status_by_check: dict[str, LegacySnippetStatus]
+    issues: tuple[SnippetIssue, ...] = ()
+
+
 def build_snippet_artifact(
     check_ids: Collection[str],
     *,
     catalog: CheckCatalog | None = None,
     legacy_source_root: Path | None = None,
-) -> dict[str, dict[str, list[dict[str, Any]]]]:
+) -> SnippetArtifact:
     """Collect structured snippets keyed by canonical check id."""
-    snippets_by_check = collect_code_snippets(
+    snippet_collection = collect_code_snippets(
         check_ids,
         catalog=catalog,
         legacy_source_root=legacy_source_root,
     )
     return {
+        "kind": SNIPPETS_ARTIFACT_KIND,
+        "schema_version": SNIPPETS_ARTIFACT_SCHEMA_VERSION,
+        "issues": [issue.as_payload() for issue in snippet_collection.issues],
         "checks": {
-            check_id: [snippet.as_payload() for snippet in snippets]
-            for check_id, snippets in sorted(snippets_by_check.items())
-        }
+            check_id: {
+                "legacy_snippet_status": (
+                    snippet_collection.legacy_snippet_status_by_check[check_id]
+                ),
+                "snippets": [snippet.as_payload() for snippet in snippets],
+            }
+            for check_id, snippets in sorted(
+                snippet_collection.snippets_by_check.items()
+            )
+        },
     }
 
 
 def write_snippet_artifact(
-    snippet_artifact: dict[str, dict[str, list[dict[str, Any]]]],
+    snippet_artifact: SnippetArtifact,
     output_dir: Path,
 ) -> Path:
-    """Write the canonical machine-readable snippet artifact to disk."""
+    """Write the canonical snippet artifact to disk."""
     output_path = output_dir / SNIPPETS_ARTIFACT_FILENAME
     output_path.write_text(
         json.dumps(snippet_artifact, ensure_ascii=False, indent=2),
@@ -121,33 +172,54 @@ def collect_code_snippets(
     *,
     catalog: CheckCatalog | None = None,
     legacy_source_root: Path | None = None,
-) -> dict[str, list[CodeSnippet]]:
-    """Collect structured legacy and migrated snippets per check."""
+) -> SnippetCollection:
+    """Collect structured implementation and legacy snippets for each check."""
     selected_catalog = catalog or get_default_check_catalog()
     selected_check_ids = set(check_ids)
-    migrated_snippets = _collect_migrated_snippets(selected_check_ids, selected_catalog)
-    legacy_snippets = _collect_legacy_snippets(
+    legacy_snippet_status_by_check: dict[str, LegacySnippetStatus] = {
+        check_id: _legacy_snippet_status_for(
+            check_id,
+            catalog=selected_catalog,
+        )
+        for check_id in selected_check_ids
+        if selected_catalog.checks_by_id.get(check_id) is not None
+    }
+    implementation_snippets = _collect_implementation_snippets(
+        selected_check_ids,
+        selected_catalog,
+    )
+    legacy_snippet_collection = _collect_legacy_snippets(
         selected_check_ids,
         catalog=selected_catalog,
         legacy_source_root=legacy_source_root,
     )
 
     snippets_by_check: dict[str, list[CodeSnippet]] = {}
-    for check_id in sorted(set(migrated_snippets) | set(legacy_snippets)):
+    for check_id in sorted(
+        set(implementation_snippets) | set(legacy_snippet_collection.snippets_by_check)
+    ):
         snippets: list[CodeSnippet] = []
-        snippets.extend(migrated_snippets.get(check_id, ()))
-        snippets.extend(legacy_snippets.get(check_id, ()))
+        snippets.extend(implementation_snippets.get(check_id, ()))
+        snippets.extend(legacy_snippet_collection.snippets_by_check.get(check_id, ()))
+        if legacy_snippet_collection.snippets_by_check.get(check_id):
+            legacy_snippet_status_by_check[check_id] = "available"
         if snippets:
             snippets_by_check[check_id] = snippets
-    return snippets_by_check
+    return SnippetCollection(
+        snippets_by_check=snippets_by_check,
+        legacy_snippet_status_by_check=legacy_snippet_status_by_check,
+        issues=legacy_snippet_collection.issues,
+    )
 
 
 def build_code_snippet_panels(
-    snippet_artifact: dict[str, dict[str, list[dict[str, Any]]]],
+    snippet_artifact: SnippetArtifact,
 ) -> dict[str, list[dict[str, str]]]:
     """Build report-ready HTML panels from the structured snippet artifact."""
     panels_by_check: dict[str, list[dict[str, str]]] = {}
-    for check_id, snippets in snippet_artifact.get("checks", {}).items():
+    checks_by_id = cast(SnippetChecks, snippet_artifact.get("checks", {}))
+    for check_id, check_payload in checks_by_id.items():
+        snippets = cast(list[CodeSnippetPayload], check_payload.get("snippets", []))
         panels = [
             CodeSnippetPanel(
                 title=_panel_title_for(str(snippet["origin"])),
@@ -163,11 +235,25 @@ def build_code_snippet_panels(
     return panels_by_check
 
 
-def _collect_migrated_snippets(
+def legacy_snippet_status_by_check(
+    snippet_artifact: SnippetArtifact,
+) -> dict[str, LegacySnippetStatus]:
+    """Return the legacy snippet status for each check from one snippet artifact."""
+    checks_by_id = cast(SnippetChecks, snippet_artifact.get("checks", {}))
+    return {
+        str(check_id): cast(
+            LegacySnippetStatus,
+            check_payload.get("legacy_snippet_status", "unavailable"),
+        )
+        for check_id, check_payload in checks_by_id.items()
+    }
+
+
+def _collect_implementation_snippets(
     check_ids: set[str],
     catalog: CheckCatalog,
 ) -> dict[str, tuple[CodeSnippet, ...]]:
-    """Collect migrated code snippets for Python and DSL checks."""
+    """Collect implementation snippets for Python and DSL checks."""
     snippets = _collect_python_snippets(check_ids, catalog)
     _merge_snippets(
         snippets,
@@ -177,6 +263,18 @@ def _collect_migrated_snippets(
         ),
     )
     return snippets
+
+
+def _legacy_snippet_status_for(
+    check_id: str,
+    *,
+    catalog: CheckCatalog,
+) -> LegacySnippetStatus:
+    """Return whether legacy snippet provenance applies to one selected check."""
+    check_definition = catalog.checks_by_id.get(check_id)
+    if check_definition is None or check_definition.legacy_identity is None:
+        return "not_applicable"
+    return "unavailable"
 
 
 def _collect_python_snippets(
@@ -198,7 +296,7 @@ def _collect_python_snippets(
         snippets[check.id] = (
             CodeSnippet(
                 check_id=check.id,
-                origin="migrated",
+                origin="implementation",
                 definition_language="python",
                 path=_relative_path_within_repository(Path(source_file)),
                 start_line=start_line,
@@ -219,7 +317,7 @@ def _collect_dsl_snippets(
         check_id: (
             CodeSnippet(
                 check_id=check_id,
-                origin="migrated",
+                origin="implementation",
                 definition_language="dsl",
                 path=_relative_path_within_repository(resolved_path),
                 start_line=span.start_line,
@@ -248,7 +346,7 @@ def _collect_legacy_snippets(
     *,
     catalog: CheckCatalog,
     legacy_source_root: Path | None = None,
-) -> dict[str, tuple[CodeSnippet, ...]]:
+) -> SnippetCollection:
     """Return Perl excerpts for legacy checks from the legacy source tree."""
     legacy_check_ids = tuple(
         sorted(
@@ -259,22 +357,45 @@ def _collect_legacy_snippets(
         )
     )
     if not legacy_check_ids:
-        return {}
+        return SnippetCollection(
+            snippets_by_check={},
+            legacy_snippet_status_by_check={},
+        )
 
     resolved_root = legacy_source_root or resolve_legacy_source_root()
     if resolved_root is None:
-        raise RuntimeError(
-            "Could not resolve the legacy source tree required for legacy snippets. "
-            "Set LEGACY_SOURCE_ROOT or pass legacy_source_root explicitly."
+        return SnippetCollection(
+            snippets_by_check={},
+            legacy_snippet_status_by_check={},
+            issues=(
+                SnippetIssue(
+                    severity="warning",
+                    message=(
+                        "Legacy snippets unavailable because the legacy source tree "
+                        "could not be resolved."
+                    ),
+                    check_ids=legacy_check_ids,
+                ),
+            ),
         )
 
     try:
         module_paths = resolve_legacy_module_paths(resolved_root)
-    except RuntimeError as exc:
-        raise RuntimeError(
-            "Legacy snippet extraction requires a legacy source tree containing "
-            "Perl data-quality modules."
-        ) from exc
+    except RuntimeError:
+        return SnippetCollection(
+            snippets_by_check={},
+            legacy_snippet_status_by_check={},
+            issues=(
+                SnippetIssue(
+                    severity="warning",
+                    message=(
+                        "Legacy snippets unavailable because the legacy source tree "
+                        "does not contain the required Perl data-quality modules."
+                    ),
+                    check_ids=legacy_check_ids,
+                ),
+            ),
+        )
 
     legacy_source_index = LegacySourceIndex.build(module_paths)
     snippets: dict[str, tuple[CodeSnippet, ...]] = {}
@@ -301,12 +422,25 @@ def _collect_legacy_snippets(
             for match in matches
         )
 
+    issues: tuple[SnippetIssue, ...] = ()
     if unresolved_check_ids:
-        raise RuntimeError(
-            "Could not locate legacy snippets for these legacy-backed checks: "
-            + ", ".join(unresolved_check_ids)
+        issues = (
+            SnippetIssue(
+                severity="warning",
+                message=(
+                    "Legacy snippets unavailable for some checks with a legacy baseline "
+                    "because no matching source span was found."
+                ),
+                check_ids=tuple(unresolved_check_ids),
+            ),
         )
-    return snippets
+    return SnippetCollection(
+        snippets_by_check={
+            check_id: list(values) for check_id, values in snippets.items()
+        },
+        legacy_snippet_status_by_check={},
+        issues=issues,
+    )
 
 
 def _merge_snippets(
@@ -323,38 +457,71 @@ def _merge_snippets(
 
 
 def _extract_dsl_blocks(path: Traversable) -> dict[str, _TextSpan]:
-    """Extract raw YAML check blocks so inline comments are preserved."""
-    lines = path.read_text(encoding="utf-8").splitlines()
+    """Extract YAML check blocks using parser spans instead of line scanning."""
+    source_text = path.read_text(encoding="utf-8")
+    lines = source_text.splitlines()
+    document = cast(Node | None, cast(Any, yaml).compose(source_text))
+    if document is None:
+        return {}
+    check_sequence = _check_sequence_node(document)
+
     blocks: dict[str, _TextSpan] = {}
-    current_id: str | None = None
-    current_lines: list[str] = []
-    current_start_line = 0
-    id_pattern = re.compile(r"^\s*-\s+id:\s+([^\s#]+)\s*$")
-
-    for line_number, line in enumerate(lines, start=1):
-        match = id_pattern.match(line)
-        if match:
-            if current_id is not None:
-                blocks[current_id] = _TextSpan(
-                    text=textwrap.dedent("\n".join(current_lines)).strip(),
-                    start_line=current_start_line,
-                    end_line=line_number - 1,
-                )
-            current_id = match.group(1)
-            current_lines = [line]
-            current_start_line = line_number
+    for item in check_sequence.value:
+        if not isinstance(item, yaml.MappingNode):
             continue
-        if current_id is not None:
-            current_lines.append(line)
-
-    if current_id is not None:
-        blocks[current_id] = _TextSpan(
-            text=textwrap.dedent("\n".join(current_lines)).strip(),
-            start_line=current_start_line,
-            end_line=len(lines),
+        check_id = _mapping_node_scalar_value(item, "id")
+        if check_id is None:
+            continue
+        start_line = item.start_mark.line + 1
+        end_line = item.end_mark.line
+        blocks[check_id] = _TextSpan(
+            text=textwrap.dedent("\n".join(lines[start_line - 1 : end_line])).strip(),
+            start_line=start_line,
+            end_line=end_line,
         )
 
     return blocks
+
+
+def _check_sequence_node(node: Node) -> SequenceNode:
+    """Return the YAML sequence node that contains check definitions."""
+    if isinstance(node, SequenceNode):
+        return node
+    if isinstance(node, MappingNode):
+        checks_node = _mapping_node_value_node(node, "checks")
+        if isinstance(checks_node, SequenceNode):
+            return checks_node
+    raise RuntimeError(
+        "DSL check definitions must expose a sequence at the root or a "
+        "'checks' sequence at the root."
+    )
+
+
+def _mapping_node_scalar_value(
+    mapping_node: MappingNode,
+    key: str,
+) -> str | None:
+    """Return the scalar value for one YAML mapping key when present."""
+    value_node = _mapping_node_value_node(mapping_node, key)
+    if value_node is None:
+        return None
+    if not isinstance(value_node, ScalarNode):
+        return None
+    return str(value_node.value)
+
+
+def _mapping_node_value_node(
+    mapping_node: MappingNode,
+    key: str,
+) -> Node | None:
+    """Return the raw YAML value node for one mapping key when present."""
+    for key_node, value_node in mapping_node.value:
+        if not isinstance(key_node, ScalarNode):
+            continue
+        if key_node.value != key:
+            continue
+        return cast(Node, value_node)
+    return None
 
 
 def _resolve_traversable_path(path: Traversable) -> Path:
@@ -391,12 +558,12 @@ def _panel_title_for(origin: str) -> str:
     """Return the report-facing panel title for one snippet origin."""
     if origin == "legacy":
         return LEGACY_SNIPPET_TITLE
-    if origin == "migrated":
-        return MIGRATED_SNIPPET_TITLE
+    if origin == "implementation":
+        return IMPLEMENTATION_SNIPPET_TITLE
     raise ValueError(f"Unsupported snippet origin {origin!r}.")
 
 
-def _lexer_for_snippet(snippet: dict[str, Any]) -> Lexer:
+def _lexer_for_snippet(snippet: CodeSnippetPayload) -> Lexer:
     """Return the syntax highlighter lexer for one structured snippet."""
     origin = str(snippet["origin"])
     if origin == "legacy":
@@ -408,13 +575,13 @@ def _lexer_for_snippet(snippet: dict[str, Any]) -> Lexer:
     if definition_language == "dsl":
         return YAML_LEXER()
     raise ValueError(
-        "Unsupported migrated snippet definition language "
+        "Unsupported implementation snippet definition language "
         f"{definition_language!r} for origin {origin!r}."
     )
 
 
 def _highlight_snippet(text: str, lexer: Lexer) -> str:
-    """Return syntax-highlighted HTML for one source excerpt."""
+    """Return syntax highlighted HTML for one source excerpt."""
     formatter = PYGMENTS_FORMATTER(nowrap=True, noclasses=True)
     return PYGMENTS_HIGHLIGHT(text, lexer, formatter).strip()
 

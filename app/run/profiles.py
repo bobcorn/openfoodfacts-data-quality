@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ActiveCheckProfile:
-    """Validated named subset of checks to execute for one pipeline run."""
+    """Validated named subset of checks to execute for one application run."""
 
     name: str
     description: str
@@ -141,7 +141,7 @@ def _profiles_mapping(
     raw: Mapping[str, object],
     config_path: Path,
 ) -> dict[str, StringObjectMapping]:
-    """Return the non-empty profiles mapping from the loaded config."""
+    """Return the not empty profiles mapping from the loaded config."""
     raw_profiles = raw.get("profiles")
     if not is_string_object_mapping(raw_profiles) or not raw_profiles:
         raise ValueError(
@@ -190,7 +190,7 @@ def _profile_description(
     selected_profile: StringObjectMapping,
     selected_name: str,
 ) -> str:
-    """Return the normalized human-readable profile description."""
+    """Return the normalized display description for one profile."""
     description = selected_profile.get("description")
     if isinstance(description, str) and description.strip():
         return description.strip()
@@ -292,7 +292,7 @@ def _required_string_list(
     field: str,
     profile_name: str,
 ) -> list[str]:
-    """Return a non-empty string list from one profile field."""
+    """Return a not empty string list from one profile field."""
     if not is_object_list(raw_values) or not raw_values:
         raise ValueError(
             f"Invalid check profile config: profile {profile_name} must define {field}."
@@ -353,7 +353,7 @@ def _translated_profile_selection_error(
 def _normalize_check_ids(
     raw_check_ids: list[str], profile_name: str
 ) -> tuple[str, ...]:
-    """Return unique check ids with stable first-seen ordering."""
+    """Return unique check ids with stable first seen ordering."""
     normalized: list[str] = []
     seen: set[str] = set()
     for raw_check_id in raw_check_ids:

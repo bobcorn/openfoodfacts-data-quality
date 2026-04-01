@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from typing import TYPE_CHECKING, Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -42,9 +42,6 @@ if TYPE_CHECKING:
         CheckParityBaseline,
         Severity,
     )
-
-
-_LiteralValueT = TypeVar("_LiteralValueT")
 
 _SEVERITIES_BY_NAME: dict[str, Severity] = {
     "bug": "bug",
@@ -156,14 +153,14 @@ def _schema_validator(schema: StringObjectMapping) -> _SchemaValidator:
 
 
 def _require_mapping(value: object, *, label: str) -> StringObjectMapping:
-    """Return a string-keyed mapping or raise a descriptive parse error."""
+    """Return a string keyed mapping or raise a descriptive parse error."""
     if not is_string_object_mapping(value):
-        raise ValueError(f"{label} must be a string-keyed mapping.")
+        raise ValueError(f"{label} must be a string keyed mapping.")
     return value
 
 
 def _mapping_items(value: object) -> list[StringObjectMapping]:
-    """Return a list of string-keyed mappings from a payload slot."""
+    """Return a list of string keyed mappings from a payload slot."""
     items_source = object_list_or_empty(value)
     if not items_source:
         return []
@@ -183,11 +180,11 @@ def _parse_pack_metadata(value: object) -> CheckPackMetadata:
 
 
 def _required_string(payload: StringObjectMapping, key: str) -> str:
-    """Return a required non-empty string field from one validated payload."""
+    """Return a required not empty string field from one validated payload."""
     value = payload.get(key)
     if isinstance(value, str) and value:
         return value
-    raise ValueError(f"DSL field {key!r} must be a non-empty string.")
+    raise ValueError(f"DSL field {key!r} must be a not empty string.")
 
 
 def _parse_severity(value: object) -> Severity:
@@ -208,13 +205,13 @@ def _parse_operator(value: object) -> Operator:
     )
 
 
-def _parse_choice(
+def _parse_choice[LiteralValueT](
     value: object,
     *,
-    choices: dict[str, _LiteralValueT],
+    choices: dict[str, LiteralValueT],
     label: str,
-) -> _LiteralValueT:
-    """Return one validated literal from a string-keyed choice table."""
+) -> LiteralValueT:
+    """Return one validated literal from a string keyed choice table."""
     if isinstance(value, str):
         choice = choices.get(value)
         if choice is not None:
@@ -240,7 +237,7 @@ def _parse_jurisdictions(
     """Return validated jurisdiction metadata for one DSL pack."""
     raw_items = object_list_or_empty(value)
     if not raw_items:
-        raise ValueError("DSL field 'jurisdictions' must be a non-empty array.")
+        raise ValueError("DSL field 'jurisdictions' must be a not empty array.")
     raw_jurisdictions: list[str] = []
     for item in raw_items:
         if not isinstance(item, str) or not item.strip():
@@ -266,7 +263,7 @@ def _parse_legacy_identity(
             legacy_identity=None,
         )
     if not isinstance(legacy_code_template, str) or not legacy_code_template:
-        raise ValueError("DSL field 'legacy_code_template' must be a non-empty string.")
+        raise ValueError("DSL field 'legacy_code_template' must be a not empty string.")
     return resolve_legacy_check_identity(
         check_id=check_id,
         parity_baseline=parity_baseline,

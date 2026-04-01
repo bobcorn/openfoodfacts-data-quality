@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Callable
 from pathlib import Path
 
@@ -13,9 +14,12 @@ from app.reference.cache import (
     REFERENCE_RESULT_CACHE_SALT_ENV_VAR,
     REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS,
     ReferenceResultCache,
+    ReferenceResultCacheIdentity,
+    ReferenceResultCacheMetadata,
     configured_reference_result_cache_dir,
     configured_reference_result_cache_salt,
     reference_result_cache_key,
+    reference_result_cache_manifest_path,
 )
 from app.reference.models import ReferenceResult
 
@@ -53,10 +57,17 @@ def test_reference_result_cache_roundtrips_reference_results(
     tmp_path: Path,
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
+    cache_path = tmp_path / "reference-result-cache.duckdb"
     cache = ReferenceResultCache(
-        path=tmp_path / "reference-result-cache.duckdb",
-        source_snapshot_id="source-snapshot-123",
-        cache_key="cache-key",
+        path=cache_path,
+        metadata=ReferenceResultCacheMetadata.expected(
+            source_snapshot_id="source-snapshot-123",
+            identity=ReferenceResultCacheIdentity(
+                cache_key="cache-key",
+                execution_contract_fingerprint="execution-contract-fingerprint",
+                legacy_backend_fingerprint="env:legacy backend",
+            ),
+        ),
     )
     reference_result = reference_result_factory(
         code="123",
@@ -81,9 +92,22 @@ def test_reference_result_cache_roundtrips_reference_results(
     loaded_product = loaded["123"]
     assert (
         loaded_product.enriched_snapshot.product["serving_quantity"]
-        == "28.000000000000004"
+        == 28.000000000000004
     )
     assert loaded_product.legacy_check_tags.warning == ["en:quantity-to-be-completed"]
+
+    manifest_payload = json.loads(
+        reference_result_cache_manifest_path(cache_path).read_text(encoding="utf-8")
+    )
+    assert manifest_payload["path"] == str(cache_path)
+    assert manifest_payload["source_snapshot_id"] == "source-snapshot-123"
+    assert manifest_payload["cache_key"] == "cache-key"
+    assert manifest_payload["schema_version"] == 4
+    assert manifest_payload["execution_contract_fingerprint"] == (
+        "execution-contract-fingerprint"
+    )
+    assert manifest_payload["legacy_backend_fingerprint"] == "env:legacy backend"
+    assert manifest_payload["created_at_utc"]
 
 
 def test_reference_result_cache_key_prefers_explicit_legacy_backend_fingerprint(
@@ -95,7 +119,7 @@ def test_reference_result_cache_key_prefers_explicit_legacy_backend_fingerprint(
     cache_key = reference_result_cache_key(project_root)
 
     digest = hashlib.sha256()
-    digest.update(b"schema:2")
+    digest.update(b"schema:4")
     digest.update(b"env:backend-image:demo")
     for relative_path in REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS:
         digest.update((project_root / relative_path).read_bytes())
@@ -150,3 +174,41 @@ def test_reference_result_cache_uses_configured_env_vars(
 
     assert configured_reference_result_cache_dir(project_root) == (tmp_path / "cache")
     assert configured_reference_result_cache_salt() == "salted"
+
+
+def test_reference_result_cache_rejects_metadata_with_field_level_diagnostics(
+    tmp_path: Path,
+) -> None:
+    cache_path = tmp_path / "reference-result-cache.duckdb"
+    initial_metadata = ReferenceResultCacheMetadata.expected(
+        source_snapshot_id="source-snapshot-123",
+        identity=ReferenceResultCacheIdentity(
+            cache_key="cache-key",
+            execution_contract_fingerprint="execution-contract-fingerprint",
+            legacy_backend_fingerprint="env:legacy backend",
+        ),
+    )
+    conflicting_metadata = ReferenceResultCacheMetadata.expected(
+        source_snapshot_id="source-snapshot-999",
+        identity=ReferenceResultCacheIdentity(
+            cache_key="different-cache-key",
+            execution_contract_fingerprint="different-execution-contract",
+            legacy_backend_fingerprint="env:different-legacy backend",
+        ),
+    )
+
+    ReferenceResultCache(path=cache_path, metadata=initial_metadata).start()
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "Mismatched fields: source_snapshot_id='source-snapshot-123' "
+            "\\(expected 'source-snapshot-999'\\), "
+            "cache_key='cache-key' \\(expected 'different-cache-key'\\), "
+            "execution_contract_fingerprint='execution-contract-fingerprint' "
+            "\\(expected 'different-execution-contract'\\), "
+            "legacy_backend_fingerprint='env:legacy backend' "
+            "\\(expected 'env:different-legacy backend'\\)\\."
+        ),
+    ):
+        ReferenceResultCache(path=cache_path, metadata=conflicting_metadata).start()

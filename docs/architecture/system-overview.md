@@ -2,13 +2,13 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / System Overview
 
-The repository has one shared check runtime and one application focused on parity built on top of it.
+The repository has one shared check runtime and one application run layer built on top of it.
 
 ## High Level Split
 
 `src/openfoodfacts_data_quality/` owns the reusable runtime.
 
-`app/` owns orchestration, reference loading, parity, and report generation.
+`app/` owns orchestration, source loading, reference loading, optional strict comparison, and report generation.
 
 `scripts/` owns operational workflows that support validation, sample refresh, and migration planning.
 
@@ -25,17 +25,19 @@ The repository has one shared check runtime and one application focused on parit
 - context building and projection
 - public `raw` and `enriched` Python APIs
 
-This layer can be used without the parity application.
+This layer can be used without the application run layer.
 
 ## Application Layer
 
-`app/` covers migration evaluation:
+`app/` covers application execution and migration evaluation:
 
 - source snapshot loading from DuckDB
-- legacy backend input projection and execution
-- reference result caching and loading
-- parity comparison and accumulation
+- reference loading that checks the cache first and uses the legacy backend on cache misses
+- reference result caching, loading, envelope validation, and projection onto parity findings and enriched snapshots
+- run result accumulation
+- strict comparison where a legacy baseline exists
 - report rendering, snippet extraction, and preview serving
+- shared legacy source analysis reused by the report and inventory tooling
 
 ## Operational Layer
 
@@ -54,25 +56,29 @@ The repository also includes workflows outside the core runtime:
   Context building, path metadata, and input projection into `NormalizedContext`.
 - `src/openfoodfacts_data_quality/contracts/`
   Stable runtime contracts shared across the reusable library APIs.
-- `app/pipeline/`
-  Run preparation, batching, scheduling, and end to end execution orchestration.
+- `app/source/`
+  Source snapshot access helpers.
+- `app/run/`
+  Run preparation, batching, scheduling, run result accumulation, and end to end orchestration.
 - `app/reference/`
-  Reference side models, cache handling, result loading, and finding normalization.
+  Reference side models, cache handling, result loading, envelope validation, materializers, and finding normalization.
 - `app/legacy_backend/`
   The Perl runtime boundary and the persistent session pool that drives it.
+- `app/legacy_source.py`
+  Shared Tree-sitter source analysis for snippet extraction and inventory export.
 - `app/parity/`
-  Comparison, accumulation, and serialization of parity results.
+  Strict comparison logic between reference and migrated findings.
 - `app/report/`
-  Static report rendering, JSON download bundling, and code snippet extraction.
+  Static report rendering, JSON download bundling, and snippet presentation.
 
 ## Placement Rule
 
-Concerns that exist independently of parity usually belong in `src/`.
+Concerns that exist independently of the application run layer usually belong in `src/`.
 
-Concerns that exist to compare against the legacy backend or to produce migration review artifacts usually belong in `app/`.
+Concerns that exist to load source data, compare against the legacy backend, or produce review artifacts usually belong in `app/`.
 
 ## Next Reads
 
 - [Data Contracts](data-contracts.md)
 - [Check System](check-system.md)
-- [Parity Pipeline](parity-pipeline.md)
+- [Application Run Flow](application-run-flow.md)

@@ -7,19 +7,26 @@ import pytest
 from app.legacy_backend.input_projection import (
     build_legacy_backend_input_products,
 )
-from app.pipeline.context_builders import check_context_builder_for
-from app.reference.models import ReferenceResult
+from app.reference.models import (
+    ReferenceResult,
+    enriched_snapshots_from_reference_results,
+)
+from app.run.context_builders import check_context_builder_for
 
 from openfoodfacts_data_quality.context.builder import (
     build_enriched_contexts,
     build_raw_contexts,
 )
 from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
+from openfoodfacts_data_quality.contracts.raw import (
+    RawProductRow,
+    validate_raw_product_row,
+)
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
 
-def _raw_product_row(**overrides: Any) -> dict[str, Any]:
+def _raw_product_row(**overrides: Any) -> RawProductRow:
     row = {
         "code": "123",
         "created_t": "123",
@@ -49,12 +56,13 @@ def _raw_product_row(**overrides: Any) -> dict[str, Any]:
         "no_nutrition_data": "",
     }
     row.update(overrides)
-    return row
+    return validate_raw_product_row(row)
 
 
 def _mismatched_row_and_backend_result(
     reference_result_factory: ReferenceResultFactory,
-) -> tuple[dict[str, Any], ReferenceResult]:
+) -> tuple[RawProductRow, ReferenceResult]:
+    # The raw surface owns the canonical row contract even in parity side tests.
     row = _raw_product_row(product_name="Raw name")
     reference_result = reference_result_factory(
         code="123",
@@ -179,7 +187,9 @@ def test_build_enriched_contexts_uses_backend_enriched_snapshot(
         },
     )
 
-    context = build_enriched_contexts([reference_result])[0]
+    context = build_enriched_contexts(
+        enriched_snapshots_from_reference_results([reference_result])
+    )[0]
 
     assert context.product.product_name == "Prepared name"
     assert context.product.quantity == "Prepared quantity"
@@ -206,7 +216,8 @@ def test_build_enriched_contexts_uses_backend_enriched_snapshot(
         "fiber": 5.0,
         "omega_3": 0.4,
     }
-    assert context.nutrition.aggregated_set == {
+    assert context.nutrition.aggregated_set is not None
+    assert context.nutrition.aggregated_set.as_mapping() == {
         "nutrients": {"energy-kcal": {"value": 120}}
     }
 
@@ -214,13 +225,14 @@ def test_build_enriched_contexts_uses_backend_enriched_snapshot(
 def test_build_enriched_contexts_rejects_snapshot_code_mismatch(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
-    reference_result = reference_result_factory(
-        code="123",
-        enriched_snapshot={"product": {"code": "456"}},
-    )
-
-    with pytest.raises(ValueError, match="Enriched snapshot code mismatch"):
-        build_enriched_contexts([reference_result])
+    with pytest.raises(
+        ValueError,
+        match="Reference result code must match enriched_snapshot.product.code",
+    ):
+        reference_result_factory(
+            code="123",
+            enriched_snapshot={"product": {"code": "456"}},
+        )
 
 
 @pytest.mark.parametrize(
@@ -241,7 +253,9 @@ def test_check_context_builder_uses_selected_input_surface(
 
     context = builder.build_contexts(
         rows=[row],
-        enriched_snapshots=[reference_result],
+        enriched_snapshots=enriched_snapshots_from_reference_results(
+            [reference_result]
+        ),
     )[0]
 
     assert builder.input_surface == input_surface

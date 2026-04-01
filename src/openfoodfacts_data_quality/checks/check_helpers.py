@@ -9,6 +9,7 @@ from openfoodfacts_data_quality.checks.context_dependencies import (
     depends_on_context_paths,
 )
 from openfoodfacts_data_quality.contracts.checks import CheckEmission, Severity
+from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
 from openfoodfacts_data_quality.scalars import as_number
 from openfoodfacts_data_quality.structured_values import (
     StringObjectMapping,
@@ -60,12 +61,14 @@ def sugars_starch_fiber_for_set(nutrients: StringObjectMapping) -> bool:
 
 
 def nutrient_value(
-    nutrients: StringObjectMapping,
+    nutrients: StringObjectMapping | MappingViewModel,
     nutrient_id: str,
     field: str = "value",
 ) -> float | None:
     """Read one nutrient field as a float."""
     nutrient = nutrients.get(nutrient_id)
+    if isinstance(nutrient, MappingViewModel):
+        return as_number(nutrient.get(field))
     if not is_string_object_mapping(nutrient):
         return None
     return as_number(nutrient.get(field))
@@ -102,17 +105,21 @@ def ingredient_claim_has_unknowns(ingredients: object, claim: str) -> bool:
         return False
 
     for ingredient in ingredient_list:
-        if not is_string_object_mapping(ingredient):
+        if isinstance(ingredient, MappingViewModel):
+            raw_claim = ingredient.get(claim)
+            nested_ingredients = ingredient.get("ingredients")
+        elif is_string_object_mapping(ingredient):
+            raw_claim = ingredient.get(claim)
+            nested_ingredients = ingredient.get("ingredients")
+        else:
             return True
-
-        raw_claim = ingredient.get(claim)
         normalized_claim = (
             str(raw_claim).strip().lower() if raw_claim is not None else ""
         )
         if normalized_claim in {"", "unknown"}:
             return True
 
-        if ingredient_claim_has_unknowns(ingredient.get("ingredients"), claim):
+        if ingredient_claim_has_unknowns(nested_ingredients, claim):
             return True
 
     return False
@@ -128,6 +135,16 @@ def iter_nutrient_family_sets(
     input_sets = context.nutrition.input_sets
     if is_object_list(input_sets):
         for input_set in input_sets:
+            if isinstance(input_set, MappingViewModel):
+                if input_set.get("source") == "estimate":
+                    continue
+                nutrients = input_set.get("nutrients")
+                if not is_string_object_mapping(nutrients):
+                    continue
+                family_sets.append(
+                    (_nutrition_set_id(input_set.as_mapping()), nutrients, "error")
+                )
+                continue
             if not is_string_object_mapping(input_set):
                 continue
             if input_set.get("source") == "estimate":
@@ -138,7 +155,11 @@ def iter_nutrient_family_sets(
             family_sets.append((_nutrition_set_id(input_set), nutrients, "error"))
 
     aggregated_set = context.nutrition.aggregated_set
-    if is_string_object_mapping(aggregated_set):
+    if isinstance(aggregated_set, MappingViewModel):
+        nutrients = aggregated_set.get("nutrients")
+        if is_string_object_mapping(nutrients):
+            family_sets.append(("nutrition", nutrients, "warning"))
+    elif is_string_object_mapping(aggregated_set):
         nutrients = aggregated_set.get("nutrients")
         if is_string_object_mapping(nutrients):
             family_sets.append(("nutrition", nutrients, "warning"))

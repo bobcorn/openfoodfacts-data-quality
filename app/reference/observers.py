@@ -3,15 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.reference.findings import emit_reference_findings
+from app.reference.findings import iter_reference_findings
 
 if TYPE_CHECKING:
-    from app.parity.models import ObservedFinding
+    from collections.abc import Iterable
+
     from app.reference.models import ReferenceResult
     from openfoodfacts_data_quality.contracts.checks import (
         CheckDefinition,
         CheckParityBaseline,
     )
+    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,9 +29,9 @@ class NoReferenceObserver:
     def observe_findings(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[ObservedFinding]:
+    ) -> Iterable[ObservedFinding]:
         del reference_results
-        return []
+        return ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,8 +48,8 @@ class LegacyReferenceObserver:
     def observe_findings(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[ObservedFinding]:
-        return emit_reference_findings(
+    ) -> Iterable[ObservedFinding]:
+        return iter_reference_findings(
             reference_results,
             active_checks=self.active_checks,
             log_progress=False,

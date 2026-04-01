@@ -11,6 +11,10 @@ from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, TextIO, TypeVar
 
+from app.legacy_backend.contracts import (
+    LegacyBackendResultEnvelope,
+    adapt_legacy_backend_result,
+)
 from app.reference.models import ReferenceResult
 
 if TYPE_CHECKING:
@@ -105,7 +109,7 @@ class LegacyBackendSession(_StartedContextManager):
         )
         self._stderr_thread = threading.Thread(
             target=self._pump_stderr,
-            name="legacy-backend-stderr",
+            name="legacy backend-stderr",
             daemon=True,
         )
         self._stdout_thread.start()
@@ -128,7 +132,12 @@ class LegacyBackendSession(_StartedContextManager):
         for product in backend_input_products:
             self._ensure_running()
             try:
-                stdin.write(json.dumps(product.projected_input, ensure_ascii=False))
+                stdin.write(
+                    json.dumps(
+                        product.serialized_input(),
+                        ensure_ascii=False,
+                    )
+                )
                 stdin.write("\n")
             except BrokenPipeError as exc:
                 self._raise_pipe_failure(exc)
@@ -146,10 +155,8 @@ class LegacyBackendSession(_StartedContextManager):
                 )
             )
             backend_results.append(
-                ReferenceResult(
-                    code=payload["code"],
-                    enriched_snapshot=payload["enriched_snapshot"],
-                    legacy_check_tags=payload.get("legacy_check_tags", {}),
+                adapt_legacy_backend_result(
+                    LegacyBackendResultEnvelope.model_validate(payload)
                 )
             )
 
@@ -425,6 +432,66 @@ class LegacyBackendSessionPool(_StartedContextManager):
         stem = self._stderr_path.stem
         suffix = self._stderr_path.suffix
         return self._stderr_path.with_name(f"{stem}-worker-{worker_index:02d}{suffix}")
+
+
+class LazyLegacyBackendRunner(AbstractContextManager["LazyLegacyBackendRunner"]):
+    """Lazy wrapper that starts the backend pool only when a batch misses cache."""
+
+    def __init__(
+        self,
+        *,
+        worker_count: int,
+        stderr_path: Path | None = None,
+    ) -> None:
+        self._worker_count = worker_count
+        self._stderr_path = stderr_path
+        self._session_pool: LegacyBackendSessionPool | None = None
+        self._state_lock = threading.Lock()
+
+    def __enter__(self) -> LazyLegacyBackendRunner:
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    @property
+    def started(self) -> bool:
+        """Return whether the underlying backend pool has been started."""
+        return self._session_pool is not None
+
+    def run(
+        self,
+        backend_input_products: list[LegacyBackendInputProduct],
+    ) -> list[ReferenceResult]:
+        """Run one batch, creating the backend pool only on first cache miss."""
+        if not backend_input_products:
+            return []
+        return self._ensure_session_pool().run(backend_input_products)
+
+    def close(self) -> None:
+        """Close the started backend pool, if any."""
+        with self._state_lock:
+            session_pool = self._session_pool
+            self._session_pool = None
+        if session_pool is not None:
+            session_pool.close()
+
+    def _ensure_session_pool(self) -> LegacyBackendSessionPool:
+        """Return the started backend pool, creating it lazily when first needed."""
+        with self._state_lock:
+            if self._session_pool is None:
+                session_pool = LegacyBackendSessionPool(
+                    worker_count=self._worker_count,
+                    stderr_path=self._stderr_path,
+                )
+                session_pool.start()
+                self._session_pool = session_pool
+            return self._session_pool
 
 
 def _project_root() -> Path:

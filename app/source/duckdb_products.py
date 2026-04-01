@@ -1,24 +1,76 @@
 from __future__ import annotations
 
 import hashlib
-from typing import TYPE_CHECKING, Any
+import json
+import os
+from typing import TYPE_CHECKING
 
 import duckdb
 
+from openfoodfacts_data_quality.contracts.raw import (
+    RawProductRow,
+    validate_raw_product_row,
+)
 from openfoodfacts_data_quality.raw_products import RAW_INPUT_COLUMNS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
 
+SOURCE_SNAPSHOT_ID_ENV_VAR = "SOURCE_SNAPSHOT_ID"
+
+
+def source_snapshot_manifest_path_for(path: Path) -> Path:
+    """Return the sidecar manifest path for one DuckDB source snapshot."""
+    return path.with_suffix(f"{path.suffix}.snapshot.json")
+
+
+def write_source_snapshot_manifest(
+    path: Path,
+    *,
+    source_snapshot_id: str,
+) -> Path:
+    """Persist one explicit sidecar manifest for a DuckDB source snapshot."""
+    normalized_snapshot_id = source_snapshot_id.strip()
+    if not normalized_snapshot_id:
+        raise ValueError("source_snapshot_id must not be blank.")
+    manifest_path = source_snapshot_manifest_path_for(path)
+    manifest_path.write_text(
+        json.dumps({"source_snapshot_id": normalized_snapshot_id}, indent=2),
+        encoding="utf-8",
+    )
+    return manifest_path
+
 
 def source_snapshot_id_for(path: Path) -> str:
-    """Derive a short deterministic source snapshot id from the DuckDB file."""
+    """Return the configured or derived source snapshot identifier."""
+    configured_snapshot_id = os.environ.get(SOURCE_SNAPSHOT_ID_ENV_VAR)
+    if configured_snapshot_id is not None:
+        normalized_snapshot_id = configured_snapshot_id.strip()
+        if not normalized_snapshot_id:
+            raise ValueError(
+                f"{SOURCE_SNAPSHOT_ID_ENV_VAR} must not be blank when set."
+            )
+        return normalized_snapshot_id
+
+    manifest_path = source_snapshot_manifest_path_for(path)
+    if manifest_path.exists():
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        snapshot_id = str(payload.get("source_snapshot_id") or "").strip()
+        if not snapshot_id:
+            raise ValueError(
+                f"Source snapshot manifest {manifest_path} must define "
+                "'source_snapshot_id'."
+            )
+        return snapshot_id
+
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
-    return digest.hexdigest()[:12]
+    source_snapshot_id = digest.hexdigest()[:12]
+    write_source_snapshot_manifest(path, source_snapshot_id=source_snapshot_id)
+    return source_snapshot_id
 
 
 def count_source_rows(db_path: Path) -> int:
@@ -40,8 +92,8 @@ def iter_source_batches(
     db_path: Path,
     *,
     batch_size: int,
-) -> Iterator[list[dict[str, Any]]]:
-    """Yield the products table as batches of plain dictionaries ordered by code."""
+) -> Iterator[list[RawProductRow]]:
+    """Yield the products table as batches of validated raw contract rows."""
     if batch_size <= 0:
         raise ValueError("batch_size must be a positive integer.")
 
@@ -57,7 +109,10 @@ def iter_source_batches(
             batch_rows = cursor.fetchmany(batch_size)
             if not batch_rows:
                 break
-            yield [dict(zip(columns, row, strict=False)) for row in batch_rows]
+            yield [
+                validate_raw_product_row(dict(zip(columns, row, strict=False)))
+                for row in batch_rows
+            ]
     finally:
         connection.close()
 
@@ -82,7 +137,7 @@ def _require_source_columns(connection: duckdb.DuckDBPyConnection) -> None:
 
     missing_csv = ", ".join(missing_columns)
     raise ValueError(
-        "Source DuckDB does not satisfy the explicit parity source contract. "
+        "Source DuckDB does not satisfy the explicit application source contract. "
         f"Missing columns: {missing_csv}. "
         "Regenerate the sample DuckDB or align the input snapshot schema with "
         "openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS."

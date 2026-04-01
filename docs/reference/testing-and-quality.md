@@ -4,6 +4,8 @@
 
 Repository validation model and main development commands.
 
+Run repository Python commands from the repository local `.venv` when available.
+
 ## CI Gate
 
 ```bash
@@ -42,7 +44,7 @@ The test suite covers the Python owned parts of the system, including:
 - DSL parsing and evaluation
 - profile selection
 - reference loading and caching behavior
-- parity comparison and accumulation
+- strict comparison and run result accumulation
 - report rendering and serialization
 - legacy inventory workflow support
 
@@ -50,7 +52,7 @@ The test suite covers the Python owned parts of the system, including:
 
 - `make check` is the repository CI gate and the minimum local validation pass
 - `make quality` is the broader local sweep for deeper confidence
-- changes that affect parity may still need an end to end Docker run in addition to the Python toolchain
+- changes that affect reference loading, strict comparison, or report generation may still need an end to end Docker run in addition to the Python toolchain
 
 ## Next Reads
 

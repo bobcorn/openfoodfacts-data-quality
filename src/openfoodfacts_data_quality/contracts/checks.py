@@ -37,14 +37,14 @@ class CheckEmission:
 
 @dataclass(frozen=True, slots=True)
 class LegacyCheckIdentity:
-    """Explicit legacy-side identity used for parity-backed check mapping."""
+    """Explicit legacy side identity used for parity backed check mapping."""
 
     code_template: str
 
     def __post_init__(self) -> None:
-        """Reject empty legacy-code templates."""
+        """Reject empty legacy code templates."""
         if not self.code_template:
-            raise ValueError("Legacy check identity code_template must be non-empty.")
+            raise ValueError("Legacy check identity code_template must be not empty.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,7 +130,7 @@ def validate_check_jurisdiction(value: str) -> CheckJurisdiction:
 def normalize_check_parity_baselines(
     values: Iterable[str] | None,
 ) -> tuple[CheckParityBaseline, ...] | None:
-    """Return unique validated parity baselines preserving first-seen order."""
+    """Return unique validated parity baselines preserving first seen order."""
     if values is None:
         return None
     normalized: list[CheckParityBaseline] = []
@@ -167,7 +167,7 @@ def resolve_legacy_check_identity(
 def normalize_check_jurisdictions(
     values: Iterable[str] | None,
 ) -> tuple[CheckJurisdiction, ...] | None:
-    """Return unique validated jurisdictions preserving first-seen order."""
+    """Return unique validated jurisdictions preserving first seen order."""
     if values is None:
         return None
     normalized: list[CheckJurisdiction] = []

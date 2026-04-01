@@ -24,7 +24,7 @@ class _ParsedLegacyCodeTemplate:
 
 
 def has_legacy_code_template_tokens(code_template: str) -> bool:
-    """Return whether one legacy-code template contains wildcard tokens."""
+    """Return whether one legacy code template contains wildcard tokens."""
     return _parsed_legacy_code_template(code_template).wildcard_count > 0
 
 
@@ -57,7 +57,7 @@ def matches_legacy_check_code(code_template: str, observed_code: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class LegacyCheckIndex:
-    """Index legacy-backed checks by their observed-code matching strategy."""
+    """Index checks with a legacy baseline by their observed-code matching strategy."""
 
     exact_checks_by_code: Mapping[str, tuple[CheckDefinition, ...]]
     templated_checks: tuple[CheckDefinition, ...]

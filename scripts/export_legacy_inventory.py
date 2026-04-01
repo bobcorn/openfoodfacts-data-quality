@@ -14,7 +14,7 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from app.report.legacy_source import (
+from app.legacy_source import (
     LegacySubroutineRecord,
     collect_legacy_subroutine_records,
     resolve_legacy_module_paths,
@@ -51,6 +51,7 @@ _CSV_FIELDNAMES = (
     "source_file",
     "line_start",
     "line_end",
+    "cluster_id",
     "target_impl",
     "size",
     "risk",
@@ -65,6 +66,7 @@ class _EstimationSheetRow:
     source_file: str
     line_start: str
     line_end: str
+    cluster_id: str
     target_impl: str
     size: str
     risk: str
@@ -78,6 +80,7 @@ class _EstimationSheetRow:
             self.source_file,
             self.line_start,
             self.line_end,
+            self.cluster_id,
             self.target_impl,
             self.size,
             self.risk,
@@ -96,7 +99,7 @@ class _AnalyzedSubroutineFeatures:
 
 
 def main() -> int:
-    """Export machine-readable legacy inventory artifacts for migration planning."""
+    """Export legacy inventory artifacts for migration planning."""
     parser = argparse.ArgumentParser(
         description=(
             "Export legacy data-quality family inventory artifacts and a planning CSV."
@@ -182,7 +185,7 @@ def build_legacy_families_artifact(
     )
 
     return {
-        "version": 1,
+        "version": 2,
         "generated_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source_root": str(legacy_source_root),
         "module_paths": [
@@ -201,7 +204,7 @@ def write_legacy_families_artifact(
     artifact: dict[str, Any],
     output_dir: Path,
 ) -> Path:
-    """Write the canonical machine-readable legacy-family artifact."""
+    """Write the canonical legacy family artifact."""
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / LEGACY_FAMILIES_FILENAME
     output_path.write_text(
@@ -224,6 +227,7 @@ def build_estimation_sheet_rows(
                 source_file="; ".join(str(source["source_file"]) for source in sources),
                 line_start="; ".join(str(source["line_start"]) for source in sources),
                 line_end="; ".join(str(source["line_end"]) for source in sources),
+                cluster_id=_cluster_id_from_sources(sources),
                 target_impl="",
                 size="",
                 risk="",
@@ -247,6 +251,14 @@ def write_estimation_sheet(
         for row in rows:
             writer.writerow(row.as_csv_row())
     return output_path
+
+
+def _cluster_id_from_sources(sources: list[dict[str, Any]]) -> str:
+    """Return one deterministic cluster identifier derived from source spans."""
+    return "; ".join(
+        f"{source['source_file']}:{source['line_start']}-{source['line_end']}"
+        for source in sources
+    )
 
 
 def _group_family_records(
@@ -284,6 +296,9 @@ def _group_family_records(
                     "source_subroutine": record.subroutine_name,
                     "line_start": record.start_line,
                     "line_end": record.end_line,
+                    "unsupported_data_quality_emission_count": (
+                        record.unsupported_data_quality_emission_count
+                    ),
                     "code_templates": list(matching_templates),
                     "code": record.code,
                 },
@@ -291,6 +306,9 @@ def _group_family_records(
             state.has_loop = state.has_loop or features.has_loop
             state.has_branching = state.has_branching or features.has_branching
             state.has_arithmetic = state.has_arithmetic or features.has_arithmetic
+            state.unsupported_data_quality_emission_count_total += (
+                record.unsupported_data_quality_emission_count
+            )
             state.statement_count_max = max(
                 state.statement_count_max,
                 features.statement_count,
@@ -316,6 +334,9 @@ def _group_family_records(
                     "helper_calls": sorted(state.helper_calls),
                     "source_files_count": len(state.source_files),
                     "source_subroutines_count": len(state.sources_by_identity),
+                    "unsupported_data_quality_emission_count_total": (
+                        state.unsupported_data_quality_emission_count_total
+                    ),
                     "line_span_max": state.line_span_max,
                     "statement_count_max": state.statement_count_max,
                 },
@@ -432,7 +453,7 @@ def _iter_nodes(root_node: Any) -> tuple[Any, ...]:
 
 
 def _function_name(expression: Any, source: bytes) -> str | None:
-    """Return the invoked function name for one call-like expression."""
+    """Return the invoked function name for one call expression."""
     for child in getattr(expression, "children", ()):
         if getattr(child, "type", None) == "function":
             return source[child.start_byte : child.end_byte].decode("utf-8")
@@ -460,6 +481,7 @@ class _MutableFamilyState:
         self.has_loop = False
         self.has_branching = False
         self.has_arithmetic = False
+        self.unsupported_data_quality_emission_count_total = 0
         self.statement_count_max = 0
         self.line_span_max = 0
 

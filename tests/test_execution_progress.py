@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import pytest
-from app.pipeline.progress import (
+from app.run.progress import (
     ExecutionProgressConfig,
     ExecutionProgressReporter,
     build_execution_plan,
@@ -75,8 +75,8 @@ def test_execution_progress_reporter_logs_plan(
     reporter.log_plan()
 
     assert caplog.messages == [
-        "[Execution] Planned 1000 products across 4 batch(es); effective workers: 4/4.",
-        "[Execution] Running strict parity in batches of 250 products (keeping up to 20 mismatch examples per side and check).",
+        "[Execution] Planned 1000 products across 4 batch(es); effective batch workers: 4/4.",
+        "[Execution] Running checks in batches of 250 products (keeping up to 20 mismatch examples per side and check).",
     ]
 
 
@@ -85,7 +85,7 @@ def test_execution_progress_reporter_logs_heartbeat(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     reporter = _progress_reporter()
-    monkeypatch.setattr("app.pipeline.progress.perf_counter", lambda: 15.0)
+    monkeypatch.setattr("app.run.progress.perf_counter", lambda: 15.0)
     caplog.set_level(logging.INFO)
 
     reporter.log_heartbeat(

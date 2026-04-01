@@ -75,7 +75,7 @@ class AssessmentDocument:
             context=f"{path} assessments",
         )
         if not assessments_payload:
-            raise RuntimeError(f"{path} must contain a non-empty assessments array.")
+            raise RuntimeError(f"{path} must contain a not empty assessments array.")
 
         assessments_by_check_id: dict[str, AssessmentEntry] = {}
         for raw_entry in assessments_payload:
@@ -98,7 +98,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Fill estimation_sheet.csv planning fields from assessment.json while "
-            "preserving existing non-empty CSV values by default."
+            "preserving existing not empty CSV values by default."
         )
     )
     parser.add_argument(
@@ -278,7 +278,7 @@ def _require_non_empty_string(payload: dict[str, Any], field_name: str) -> str:
     value = payload.get(field_name)
     if not isinstance(value, str) or not value.strip():
         raise RuntimeError(
-            f"assessment field {field_name!r} must be a non-empty string."
+            f"assessment field {field_name!r} must be a not empty string."
         )
     return value.strip()
 
