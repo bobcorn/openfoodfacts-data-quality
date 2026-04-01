@@ -2,53 +2,59 @@
 
 [Documentation](../index.md) / [Project](index.md) / Roadmap and Open Questions
 
-This page lists the areas most likely to change next.
+Project-level decisions still in motion and the areas most likely to change next.
 
-## Likely Next Steps
+## Near-Term Priorities
 
-- migrate more checks into the shared packaged runtime
-- refine parity behavior for legacy-backed checks
-- improve the documentation and contributor workflow around check authoring
-- stabilize the public library surface once its boundaries are clear
+- migrate more legacy-backed checks into the shared packaged runtime
+- keep tightening parity behavior where legacy comparison is expected
+- improve onboarding and contributor workflow around check authoring
+- make the library-facing boundaries clearer as the runtime matures
 
-## Open Design Questions
+## Open Questions
 
-### How far should the DSL expand?
+### DSL Scope
 
-The DSL is intentionally small. Expanding it too far would start hiding logic that is easier to read in Python.
+The current DSL is intentionally narrow. Expanding it too far would hide logic that is easier to review in Python. The main question is not whether the DSL can do more, but which additions would still keep migrated logic obvious and auditable.
 
-### How should enriched data be exposed through the library?
+### Enriched API Stability
 
-Some checks need backend-derived data, but not every enriched field should become part of the long-lived normalized contract. The enriched surface already exists, but its long-term library boundary is still a design decision.
+The repository already exposes explicit enriched snapshots through the public library APIs. The open question is which enriched fields deserve to be treated as long-lived shared contracts and which should remain app-local or backend-adjacent details.
 
-### How should full-corpus runs be executed?
+### Full-Corpus Execution
 
-Local Docker runs are appropriate for development and small validation loops. It is still open whether full snapshots should run in a different environment.
+The Docker flow is appropriate for local development and modest validation loops. It is still open whether full-snapshot parity runs should remain local, move to CI-like automation, or live in a different execution environment altogether.
 
-### How much debugging detail should the report include?
+### Report Detail
 
-The report currently focuses on summary output. Adding more debugging detail may help investigation, but it also increases noise.
+The current report is intentionally summary-first. More debugging detail could help investigation, but too much detail risks turning the main report into a noisy artifact that is harder to review quickly.
 
-### When should the public API be treated as stable?
+### Public API Stability
 
-The raw and enriched library surfaces are already explicit, but they may still change before they should be documented as long-lived external interfaces.
+The raw and enriched APIs are explicit today. The unresolved question is when they should be documented and supported as durable public interfaces rather than as prototype-era public APIs.
 
 ## Risk Areas
 
-### Full-corpus execution
+### Full-Corpus Performance
 
-Running parity-oriented workflows on snapshots with millions of products changes the practical constraints of the system. A setup that works for local or sample runs may not be efficient enough for full snapshots.
+A workflow that feels lightweight on sample data can behave very differently on millions of products. Batch sizing, cache behavior, legacy backend throughput, and report usability all become more sensitive at that scale.
 
-### Full-corpus parity investigation
+### Parity Investigation At Scale
 
-Even a small mismatch rate can produce a large absolute number of differences on a full snapshot. Investigation and reporting need to stay usable at that scale.
+Even low mismatch rates can produce large absolute mismatch volumes on full snapshots. The artifact and report model needs to remain useful when the debugging scope grows.
 
-### Repository boundaries
+### Runtime/App Boundary Drift
 
-The project still needs clear boundaries between:
+The repository depends on a clean split between:
 
-- shared runtime contracts
-- parity application logic
-- one-off migration planning workflows
+- reusable runtime contracts
+- parity-only application behavior
+- one-off migration-planning workflows
 
-[Back to Project](index.md) | [Back to Documentation](../index.md)
+That split is already present in the codebase, but it will need continued discipline as the project grows.
+
+## Next Reads
+
+- [Project Overview and Scope](overview-and-scope.md)
+- [Parity Pipeline](../architecture/parity-pipeline.md)
+- [Configuration and Artifacts](../operations/configuration-and-artifacts.md)

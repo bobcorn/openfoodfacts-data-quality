@@ -2,30 +2,38 @@
 
 [Documentation](../index.md) / [Reference](index.md) / Testing and Quality
 
-The default quality gate is small by design.
+Repository validation model and main development commands.
 
-## Default Gate
+## CI Gate
 
 ```bash
 make check
 ```
 
-This runs the default repository gate. It covers formatting and linting, then runs the test suite with coverage.
+This is the normal repository validation gate used in CI.
 
-## Broader Sweep
+It covers:
+
+- formatting checks
+- linting
+- the test suite with coverage
+
+## Local Sweep
 
 ```bash
 make quality
 ```
 
-This adds stricter or broader advisory checks such as:
+This adds broader checks such as:
 
 - `mypy`
 - `vulture`
 - `pyright`
 - `jscpd`
 
-## What The Tests Cover
+For substantive local work, this is the better completion target even though the CI gate is smaller.
+
+## Test Coverage
 
 The test suite covers the Python-owned parts of the system, including:
 
@@ -40,7 +48,12 @@ The test suite covers the Python-owned parts of the system, including:
 
 ## Quality Model
 
-- `make check` is the normal local and CI gate
-- the broader tools are there to catch deeper issues, but they are not the day-to-day bottleneck
+- `make check` is the repository CI gate and the minimum local validation pass
+- `make quality` is the broader local sweep for deeper confidence
+- parity-sensitive changes may still need a Docker-based end-to-end run in addition to the Python toolchain
 
-[Back to Reference](index.md) | [Back to Documentation](../index.md)
+## Next Reads
+
+- [Local Development](../guides/local-development.md)
+- [Authoring Checks](../guides/authoring-checks.md)
+- [CI and Releases](../operations/ci-and-releases.md)

@@ -2,11 +2,23 @@
 
 [Documentation](../index.md) / Architecture
 
-This section covers repository structure and the application pipeline. It also documents the main data contracts.
+Stable boundaries of the prototype: repository split, contracts, check system, and parity flow.
 
-- [System Overview](system-overview.md)
-- [Data Contracts](data-contracts.md)
-- [Check System](check-system.md)
-- [Parity Pipeline](parity-pipeline.md)
+Use this section when you need:
 
-[Back to Documentation](../index.md)
+- what belongs in `src/` versus `app/`
+- how raw and enriched inputs become normalized contexts
+- how checks are packaged, selected, and executed
+- how one parity run moves from source snapshot to report artifacts
+
+Read in this order:
+
+1. [System Overview](system-overview.md)
+2. [Data Contracts](data-contracts.md)
+3. [Check System](check-system.md)
+4. [Parity Pipeline](parity-pipeline.md)
+
+See also:
+
+- [Project Overview and Scope](../project/overview-and-scope.md)
+- [Authoring Checks](../guides/authoring-checks.md)

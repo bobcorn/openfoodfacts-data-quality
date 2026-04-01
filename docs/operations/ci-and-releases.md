@@ -9,17 +9,17 @@ GitHub Actions currently covers four workflows:
 - demo image publishing
 - Python release publishing
 
-## Pull Request Title Workflow
+## Pull Request Titles
 
-[`semantic-pr.yml`](../../.github/workflows/semantic-pr.yml) runs on pull requests from branches in this repository.
+`.github/workflows/semantic-pr.yml` runs on pull requests from branches in this repository.
 
 It validates pull request titles against the Conventional Commits style used for squash merges on `main`.
 
 This workflow is meant to keep pull request titles and squashed commit messages aligned.
 
-## Validation Workflow
+## Validation
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs on pushes, pull requests, and manual dispatch.
+`.github/workflows/ci.yml` runs on pushes, pull requests, and manual dispatch.
 
 It does four things:
 
@@ -28,32 +28,37 @@ It does four things:
 - builds the source and wheel distributions
 - verifies and smoke-tests the built wheel
 
-This workflow checks the repository as code and as a distributable package.
+This workflow is the repository CI gate.
 
-## Demo Image Workflow
+## Demo Image
 
-[`publish-demo-image.yml`](../../.github/workflows/publish-demo-image.yml) runs on version tags.
+`.github/workflows/publish-demo-image.yml` runs on version tags.
 
 It:
 
-- reruns the repository validation gate
+- reruns the validation gate
 - builds the Docker `demo` target
 - publishes a multi-architecture image to GHCR
 
-The demo image is built from the Docker `demo` target and published to GHCR. It runs the parity application with demo-oriented defaults against the bundled sample snapshot, on top of the Open Food Facts server base image used for legacy backend execution.
+The demo image runs the parity application with demo-oriented defaults against the bundled sample snapshot, on top of the Open Food Facts server base image used for legacy backend execution.
 
-## Python Release Workflow
+That base image is pinned through the repository `Dockerfile` and comes from the custom multi-arch backend flow documented in [Legacy Backend Image](legacy-backend-image.md).
 
-[`release-library.yml`](../../.github/workflows/release-library.yml) also runs on version tags.
+## Python Release
+
+`.github/workflows/release-library.yml` also runs on version tags.
 
 It:
 
-- reruns the repository validation gate
+- reruns the validation gate
 - checks that the git tag matches the project version
 - builds the source and wheel distributions
 - verifies and smoke-tests the built wheel
 - attaches the distributions to the matching GitHub Release
 
-This makes the built library available from the GitHub Release page.
+## Next Reads
 
-[Back to Operations](index.md) | [Back to Documentation](../index.md)
+- [Testing and Quality](../reference/testing-and-quality.md)
+- [Local Development](../guides/local-development.md)
+- [Legacy Backend Image](legacy-backend-image.md)
+- [Configuration and Artifacts](configuration-and-artifacts.md)

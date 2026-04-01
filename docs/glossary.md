@@ -2,17 +2,16 @@
 
 [Documentation](index.md) / [Reference](reference/index.md) / Glossary
 
-This document defines the repository vocabulary.
+Canonical repository vocabulary.
 
-Use one preferred term for each concept.
-If a word is ambiguous, prefer the term defined here over a synonym or shorthand.
+Use this page as a lookup when you need precise wording. It works best once you already know the broad system shape from the project and architecture pages.
 
-## Read This First
+## Quick Orientation
 
-- `src/openfoodfacts_data_quality/` is the reusable library surface.
-- `app/` is the application layer that orchestrates runs, parity, and reporting.
-- The runtime flow is:
-  `source snapshot -> legacy backend boundary -> reference-side runtime data -> migrated checks -> parity -> report`.
+- `src/openfoodfacts_data_quality/` is the reusable library layer and package root for the public Python APIs.
+- `app/` is the application layer that orchestrates parity-backed runs and renders artifacts.
+- the main runtime flow is:
+  `source snapshot -> legacy backend boundary -> reference-side runtime data -> migrated checks -> parity -> report`
 
 ## Canonical Terms
 
@@ -50,6 +49,14 @@ If a word is ambiguous, prefer the term defined here over a synonym or shorthand
 
 - `normalized context`
   The Python-owned runtime shape consumed by migrated checks.
+
+### Repository Structure Terms
+
+- `layer`
+  Use `layer` for the major structural split of the repository, such as the shared runtime layer, the application layer, and the operational or planning layer.
+
+- `surface`
+  Use `surface` for runtime and API contracts such as `raw_products`, `enriched_products`, and the library-facing raw and enriched APIs.
 
 ### Parity Terms
 
@@ -93,7 +100,7 @@ If a word is ambiguous, prefer the term defined here over a synonym or shorthand
 
 - `source snapshot`
   The versioned dataset used as input for one run.
-  In practice, this is usually a DuckDB snapshot identified by hashing the source file.
+  Usually a DuckDB snapshot identified by hashing the source file.
 
 - `source_snapshot_id`
   The stable identifier of a source snapshot.
@@ -113,59 +120,40 @@ If a word is ambiguous, prefer the term defined here over a synonym or shorthand
 
 ## Naming Rules
 
-- Use `reference` for parity-side runtime concepts:
-  `ReferenceResult` and reference-side findings or support components.
-
-- Use `legacy backend` for the Perl boundary:
-  worker pools, input projection, and wrapper scripts.
-  Use it for similar runtime details as well.
-
-- Use `legacy` for legacy code provenance and raw legacy emitted codes, not for parity-side runtime payloads.
-
-- Use `migrated` for Python-owned output and snippet provenance on the migrated side.
-
-- Use `baseline` only for the contract or config axis:
-  `parity_baseline`, `parity_baselines`.
-  Do not use it for runtime class or module names when `reference` is the real concept.
-
-- Use `dsl` in technical names such as modules, resource helpers, pack paths, and scripts.
-
+- Use `layer` for the high-level repository split.
+- Use `reference` for parity-side runtime concepts.
+- Use `legacy backend` for the Perl execution boundary.
+- Use `legacy` for legacy code provenance and raw legacy emitted codes.
+- Use `migrated` for Python-owned output and snippet provenance.
+- Use `baseline` only for the contract or config axis.
+- Use `surface` for runtime and API contracts, not for the top-level repository structure.
+- Use `dsl` in technical names such as modules, resources, paths, and scripts.
 - Prefer `loader` over `provider` when the object concretely loads or materializes data.
-
 - Prefer `renderer` over generic names like `report` when the module's responsibility is rendering output artifacts.
-
 - Use `adapter` only for narrow interface wrappers.
 
 ## Repository Map
 
 - `src/openfoodfacts_data_quality/`
-  Reusable library contracts and the public API live here. The package also contains context building, the check catalog, and the DSL subsystem.
+  Reusable library contracts and the public API. The package also contains context building, the check catalog, and the DSL subsystem.
 
 - `app/sources/`
   Source snapshot access helpers.
 
 - `app/legacy_backend/`
-  The legacy backend boundary:
-  input projection and the wrapper script.
-  The persistent runner and the worker pool also live here.
+  The legacy backend boundary: input projection, wrapper script, persistent runner, and worker pool.
 
 - `app/reference/`
-  Reference-side runtime data:
-  models and loading logic.
-  Cache handling and finding normalization also live here.
+  Reference-side runtime data: models, loading logic, cache handling, and finding normalization.
 
 - `app/pipeline/`
-  Run preparation and orchestration:
-  profiles, context builders, and batch input resolution.
-  The execution loop and progress reporting also live here.
+  Run preparation and orchestration: profiles, context builders, execution, and progress reporting.
 
 - `app/parity/`
-  Parity-domain models plus comparison and accumulation logic. Artifact serialization also lives here.
+  Parity-domain models plus comparison, accumulation, and serialization.
 
 - `app/report/`
-  Presentation:
-  renderer and preview server.
-  Downloads, snippets, and templates also live here.
+  Presentation: renderer, downloads, snippets, and legacy-source indexing.
 
 - `config/check-profiles.toml`
   Named run profiles and check-selection policy.
@@ -176,4 +164,8 @@ If a word is ambiguous, prefer the term defined here over a synonym or shorthand
 - If it refers to the Perl execution boundary, call it `legacy backend`.
 - Prefer the package or module name already used in the repository.
 
-[Back to Reference](reference/index.md) | [Back to Documentation](index.md)
+## Next Reads
+
+- [System Overview](architecture/system-overview.md)
+- [Check System](architecture/check-system.md)
+- [Library Usage](guides/library-usage.md)

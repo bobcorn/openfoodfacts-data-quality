@@ -2,9 +2,9 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Configuration and Artifacts
 
-This page covers the knobs that affect one application run and the outputs it produces.
+Runtime knobs for one application run and the artifacts it produces.
 
-## Main Runtime Configuration
+## Runtime Configuration
 
 The main runtime inputs are:
 
@@ -19,7 +19,7 @@ The main runtime inputs are:
 - `CHECK_PROFILE`
   Named check subset from `config/check-profiles.toml`.
 
-## Advanced Runtime Configuration
+## Advanced Configuration
 
 - `REFERENCE_RESULT_CACHE_DIR`
   Where persisted reference results live.
@@ -32,29 +32,42 @@ The main runtime inputs are:
 
 ## Profiles
 
-`config/check-profiles.toml` defines named run profiles. A profile decides:
+`config/check-profiles.toml` defines named run profiles.
+
+A profile decides:
 
 - which checks are active
 - which input surface the run uses
 - which parity baselines are in scope
 
-Use the focused profile for temporary migration worksets.
+The shipped profiles focus on legacy-backed migration runs:
 
-## Main Artifacts
+- `full`
+- `raw_products`
+- `focused`
+
+## Artifacts
 
 The application writes run outputs under `artifacts/latest/`.
 
-The main generated files are:
+Main generated files:
 
 - `site/index.html`
 - `site/report.html`
 - `site/parity.json`
 - `site/snippets.json`
 - `site/openfoodfacts-data-quality-json.zip`
+- `legacy-backend-stderr.log`
 
-The legacy backend stderr log is also written into the run artifacts directory.
+## Artifact Use
 
-## Reference Result Cache
+- Use the HTML report for human review.
+- Use `parity.json` for structured parity data.
+- Use `snippets.json` for structured implementation provenance.
+- Use the ZIP archive when you want to download the JSON outputs as one bundle.
+- Use the legacy backend stderr log when backend execution fails or behaves unexpectedly.
+
+## Reference Cache
 
 The reference result cache is a derived optimization artifact. It is safe to delete when you want a fresh reference-side materialization.
 
@@ -65,4 +78,11 @@ Its cache key depends on:
 - the Python-side reference execution contract
 - the optional manual salt
 
-[Back to Operations](index.md) | [Back to Documentation](../index.md)
+In Docker-based runs, the backend fingerprint comes from the pinned legacy backend image. See [Legacy Backend Image](legacy-backend-image.md).
+
+## Next Reads
+
+- [Reading The Report](../getting-started/reading-the-report.md)
+- [Local Development](../guides/local-development.md)
+- [Legacy Backend Image](legacy-backend-image.md)
+- [Parity Pipeline](../architecture/parity-pipeline.md)

@@ -2,10 +2,21 @@
 
 [Documentation](../index.md) / Guides
 
-This section covers local runs. It also documents check authoring and library usage.
+Practical workflows for running the repository, using the library, and authoring checks.
 
-- [Local Development](local-development.md)
-- [Authoring Checks](authoring-checks.md)
-- [Library Usage](library-usage.md)
+Use this section to:
 
-[Back to Documentation](../index.md)
+- get a first successful local run
+- use the Python package directly
+- add or modify checks
+
+For contributors, read in this order:
+
+1. [Local Development](local-development.md)
+2. [Library Usage](library-usage.md)
+3. [Authoring Checks](authoring-checks.md)
+
+See also:
+
+- [Troubleshooting](../getting-started/troubleshooting.md)
+- [Testing and Quality](../reference/testing-and-quality.md)
