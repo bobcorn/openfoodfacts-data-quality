@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import threading
 from contextlib import AbstractContextManager, contextmanager
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import duckdb
 
@@ -20,9 +23,14 @@ REFERENCE_RESULT_CACHE_DIR_ENV_VAR = "REFERENCE_RESULT_CACHE_DIR"
 REFERENCE_RESULT_CACHE_SALT_ENV_VAR = "REFERENCE_RESULT_CACHE_SALT"
 LEGACY_SOURCE_ROOT_ENV_VAR = "LEGACY_SOURCE_ROOT"
 REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS = (
+    Path("app") / "reference" / "cache.py",
     Path("app") / "reference" / "models.py",
+    Path("app") / "legacy_backend" / "contracts.py",
     Path("app") / "legacy_backend" / "input_projection.py",
     Path("app") / "legacy_backend" / "off_runtime.pl",
+    Path("src") / "openfoodfacts_data_quality" / "contracts" / "raw.py",
+    Path("src") / "openfoodfacts_data_quality" / "contracts" / "enrichment.py",
+    Path("src") / "openfoodfacts_data_quality" / "contracts" / "structured.py",
     Path("src") / "openfoodfacts_data_quality" / "raw_products.py",
     Path("src") / "openfoodfacts_data_quality" / "scalars.py",
 )
@@ -37,6 +45,84 @@ LEGACY_BACKEND_FINGERPRINT_PATHS = (
     Path("taxonomies") / "countries.txt",
     Path("taxonomies") / "data_quality.txt",
 )
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceResultCacheIdentity:
+    """Stable execution identity for one reference result cache namespace."""
+
+    cache_key: str
+    execution_contract_fingerprint: str
+    legacy_backend_fingerprint: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceResultCacheMetadata:
+    """Stored cache metadata used to validate cache reuse."""
+
+    source_snapshot_id: str
+    cache_key: str
+    schema_version: int
+    execution_contract_fingerprint: str
+    legacy_backend_fingerprint: str
+    created_at_utc: str | None = None
+
+    @classmethod
+    def expected(
+        cls,
+        *,
+        source_snapshot_id: str,
+        identity: ReferenceResultCacheIdentity,
+    ) -> Self:
+        """Return the expected metadata for the current cache file."""
+        return cls(
+            source_snapshot_id=source_snapshot_id,
+            cache_key=identity.cache_key,
+            schema_version=REFERENCE_RESULT_SCHEMA_VERSION,
+            execution_contract_fingerprint=identity.execution_contract_fingerprint,
+            legacy_backend_fingerprint=identity.legacy_backend_fingerprint,
+        )
+
+    def with_created_at(self, created_at_utc: str) -> ReferenceResultCacheMetadata:
+        """Return this metadata with a persisted creation timestamp."""
+        return ReferenceResultCacheMetadata(
+            source_snapshot_id=self.source_snapshot_id,
+            cache_key=self.cache_key,
+            schema_version=self.schema_version,
+            execution_contract_fingerprint=self.execution_contract_fingerprint,
+            legacy_backend_fingerprint=self.legacy_backend_fingerprint,
+            created_at_utc=created_at_utc,
+        )
+
+    def matches_expected(self, expected: ReferenceResultCacheMetadata) -> bool:
+        """Return whether the stored metadata matches the current runtime contract."""
+        return (
+            self.source_snapshot_id == expected.source_snapshot_id
+            and self.cache_key == expected.cache_key
+            and self.schema_version == expected.schema_version
+            and self.execution_contract_fingerprint
+            == expected.execution_contract_fingerprint
+            and self.legacy_backend_fingerprint == expected.legacy_backend_fingerprint
+        )
+
+    def mismatch_details(
+        self,
+        expected: ReferenceResultCacheMetadata,
+    ) -> dict[str, tuple[str | int | None, str | int | None]]:
+        """Return the stored-versus-expected fields that block cache reuse."""
+        mismatches: dict[str, tuple[str | int | None, str | int | None]] = {}
+        for field_name in (
+            "source_snapshot_id",
+            "cache_key",
+            "schema_version",
+            "execution_contract_fingerprint",
+            "legacy_backend_fingerprint",
+        ):
+            actual_value = getattr(self, field_name)
+            expected_value = getattr(expected, field_name)
+            if actual_value != expected_value:
+                mismatches[field_name] = (actual_value, expected_value)
+        return mismatches
 
 
 def configured_reference_result_cache_dir(project_root: Path) -> Path:
@@ -60,15 +146,47 @@ def reference_result_cache_key(
     *,
     extra_salt: str = "",
 ) -> str:
-    """Derive a stable cache key from the full reference-result execution contract."""
+    """Derive a stable cache key from the full reference result execution contract."""
+    return reference_result_cache_identity(
+        project_root,
+        extra_salt=extra_salt,
+    ).cache_key
+
+
+def reference_result_cache_identity(
+    project_root: Path,
+    *,
+    extra_salt: str = "",
+) -> ReferenceResultCacheIdentity:
+    """Return the execution identity for one persisted reference result cache."""
+    legacy_backend_fingerprint = _legacy_backend_fingerprint(project_root)
+    execution_contract_fingerprint = _execution_contract_fingerprint(
+        project_root,
+        legacy_backend_fingerprint=legacy_backend_fingerprint,
+        extra_salt=extra_salt,
+    )
+    return ReferenceResultCacheIdentity(
+        cache_key=execution_contract_fingerprint[:12],
+        execution_contract_fingerprint=execution_contract_fingerprint,
+        legacy_backend_fingerprint=legacy_backend_fingerprint,
+    )
+
+
+def _execution_contract_fingerprint(
+    project_root: Path,
+    *,
+    legacy_backend_fingerprint: str,
+    extra_salt: str,
+) -> str:
+    """Hash the full execution contract that shapes cached reference results."""
     digest = hashlib.sha256()
     digest.update(f"schema:{REFERENCE_RESULT_SCHEMA_VERSION}".encode())
-    digest.update(_legacy_backend_fingerprint(project_root).encode("utf-8"))
+    digest.update(legacy_backend_fingerprint.encode("utf-8"))
     for relative_path in REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS:
         digest.update((project_root / relative_path).read_bytes())
     if extra_salt:
         digest.update(extra_salt.encode("utf-8"))
-    return digest.hexdigest()[:12]
+    return digest.hexdigest()
 
 
 def _legacy_backend_fingerprint(project_root: Path) -> str:
@@ -130,8 +248,13 @@ def reference_result_cache_path(
     source_snapshot_id: str,
     cache_key: str,
 ) -> Path:
-    """Return the on-disk cache database path for one reference-result set."""
+    """Return the on-disk cache database path for one reference result set."""
     return cache_dir / f"reference-result-{source_snapshot_id}-{cache_key}.duckdb"
+
+
+def reference_result_cache_manifest_path(cache_path: Path) -> Path:
+    """Return the readable sidecar manifest path for one cache DB."""
+    return cache_path.with_suffix(f"{cache_path.suffix}.meta.json")
 
 
 class ReferenceResultCache(AbstractContextManager["ReferenceResultCache"]):
@@ -141,12 +264,10 @@ class ReferenceResultCache(AbstractContextManager["ReferenceResultCache"]):
         self,
         *,
         path: Path,
-        source_snapshot_id: str,
-        cache_key: str,
+        metadata: ReferenceResultCacheMetadata,
     ) -> None:
         self.path = path
-        self.source_snapshot_id = source_snapshot_id
-        self.cache_key = cache_key
+        self.metadata = metadata
         self._lock = threading.Lock()
         self._started = False
 
@@ -167,6 +288,7 @@ class ReferenceResultCache(AbstractContextManager["ReferenceResultCache"]):
         if self._started:
             return
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        persisted_metadata: ReferenceResultCacheMetadata
         with self._locked_connection() as connection:
             connection.execute(
                 """
@@ -181,25 +303,45 @@ class ReferenceResultCache(AbstractContextManager["ReferenceResultCache"]):
                 create table if not exists cache_meta (
                     source_snapshot_id varchar not null,
                     cache_key varchar not null,
-                    schema_version integer not null
+                    schema_version integer not null,
+                    execution_contract_fingerprint varchar not null,
+                    legacy_backend_fingerprint varchar not null,
+                    created_at_utc varchar not null
                 )
                 """
             )
-            row = connection.execute("select count(*) from cache_meta").fetchone()
-            if row is None:
-                raise RuntimeError(
-                    "Reference result cache metadata query returned no row."
+            existing_metadata = self._load_existing_metadata(connection)
+            if existing_metadata is None:
+                stored_metadata = self.metadata.with_created_at(
+                    datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
-            existing = row[0]
-            if existing == 0:
                 connection.execute(
-                    "insert into cache_meta values (?, ?, ?)",
+                    "insert into cache_meta values (?, ?, ?, ?, ?, ?)",
                     [
-                        self.source_snapshot_id,
-                        self.cache_key,
-                        REFERENCE_RESULT_SCHEMA_VERSION,
+                        stored_metadata.source_snapshot_id,
+                        stored_metadata.cache_key,
+                        stored_metadata.schema_version,
+                        stored_metadata.execution_contract_fingerprint,
+                        stored_metadata.legacy_backend_fingerprint,
+                        stored_metadata.created_at_utc,
                     ],
                 )
+                persisted_metadata = stored_metadata
+            elif not existing_metadata.matches_expected(self.metadata):
+                mismatch_summary = ", ".join(
+                    f"{field}={actual!r} (expected {expected!r})"
+                    for field, (actual, expected) in existing_metadata.mismatch_details(
+                        self.metadata
+                    ).items()
+                )
+                raise RuntimeError(
+                    "Reference result cache metadata does not match the current "
+                    "runtime contract. Remove or relocate the cache file and rerun. "
+                    f"Mismatched fields: {mismatch_summary}."
+                )
+            else:
+                persisted_metadata = existing_metadata
+        self._write_manifest(persisted_metadata)
         self._started = True
 
     def load_many(self, codes: list[str]) -> dict[str, ReferenceResult]:
@@ -243,3 +385,67 @@ class ReferenceResultCache(AbstractContextManager["ReferenceResultCache"]):
                 yield connection
             finally:
                 connection.close()
+
+    def _load_existing_metadata(
+        self,
+        connection: duckdb.DuckDBPyConnection,
+    ) -> ReferenceResultCacheMetadata | None:
+        """Return stored cache metadata when present and structurally valid."""
+        try:
+            rows = connection.execute(
+                """
+                select
+                    source_snapshot_id,
+                    cache_key,
+                    schema_version,
+                    execution_contract_fingerprint,
+                    legacy_backend_fingerprint,
+                    created_at_utc
+                from cache_meta
+                """
+            ).fetchall()
+        except duckdb.Error as exc:
+            raise RuntimeError(
+                "Reference result cache metadata schema is incompatible with the "
+                "current runtime. Remove or relocate the cache file and rerun."
+            ) from exc
+
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise RuntimeError(
+                "Reference result cache metadata must contain exactly one row."
+            )
+
+        (
+            source_snapshot_id,
+            cache_key,
+            schema_version,
+            execution_contract_fingerprint,
+            legacy_backend_fingerprint,
+            created_at_utc,
+        ) = rows[0]
+        return ReferenceResultCacheMetadata(
+            source_snapshot_id=str(source_snapshot_id),
+            cache_key=str(cache_key),
+            schema_version=int(schema_version),
+            execution_contract_fingerprint=str(execution_contract_fingerprint),
+            legacy_backend_fingerprint=str(legacy_backend_fingerprint),
+            created_at_utc=str(created_at_utc),
+        )
+
+    def _write_manifest(self, metadata: ReferenceResultCacheMetadata) -> None:
+        """Write a readable manifest sidecar for quick cache inspection."""
+        manifest_payload = {
+            "path": str(self.path),
+            "source_snapshot_id": metadata.source_snapshot_id,
+            "cache_key": metadata.cache_key,
+            "schema_version": metadata.schema_version,
+            "execution_contract_fingerprint": (metadata.execution_contract_fingerprint),
+            "legacy_backend_fingerprint": metadata.legacy_backend_fingerprint,
+            "created_at_utc": metadata.created_at_utc,
+        }
+        reference_result_cache_manifest_path(self.path).write_text(
+            json.dumps(manifest_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )

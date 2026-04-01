@@ -9,9 +9,9 @@ Use this page as a lookup when you need exact wording. It works best once you al
 ## Quick Orientation
 
 - `src/openfoodfacts_data_quality/` is the reusable library layer and package root for the public Python APIs.
-- `app/` is the application layer that orchestrates parity runs and renders artifacts.
+- `app/` is the application layer that orchestrates runs, loads reference data when needed, applies strict comparison where relevant, and renders artifacts.
 - the main runtime flow is:
-  `source snapshot -> legacy backend boundary -> reference side runtime data -> migrated checks -> parity -> report`
+  `source snapshot -> optional reference path -> normalized contexts -> migrated checks -> optional strict comparison -> run result -> report`
 
 ## Canonical Terms
 
@@ -39,7 +39,8 @@ Use this page as a lookup when you need exact wording. It works best once you al
   The raw public product input surface consumed directly from the source snapshot.
 
 - `enriched_products`
-  The enriched input surface available after the legacy backend has produced an `enriched_snapshot`.
+  The enriched input surface consumed from stable `EnrichedSnapshotResult` values owned by the Python runtime.
+  In application runs, the reference path materializes those snapshots from the legacy backend and then projects them into the public enriched contract.
 
 - `input surface`
   The library contract that defines which runtime surface a check supports.
@@ -49,6 +50,22 @@ Use this page as a lookup when you need exact wording. It works best once you al
 
 - `normalized context`
   The Python runtime shape consumed by migrated checks.
+
+### Run Terms
+
+- `run`
+  One execution of the application against one source snapshot and one active check profile.
+
+- `run result`
+  The overall application summary for one run.
+  In code, the canonical model is `RunResult`.
+
+- `comparison status`
+  The field on each check that says whether it is `compared` or `runtime_only`.
+
+- `runtime only`
+  A check execution mode with no legacy comparison baseline.
+  In contracts, this corresponds to `comparison_status="runtime_only"` and `parity_baseline="none"`.
 
 ### Repository Structure Terms
 
@@ -66,7 +83,8 @@ Use this page as a lookup when you need exact wording. It works best once you al
 
 - `migrated`
   The Python output side of parity comparison.
-  Use `migrated` for migrated findings, migrated snippets, and migrated implementation code.
+  Use `migrated` for migrated findings and the Python side of parity comparison.
+  Do not use it as the provenance label for generic snippet artifacts.
 
 - `parity baseline`
   The selection or configuration axis that determines whether a check participates in parity comparison.
@@ -80,27 +98,37 @@ Use this page as a lookup when you need exact wording. It works best once you al
   The code from before migration used for snippet provenance and emitted legacy codes.
   Do not use `legacy` by itself for parity side runtime artifacts that should be called `reference`.
 
+- `parity`
+  Strict comparison between reference and migrated findings.
+  Use `parity` for baselines, comparison logic, and mismatch semantics. Do not use it as the generic name for the whole application.
+
 ### Legacy Backend Terms
 
 - `legacy backend`
-  The Perl runtime boundary used to produce the reference payloads.
+  The Perl runtime boundary used to produce internal reference side payloads.
   Use `legacy backend` for the Perl execution boundary and the code that drives it.
 
 - `ReferenceResult`
-  The explicit runtime contract produced by the legacy backend boundary and consumed by parity execution.
+  The explicit reference contract owned by the Python runtime and consumed by parity execution.
+  In application runs, Python validates it from the versioned legacy backend result envelope before the run loop uses it.
   It contains `enriched_snapshot` and `legacy_check_tags`.
+
+- `legacy backend result envelope`
+  The internal cross language result contract emitted by the Perl wrapper.
+  It carries `contract_kind`, `contract_version`, and `reference_result`.
 
 - `legacy_check_tags`
   The raw legacy finding tags emitted by the Perl backend.
 
 - `enriched_snapshot`
-  The enriched product payload produced by the backend and embedded in `ReferenceResult`.
+  The stable enriched product payload owned by the Python runtime and embedded in `ReferenceResult` and `EnrichedSnapshotResult`.
+  In application runs, the reference path projects it from validated `ReferenceResult` values.
 
 ### Source Snapshot Terms
 
 - `source snapshot`
   The versioned dataset used as input for one run.
-  Usually a DuckDB snapshot identified by hashing the source file.
+  Usually a DuckDB snapshot identified by a sidecar manifest or, when needed, by hashing the source file.
 
 - `source_snapshot_id`
   The stable identifier of a source snapshot.
@@ -110,23 +138,43 @@ Use this page as a lookup when you need exact wording. It works best once you al
 
 - `origin`
   In snippet artifacts, the provenance axis for code excerpts.
-  The canonical values are `legacy` and `migrated`.
+  The canonical values are `legacy` and `implementation`.
+
+- `legacy snippet status`
+  The snippet artifact field on each check that says whether legacy source provenance is `available`, `not_applicable`, or `unavailable`.
 
 - `renderer`
-  A component that turns parity data into HTML or report artifacts.
+  A component that turns run data into HTML or report artifacts.
 
 - `loader`
   A component that materializes runtime data from cache or an execution boundary.
 
+### Artifact Terms
+
+- `schema_version`
+  The root version marker embedded in JSON artifacts such as `run.json` and `snippets.json`.
+
+- `kind`
+  The root artifact type marker embedded in JSON artifacts such as `run.json` and `snippets.json`.
+
+### Migration Planning Terms
+
+- `cluster_id`
+  The derived legacy inventory grouping key used in `estimation_sheet.csv` to group rows that share the same legacy source span.
+
 ## Naming Rules
 
 - Use `layer` for the high level repository split.
+- Use `run` for generic application execution and output.
 - Use `reference` for parity side runtime concepts.
 - Use `legacy backend` for the Perl execution boundary.
 - Use `legacy` for legacy code provenance and raw legacy emitted codes.
-- Use `migrated` for Python output and snippet provenance.
+- Use `implementation` for current repository code provenance in snippet artifacts.
+- Use `migrated` for parity side Python output and mismatch semantics, not for generic snippet provenance.
+- Use `legacy snippet status` for whether legacy source provenance applies or resolved for one check.
+- Use `parity` only for strict comparison concepts, parity baselines, or mismatch semantics.
 - Use `baseline` only for the contract or config axis.
-- Use `surface` for runtime and API contracts, not for the top level repository structure.
+- Use `surface` for runtime and API contracts, not for the repository structure as a whole.
 - Use `dsl` in technical names such as modules, resources, paths, and scripts.
 - Prefer `loader` over `provider` when the object concretely loads or materializes data.
 - Prefer `renderer` over generic names like `report` when the module's responsibility is rendering output artifacts.
@@ -137,23 +185,26 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - `src/openfoodfacts_data_quality/`
   Reusable library contracts and the public API. The package also contains context building, the check catalog, and the DSL subsystem.
 
-- `app/sources/`
+- `app/source/`
   Source snapshot access helpers.
 
 - `app/legacy_backend/`
   The legacy backend boundary: input projection, wrapper script, persistent runner, and worker pool.
 
 - `app/reference/`
-  Reference side runtime data: models, loading logic, cache handling, and finding normalization.
+  Reference side runtime data: models, loading logic, cache handling, envelope validation, materializers, and finding normalization.
 
-- `app/pipeline/`
-  Run preparation and orchestration: profiles, context builders, execution, and progress reporting.
+- `app/legacy_source.py`
+  Shared legacy source analysis used by report snippets and migration planning workflows.
+
+- `app/run/`
+  Run preparation and orchestration: profiles, context builders, execution, accumulation, serialization, and progress reporting.
 
 - `app/parity/`
-  Parity models plus comparison, accumulation, and serialization.
+  Strict comparison logic between reference and migrated findings.
 
 - `app/report/`
-  Presentation: renderer, downloads, snippets, and legacy source indexing.
+  Presentation: renderer, downloads, and snippets.
 
 - `config/check-profiles.toml`
   Named run profiles and check selection policy.
@@ -161,6 +212,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 ## When In Doubt
 
 - If the code refers to parity runtime state, call it `reference`.
+- If the code refers to generic application execution or its overall output, call it `run`.
 - If it refers to the Perl execution boundary, call it `legacy backend`.
 - Prefer the package or module name already used in the repository.
 

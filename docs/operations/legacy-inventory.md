@@ -9,7 +9,7 @@ The legacy inventory workflow supports migration planning and stays separate fro
 Entry point:
 
 ```bash
-python scripts/export_legacy_inventory.py --legacy-source-root /path/to/openfoodfacts-server
+.venv/bin/python scripts/export_legacy_inventory.py --legacy-source-root /path/to/openfoodfacts-server
 ```
 
 This inspects the legacy Perl data quality modules and writes:
@@ -26,15 +26,23 @@ Machine readable inventory artifact. It groups legacy emitted code templates int
 - source locations
 - placeholder information
 - structural signals from the legacy subroutine
+- counts of unsupported data-quality emission shapes seen in the same source family
 - source fingerprinting data
 
 ### `estimation_sheet.csv`
 
 Flat CSV scaffold for planning. It is simpler than the JSON artifact and meant for human estimation work.
+It includes the source span columns and a derived `cluster_id` column so spreadsheet-based estimates can group families that share the same legacy snippet. The assessment apply step preserves that grouping key.
 
 ## Assessment
 
 `scripts/apply_inventory_assessment.py` applies planning decisions from `assessment.json` back onto the estimation sheet.
+
+Use the same `.venv` workflow for this step:
+
+```bash
+.venv/bin/python scripts/apply_inventory_assessment.py
+```
 
 The workflow keeps facts, judgments, and sheet updates in separate artifacts:
 
@@ -45,6 +53,8 @@ The workflow keeps facts, judgments, and sheet updates in separate artifacts:
 ## Repository Role
 
 This workflow sits alongside the runtime because it supports the migration effort. It is not part of routine check execution or the public library API.
+
+The export and report snippet workflows share the same legacy source analysis module in `app/legacy_source.py`.
 
 ## Next Reads
 

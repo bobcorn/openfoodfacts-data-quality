@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class CheckCatalog:
-    """Immutable quality-check catalog built from the definition sources."""
+    """Immutable quality check catalog built from the definition sources."""
 
     checks: tuple[CheckDefinition, ...]
     evaluators_by_id: Mapping[str, CheckEvaluator]
@@ -178,7 +178,7 @@ def load_check_catalog(
 
 @cache
 def get_default_check_catalog() -> CheckCatalog:
-    """Return the process-wide default quality-check catalog."""
+    """Return the process-wide default quality check catalog."""
     return load_check_catalog()
 
 
@@ -200,7 +200,7 @@ def _resolve_definition_paths(
 def _resolve_python_module_names(
     python_module_names: Collection[str] | None,
 ) -> tuple[str, ...]:
-    """Return the Python check-pack module names that should be loaded."""
+    """Return the Python check pack module names that should be loaded."""
     if python_module_names is None:
         return default_python_check_pack_module_names()
     return tuple(python_module_names)
@@ -209,7 +209,7 @@ def _resolve_python_module_names(
 def _load_python_check_bindings(
     python_module_names: Collection[str],
 ) -> tuple[CheckBinding, ...]:
-    """Load decorator-defined Python checks from the configured pack modules."""
+    """Load defined by decorators Python checks from the configured pack modules."""
     seen_ids: set[str] = set()
     bindings: list[CheckBinding] = []
     for module_name in python_module_names:
@@ -278,7 +278,7 @@ def _validate_required_context_paths(
     required_context_paths: tuple[str, ...],
     check_id: str,
 ) -> None:
-    """Ensure declared check dependencies refer to known normalized-context paths."""
+    """Ensure declared check dependencies refer to known normalized context paths."""
     unknown_paths = [
         path for path in required_context_paths if path_spec_for(path) is None
     ]
@@ -328,7 +328,7 @@ def _validate_active_check_ids_match_selection(
 
 
 def _selection_label(selection: CheckSelection) -> str:
-    """Return a human-readable label describing one selection filter set."""
+    """Return a readable label describing one selection filter set."""
     parts: list[str] = []
     if selection.input_surface is not None:
         parts.append(f"input surface {selection.input_surface}")

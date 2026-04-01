@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 
 import duckdb
@@ -9,6 +10,11 @@ import duckdb
 from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
+
+from app.source.duckdb_products import (
+    source_snapshot_id_for,
+    write_source_snapshot_manifest,
+)
 
 from openfoodfacts_data_quality.raw_products import (
     RAW_NUTRIMENT_COLUMNS,
@@ -48,7 +54,7 @@ def main() -> int:
         "--seed",
         type=int,
         default=42,
-        help="Seed used for a stable pseudo-random product selection.",
+        help="Seed used for a stable pseudorandom product selection.",
     )
     args = parser.parse_args()
 
@@ -72,6 +78,10 @@ def main() -> int:
         temp_db = Path(temp_dir) / output_db.name
         write_sample_db(temp_db, columns, records)
         temp_db.replace(output_db)
+    write_source_snapshot_manifest(
+        output_db,
+        source_snapshot_id=source_snapshot_id_for(output_db),
+    )
 
     print(
         f"Refreshed {output_db} with {len(records)} products from {source_parquet} "
@@ -83,7 +93,7 @@ def main() -> int:
 def fetch_source_rows(
     source_parquet: Path, sample_size: int, seed: int
 ) -> list[dict[str, object]]:
-    """Load a stable pseudo-random slice of the full parquet snapshot."""
+    """Load a stable pseudorandom slice of the full parquet snapshot."""
     connection = duckdb.connect()
     try:
         select_list = ",\n      ".join(BASE_SELECT)
@@ -113,7 +123,7 @@ def fetch_source_rows(
         connection.close()
 
 
-def transform_row(row: dict[str, object], columns: list[str]) -> list[str | None]:
+def transform_row(row: dict[str, object], columns: Sequence[str]) -> list[str | None]:
     """Project one parquet row into the flat DuckDB sample shape used by the prototype."""
     nutrient_values = extract_nutrient_values(row.get("nutriments"))
     flat_row: dict[str, str | None] = {
@@ -183,7 +193,7 @@ def extract_nutrient_values(value: object) -> dict[str, str]:
 
 
 def join_strings(value: object) -> str | None:
-    """Serialize an array of strings into the comma-separated format used by the sample."""
+    """Serialize an array of strings into the comma separated format used by the sample."""
     items = object_list_or_empty(value)
     if not isinstance(value, list):
         return stringify(value)
@@ -204,7 +214,9 @@ def stringify(value: object) -> str | None:
 
 
 def write_sample_db(
-    output_db: Path, columns: list[str], records: list[list[str | None]]
+    output_db: Path,
+    columns: Sequence[str],
+    records: list[list[str | None]],
 ) -> None:
     """Write the projected sample rows into a fresh DuckDB database."""
     connection = duckdb.connect(str(output_db))

@@ -1,4 +1,4 @@
-"""Packaged Canada-specific Python quality checks.
+"""Packaged Canada specific Python quality checks.
 
 These prototype checks intentionally use canonical claim tags together with
 per-100g scalar nutrients until the runtime models Canadian reference amounts

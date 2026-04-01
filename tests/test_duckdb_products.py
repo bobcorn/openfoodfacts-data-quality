@@ -4,8 +4,9 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from app.sources.duckdb_products import count_source_rows, iter_source_batches
+from app.source.duckdb_products import count_source_rows, iter_source_batches
 
+from openfoodfacts_data_quality.contracts.raw import validate_raw_product_row
 from openfoodfacts_data_quality.raw_products import RAW_INPUT_COLUMNS
 
 
@@ -39,16 +40,18 @@ def test_iter_source_batches_reads_only_the_explicit_source_contract(
     batch = next(iter_source_batches(db_path, batch_size=10))
 
     assert batch == [
-        {
-            "code": "123",
-            "created_t": "123",
-            "product_name": "Example",
-            **{
-                column: None
-                for column in RAW_INPUT_COLUMNS
-                if column not in {"code", "created_t", "product_name"}
-            },
-        }
+        validate_raw_product_row(
+            {
+                "code": "123",
+                "created_t": "123",
+                "product_name": "Example",
+                **{
+                    column: None
+                    for column in RAW_INPUT_COLUMNS
+                    if column not in {"code", "created_t", "product_name"}
+                },
+            }
+        )
     ]
 
 

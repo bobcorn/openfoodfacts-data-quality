@@ -11,7 +11,7 @@
   "extraPaths": ["app", "src", "scripts"],
   "venvPath": ".",
   "venv": ".venv",
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.14",
   "typeCheckingMode": "strict",
   "reportMissingTypeStubs": true,
   "reportMissingImports": true,

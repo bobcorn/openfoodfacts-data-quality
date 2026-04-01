@@ -3,17 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from app.parity.models import (
-    CheckParityResult,
-    ObservedFinding,
-    ParityResult,
-    ParityRunMetadata,
+from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+from openfoodfacts_data_quality.contracts.run import (
+    ComparisonStatus,
+    RunCheckResult,
+    RunMetadata,
+    RunResult,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from app.parity.models import ComparisonStatus
     from openfoodfacts_data_quality.contracts.checks import CheckDefinition
 
 
@@ -24,7 +24,7 @@ def _finding_examples() -> list[ObservedFinding]:
 
 @dataclass
 class _CheckAccumulator:
-    """Accumulate exact parity counts while retaining only capped mismatch examples."""
+    """Accumulate exact run counts while retaining only capped mismatch examples."""
 
     definition: CheckDefinition
     comparison_status: ComparisonStatus | None = None
@@ -36,8 +36,8 @@ class _CheckAccumulator:
     missing_examples: list[ObservedFinding] = field(default_factory=_finding_examples)
     extra_examples: list[ObservedFinding] = field(default_factory=_finding_examples)
 
-    def add_batch(self, batch: CheckParityResult, max_examples_per_side: int) -> None:
-        """Merge one batch-level check result into the accumulated totals."""
+    def add_batch(self, batch: RunCheckResult, max_examples_per_side: int) -> None:
+        """Merge one batch level check result into the accumulated totals."""
         if self.comparison_status is None:
             self.comparison_status = batch.comparison_status
         elif self.comparison_status != batch.comparison_status:
@@ -55,10 +55,10 @@ class _CheckAccumulator:
         )
         self._extend_examples(self.extra_examples, batch.extra, max_examples_per_side)
 
-    def build_result(self) -> CheckParityResult:
-        """Build the final summary-first parity result for one check."""
+    def build_result(self) -> RunCheckResult:
+        """Build the final summary-first run result for one check."""
         comparison_status = self.comparison_status or "compared"
-        return CheckParityResult(
+        return RunCheckResult(
             definition=self.definition,
             comparison_status=comparison_status,
             reference_count=self.reference_count,
@@ -88,8 +88,8 @@ class _CheckAccumulator:
         destination.extend(source[:remaining])
 
 
-class ParityAccumulator:
-    """Aggregate batch-level parity results into one report-sized summary."""
+class RunResultAccumulator:
+    """Aggregate batch level run results into one report-sized summary."""
 
     def __init__(
         self,
@@ -104,16 +104,16 @@ class ParityAccumulator:
         }
         self._max_examples_per_side = max_examples_per_side
         self._reference_total = 0
-        self._migrated_total = 0
+        self._compared_migrated_total = 0
         self._matched_total = 0
-        self._not_compared_migrated_total = 0
+        self._runtime_only_migrated_total = 0
 
-    def add_batch(self, batch_result: ParityResult) -> None:
-        """Merge one batch parity result into the accumulated run summary."""
+    def add_batch(self, batch_result: RunResult) -> None:
+        """Merge one batch run result into the accumulated run summary."""
         self._reference_total += batch_result.reference_total
-        self._migrated_total += batch_result.migrated_total
+        self._compared_migrated_total += batch_result.compared_migrated_total
         self._matched_total += batch_result.matched_total
-        self._not_compared_migrated_total += batch_result.not_compared_migrated_total
+        self._runtime_only_migrated_total += batch_result.runtime_only_migrated_total
 
         for batch_check in batch_result.checks:
             self._checks[batch_check.definition.id].add_batch(
@@ -124,10 +124,10 @@ class ParityAccumulator:
     def build_result(
         self,
         *,
-        run: ParityRunMetadata,
-    ) -> ParityResult:
-        """Materialize the final accumulated parity result."""
-        return ParityResult(
+        run: RunMetadata,
+    ) -> RunResult:
+        """Materialize the final accumulated run result."""
+        return RunResult(
             run_id=run.run_id,
             source_snapshot_id=run.source_snapshot_id,
             product_count=run.product_count,
@@ -137,11 +137,11 @@ class ParityAccumulator:
             compared_check_count=sum(
                 1 for check in self._active_checks if check.parity_baseline == "legacy"
             ),
-            not_compared_check_count=sum(
+            runtime_only_check_count=sum(
                 1 for check in self._active_checks if check.parity_baseline == "none"
             ),
             reference_total=self._reference_total,
-            migrated_total=self._migrated_total,
+            compared_migrated_total=self._compared_migrated_total,
             matched_total=self._matched_total,
-            not_compared_migrated_total=self._not_compared_migrated_total,
+            runtime_only_migrated_total=self._runtime_only_migrated_total,
         )

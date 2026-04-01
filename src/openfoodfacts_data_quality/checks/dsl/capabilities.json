@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "kind": "openfoodfacts_dqm.dsl_capabilities",
+  "kind": "openfoodfacts_data_quality.dsl_capabilities",
   "expression_model": "declarative_boolean_predicate_tree",
   "logical_forms": ["all", "any", "not"],
   "atom_operators": [

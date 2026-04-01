@@ -1,1 +1,1 @@
-"""Packaged DSL quality-check packs."""
+"""Packaged DSL quality check packs."""

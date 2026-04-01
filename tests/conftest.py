@@ -6,13 +6,8 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 import pytest
+from app.legacy_backend.contracts import LegacyBackendInputPayload
 from app.legacy_backend.input_projection import LegacyBackendInputProduct
-from app.parity.models import (
-    CheckParityResult,
-    ObservationSide,
-    ObservedFinding,
-    ParityResult,
-)
 from app.reference.models import LegacyCheckTags, ReferenceResult
 
 from openfoodfacts_data_quality.checks.catalog import (
@@ -36,6 +31,11 @@ from openfoodfacts_data_quality.contracts.context import (
 )
 from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshot
 from openfoodfacts_data_quality.contracts.findings import Finding
+from openfoodfacts_data_quality.contracts.observations import (
+    ObservationSide,
+    ObservedFinding,
+)
+from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
 
 Payload = dict[str, Any]
 TEST_DEFAULT_PARITY_BASELINE: CheckParityBaseline = "legacy"
@@ -100,8 +100,8 @@ class ObservedFindingFactory(Protocol):
     ) -> ObservedFinding: ...
 
 
-class ParityResultFactory(Protocol):
-    def __call__(self) -> ParityResult: ...
+class RunResultFactory(Protocol):
+    def __call__(self) -> RunResult: ...
 
 
 class CheckDefinitionFactory(Protocol):
@@ -361,12 +361,12 @@ def legacy_backend_input_product_factory() -> LegacyBackendInputProductFactory:
         code: str = "0000000000000",
         projected_input: Payload | None = None,
     ) -> LegacyBackendInputProduct:
-        projected_payload: dict[str, object] = {"code": code}
+        projected_payload: Payload = {"code": code}
         if projected_input is not None:
             projected_payload = {key: value for key, value in projected_input.items()}
         return LegacyBackendInputProduct(
             code=code,
-            projected_input=projected_payload,
+            projected_input=LegacyBackendInputPayload.model_validate(projected_payload),
         )
 
     return factory
@@ -438,12 +438,12 @@ def observed_finding_factory() -> ObservedFindingFactory:
 
 
 @pytest.fixture
-def parity_result_factory(
+def run_result_factory(
     observed_finding_factory: ObservedFindingFactory,
     default_checks_by_id: Mapping[str, CheckDefinition],
-) -> ParityResultFactory:
-    def factory() -> ParityResult:
-        check_pass = CheckParityResult(
+) -> RunResultFactory:
+    def factory() -> RunResult:
+        check_pass = RunCheckResult(
             definition=default_checks_by_id["en:product-name-to-be-completed"],
             reference_count=1,
             migrated_count=1,
@@ -454,7 +454,7 @@ def parity_result_factory(
             extra=[],
             passed=True,
         )
-        check_fail = CheckParityResult(
+        check_fail = RunCheckResult(
             definition=default_checks_by_id["en:quantity-not-recognized"],
             reference_count=1,
             migrated_count=0,
@@ -472,17 +472,17 @@ def parity_result_factory(
             extra=[],
             passed=False,
         )
-        return ParityResult(
+        return RunResult(
             run_id="test-run",
             source_snapshot_id="source-snapshot",
             product_count=2,
             checks=[check_pass, check_fail],
             compared_check_count=2,
-            not_compared_check_count=0,
+            runtime_only_check_count=0,
             reference_total=2,
-            migrated_total=1,
+            compared_migrated_total=1,
             matched_total=1,
-            not_compared_migrated_total=0,
+            runtime_only_migrated_total=0,
         )
 
     return factory

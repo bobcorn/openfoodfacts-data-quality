@@ -42,23 +42,27 @@
 
                 <div class="filter-grid">
                   <fieldset class="filter-group">
-                    <legend>{{ terms.controls.filter_groups.parity }}</legend>
+                    <legend>{{ terms.controls.filter_groups.outcome }}</legend>
                     <div class="filter-options">
                       <label class="filter-option">
-                        <input type="checkbox" data-filter-group="parity" value="pass">
+                        <input type="checkbox" data-filter-group="outcome" value="pass">
                         <span>{{ terms.outcomes.pass.label }}</span>
                       </label>
                       <label class="filter-option">
-                        <input type="checkbox" data-filter-group="parity" value="legacy_only">
+                        <input type="checkbox" data-filter-group="outcome" value="legacy_only">
                         <span>{{ terms.outcomes.legacy_only.label }}</span>
                       </label>
                       <label class="filter-option">
-                        <input type="checkbox" data-filter-group="parity" value="migrated_only">
+                        <input type="checkbox" data-filter-group="outcome" value="migrated_only">
                         <span>{{ terms.outcomes.migrated_only.label }}</span>
                       </label>
                       <label class="filter-option">
-                        <input type="checkbox" data-filter-group="parity" value="mixed">
+                        <input type="checkbox" data-filter-group="outcome" value="mixed">
                         <span>{{ terms.outcomes.mixed.label }}</span>
+                      </label>
+                      <label class="filter-option">
+                        <input type="checkbox" data-filter-group="outcome" value="runtime_only">
+                        <span>{{ terms.outcomes.runtime_only.label }}</span>
                       </label>
                     </div>
                   </fieldset>
@@ -119,6 +123,10 @@
                       <label class="filter-option">
                         <input type="radio" name="sort-field" value="matched_count">
                         <span>{{ terms.controls.sort_options.matched_count }}</span>
+                      </label>
+                      <label class="filter-option">
+                        <input type="radio" name="sort-field" value="migrated_count">
+                        <span>{{ terms.controls.sort_options.migrated_count }}</span>
                       </label>
                       <label class="filter-option">
                         <input type="radio" name="sort-field" value="check_id">

@@ -2,35 +2,45 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
-import pytest
-from app.report.legacy_source import LegacySourceIndex, resolve_legacy_module_paths
-from app.report.snippets import build_code_snippet_panels, build_snippet_artifact
+from app.legacy_source import LegacySourceIndex, resolve_legacy_module_paths
+from app.report.snippets import (
+    SNIPPETS_ARTIFACT_KIND,
+    SNIPPETS_ARTIFACT_SCHEMA_VERSION,
+    SnippetArtifact,
+    SnippetChecks,
+    build_code_snippet_panels,
+    build_snippet_artifact,
+)
 
 from openfoodfacts_data_quality.checks.catalog import CheckCatalog
 
 
 def test_build_code_snippet_panels_renders_from_structured_snippet_artifact() -> None:
-    snippet_artifact = {
+    snippet_artifact: SnippetArtifact = {
         "checks": {
-            "en:test-check": [
-                {
-                    "check_id": "en:test-check",
-                    "origin": "migrated",
-                    "definition_language": "python",
-                    "path": "src/example.py",
-                    "start_line": 10,
-                    "end_line": 12,
-                    "code": "def example() -> None:\n    return None",
-                }
-            ]
+            "en:test-check": {
+                "legacy_snippet_status": "not_applicable",
+                "snippets": [
+                    {
+                        "check_id": "en:test-check",
+                        "origin": "implementation",
+                        "definition_language": "python",
+                        "path": "src/example.py",
+                        "start_line": 10,
+                        "end_line": 12,
+                        "code": "def example() -> None:\n    return None",
+                    }
+                ],
+            }
         }
     }
 
     panels_by_check = build_code_snippet_panels(snippet_artifact)
 
     assert list(panels_by_check) == ["en:test-check"]
-    assert panels_by_check["en:test-check"][0]["title"] == "Migrated Snippet"
+    assert panels_by_check["en:test-check"][0]["title"] == "Current Implementation"
     assert "def" in panels_by_check["en:test-check"][0]["html"]
 
 
@@ -46,19 +56,28 @@ def test_build_snippet_artifact_is_machine_readable(
         legacy_source_root=legacy_root,
     )
 
-    snippets = snippet_artifact["checks"]["en:food-groups-${level}-known"]
-    migrated_snippet = next(
-        snippet for snippet in snippets if snippet["origin"] == "migrated"
+    assert snippet_artifact["kind"] == SNIPPETS_ARTIFACT_KIND
+    assert snippet_artifact["schema_version"] == SNIPPETS_ARTIFACT_SCHEMA_VERSION
+    assert snippet_artifact["issues"] == []
+
+    snippets = cast(
+        SnippetChecks,
+        snippet_artifact["checks"],
+    )["en:food-groups-${level}-known"]
+    assert snippets["legacy_snippet_status"] == "available"
+    snippet_list = cast(list[dict[str, object]], snippets["snippets"])
+    implementation_snippet = next(
+        snippet for snippet in snippet_list if snippet["origin"] == "implementation"
     )
 
-    assert migrated_snippet["definition_language"] == "python"
+    assert implementation_snippet["definition_language"] == "python"
     assert (
-        migrated_snippet["path"]
+        implementation_snippet["path"]
         == "src/openfoodfacts_data_quality/checks/packs/python/global_checks.py"
     )
-    assert isinstance(migrated_snippet["start_line"], int)
-    assert isinstance(migrated_snippet["end_line"], int)
-    assert "html" not in migrated_snippet
+    assert isinstance(implementation_snippet["start_line"], int)
+    assert isinstance(implementation_snippet["end_line"], int)
+    assert "html" not in implementation_snippet
 
 
 def test_legacy_source_index_parses_concatenated_and_multiline_templates(
@@ -108,14 +127,23 @@ def test_build_snippet_artifact_includes_legacy_food_group_and_multiline_snippet
         legacy_source_root=legacy_root,
     )
 
-    known_snippets = snippet_artifact["checks"]["en:food-groups-${level}-known"]
-    energy_snippets = snippet_artifact["checks"][
+    checks_by_id = cast(SnippetChecks, snippet_artifact["checks"])
+    known_entry = checks_by_id["en:food-groups-${level}-known"]
+    energy_entry = checks_by_id[
         "en:${set_id}-energy-value-in-${unit}-does-not-match-value-computed-from-other-nutrients"
     ]
+    known_snippets = cast(list[dict[str, object]], known_entry["snippets"])
+    energy_snippets = cast(list[dict[str, object]], energy_entry["snippets"])
 
-    assert {snippet["origin"] for snippet in known_snippets} == {"migrated", "legacy"}
+    assert known_entry["legacy_snippet_status"] == "available"
+    assert energy_entry["legacy_snippet_status"] == "available"
+
+    assert {snippet["origin"] for snippet in known_snippets} == {
+        "implementation",
+        "legacy",
+    }
     assert {snippet["origin"] for snippet in energy_snippets} == {
-        "migrated",
+        "implementation",
         "legacy",
     }
 
@@ -127,17 +155,29 @@ def test_build_snippet_artifact_includes_legacy_food_group_and_multiline_snippet
     )
 
     assert known_legacy_snippet["path"] == "lib/ProductOpener/DataQualityFood.pm"
-    assert "sub check_food_groups" in known_legacy_snippet["code"]
-    assert "sub check_energy_mismatch" in energy_legacy_snippet["code"]
+    assert "sub check_food_groups" in str(known_legacy_snippet["code"])
+    assert "sub check_energy_mismatch" in str(energy_legacy_snippet["code"])
 
 
-def test_build_snippet_artifact_requires_legacy_source_for_legacy_checks(
+def test_build_snippet_artifact_degrades_without_legacy_source_for_legacy_checks(
     tmp_path: Path,
     default_check_catalog: CheckCatalog,
 ) -> None:
-    with pytest.raises(RuntimeError, match="Legacy snippet extraction requires"):
-        build_snippet_artifact(
-            {"en:serving-quantity-over-product-quantity"},
-            catalog=default_check_catalog,
-            legacy_source_root=tmp_path / "missing-legacy-root",
-        )
+    snippet_artifact = build_snippet_artifact(
+        {"en:serving-quantity-over-product-quantity"},
+        catalog=default_check_catalog,
+        legacy_source_root=tmp_path / "missing-legacy-root",
+    )
+
+    issues = cast(list[dict[str, object]], snippet_artifact["issues"])
+    snippets = cast(
+        SnippetChecks,
+        snippet_artifact["checks"],
+    )["en:serving-quantity-over-product-quantity"]
+    assert snippets["legacy_snippet_status"] == "unavailable"
+    snippet_list = cast(list[dict[str, object]], snippets["snippets"])
+
+    assert len(issues) == 1
+    assert issues[0]["severity"] == "warning"
+    assert issues[0]["check_ids"] == ["en:serving-quantity-over-product-quantity"]
+    assert {snippet["origin"] for snippet in snippet_list} == {"implementation"}

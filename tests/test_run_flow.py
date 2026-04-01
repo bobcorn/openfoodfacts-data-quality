@@ -3,19 +3,20 @@ from __future__ import annotations
 import logging
 from concurrent.futures import Future
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeVar
+from typing import TYPE_CHECKING, ParamSpec, Protocol, TypeVar
 
-import app.pipeline.execution as execution_module
-import app.pipeline.preparation as preparation_module
+import app.run.execution as execution_module
+import app.run.preparation as preparation_module
 import pytest
-from app.legacy_backend.input_projection import LegacyBackendInputProduct
-from app.pipeline.batch_inputs import (
-    NoOpBatchInputResolver,
-    ReferenceBatchInputResolver,
+from app.reference.materializers import (
+    EnrichedSnapshotMaterializer,
+    ReferenceFindingMaterializer,
 )
-from app.pipeline.context_builders import check_context_builder_for
-from app.pipeline.execution import run_batches
-from app.pipeline.models import (
+from app.reference.models import ReferenceResult
+from app.reference.observers import NoReferenceObserver
+from app.run.context_builders import check_context_builder_for
+from app.run.execution import run_batches
+from app.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
     BatchRunPlan,
@@ -23,23 +24,19 @@ from app.pipeline.models import (
     ResolvedReferenceResults,
     ScheduledBatch,
 )
-from app.pipeline.preparation import (
+from app.run.preparation import (
     display_path,
     prepare_artifacts_dir,
     prepare_run,
 )
-from app.pipeline.profiles import ActiveCheckProfile
-from app.pipeline.scheduler import BatchScheduler
-from app.reference.models import ReferenceResult
-from app.reference.observers import NoReferenceObserver
+from app.run.profiles import ActiveCheckProfile
+from app.run.scheduler import BatchScheduler
 
 from openfoodfacts_data_quality.contracts.checks import LEGACY_PARITY_BASELINES
 from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
-
-    from app.parity.models import ObservedFinding, ParityResult
+    from collections.abc import Callable, Iterator, Sequence
 
     from openfoodfacts_data_quality.checks.catalog import CheckCatalog
     from openfoodfacts_data_quality.contracts.checks import (
@@ -48,10 +45,15 @@ if TYPE_CHECKING:
     )
     from openfoodfacts_data_quality.contracts.context import NormalizedContext
     from openfoodfacts_data_quality.contracts.findings import Finding
+    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+    from openfoodfacts_data_quality.contracts.raw import RawProductRow
+    from openfoodfacts_data_quality.contracts.run import RunResult
+
+from openfoodfacts_data_quality.contracts.raw import RawProductRow
 
 
-class ParityResultFactory(Protocol):
-    def __call__(self) -> ParityResult: ...
+class RunResultFactory(Protocol):
+    def __call__(self) -> RunResult: ...
 
 
 _SubmitParams = ParamSpec("_SubmitParams")
@@ -113,10 +115,10 @@ class _RecordingProgressReporter:
 
 class _RecordingAccumulator:
     def __init__(self) -> None:
-        self.parity_results: list[ParityResult] = []
+        self.run_results: list[RunResult] = []
 
-    def add_batch(self, batch_result: ParityResult) -> None:
-        self.parity_results.append(batch_result)
+    def add_batch(self, batch_result: RunResult) -> None:
+        self.run_results.append(batch_result)
 
 
 class _UnusedCheckContextBuilder:
@@ -129,29 +131,55 @@ class _UnusedCheckContextBuilder:
     def build_contexts(
         self,
         *,
-        rows: list[dict[str, Any]],
+        rows: list[RawProductRow],
         enriched_snapshots: Sequence[EnrichedSnapshotResult],
     ) -> list[NormalizedContext]:
         raise AssertionError(
             f"Unexpected context build for rows={rows!r}, enriched_snapshots={enriched_snapshots!r}"
         )
 
+    def iter_contexts(
+        self,
+        *,
+        rows: list[RawProductRow],
+        enriched_snapshots: Sequence[EnrichedSnapshotResult],
+    ) -> Iterator[NormalizedContext]:
+        raise AssertionError(
+            f"Unexpected context iteration for rows={rows!r}, enriched_snapshots={enriched_snapshots!r}"
+        )
+
 
 class _RecordingReferenceResultLoader:
     def __init__(self, reference_results: list[ReferenceResult]) -> None:
         self.reference_results = reference_results
-        self.calls: list[list[LegacyBackendInputProduct]] = []
+        self.calls: list[list[RawProductRow]] = []
 
     def load_many(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        rows: list[RawProductRow],
     ) -> ResolvedReferenceResults:
-        self.calls.append(backend_input_products)
+        self.calls.append(rows)
         return ResolvedReferenceResults(
             reference_results=self.reference_results,
             cache_hit_count=0,
-            backend_run_count=len(backend_input_products),
+            backend_run_count=len(rows),
         )
+
+
+def _raw_row(**overrides: object) -> RawProductRow:
+    return RawProductRow.model_validate({"code": "0000000000000", **overrides})
+
+
+def _single_row_batch(
+    *,
+    batch_index: int = 1,
+    code: str = "123",
+    product_name: str = "Raw name",
+) -> ScheduledBatch:
+    return ScheduledBatch(
+        batch_index=batch_index,
+        rows=[_raw_row(code=code, product_name=product_name)],
+    )
 
 
 class _RecordingReferenceObserver:
@@ -176,16 +204,16 @@ class _RecordingReferenceObserver:
     def observe_findings(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[ObservedFinding]:
+    ) -> Sequence[ObservedFinding]:
         self.calls.append(reference_results)
         return self.findings
 
 
-def _parity_result_stub(
-    expected_parity: ParityResult,
-) -> Callable[..., ParityResult]:
-    def fake_evaluate_parity(*_: object, **__: object) -> ParityResult:
-        return expected_parity
+def _run_result_stub(
+    expected_run_result: RunResult,
+) -> Callable[..., RunResult]:
+    def fake_evaluate_parity(*_: object, **__: object) -> RunResult:
+        return expected_run_result
 
     return fake_evaluate_parity
 
@@ -194,35 +222,37 @@ def _execute_batch_with_stubbed_runtime(
     *,
     batch: ScheduledBatch,
     execution: BatchExecutionContext,
-    expected_parity: ParityResult,
+    expected_run_result: RunResult,
     monkeypatch: pytest.MonkeyPatch,
     observed_contexts: list[NormalizedContext] | None = None,
 ) -> BatchExecutionResult:
-    def fake_run_checks_with_evaluators(
-        contexts: list[NormalizedContext],
+    def fake_iter_check_findings_with_evaluators(
+        contexts: Sequence[NormalizedContext],
         *_: object,
         **__: object,
-    ) -> list[Finding]:
+    ) -> Iterator[Finding]:
         if observed_contexts is not None:
             observed_contexts.extend(contexts)
-        return []
+        return iter(())
 
     monkeypatch.setattr(
         execution_module,
-        "run_checks_with_evaluators",
-        fake_run_checks_with_evaluators,
+        "iter_check_findings_with_evaluators",
+        fake_iter_check_findings_with_evaluators,
     )
     monkeypatch.setattr(
         execution_module,
         "evaluate_parity",
-        _parity_result_stub(expected_parity),
+        _run_result_stub(expected_run_result),
     )
     return execution_module.execute_batch(batch, execution)
 
 
 def _dummy_execution_context() -> BatchExecutionContext:
     return BatchExecutionContext(
-        batch_input_resolver=NoOpBatchInputResolver(),
+        reference_result_loader=None,
+        enriched_snapshot_materializer=None,
+        reference_finding_materializer=None,
         evaluators={},
         active_checks=(),
         check_context_builder=_UnusedCheckContextBuilder(),
@@ -231,9 +261,34 @@ def _dummy_execution_context() -> BatchExecutionContext:
     )
 
 
+def _execution_context(
+    *,
+    input_surface: CheckInputSurface,
+    reference_result_loader: _RecordingReferenceResultLoader | None,
+    reference_observer: _RecordingReferenceObserver,
+    include_enriched_snapshots: bool,
+) -> BatchExecutionContext:
+    return BatchExecutionContext(
+        reference_result_loader=reference_result_loader,
+        enriched_snapshot_materializer=(
+            EnrichedSnapshotMaterializer() if include_enriched_snapshots else None
+        ),
+        reference_finding_materializer=(
+            ReferenceFindingMaterializer(reference_observer)
+            if reference_observer.requires_reference_results
+            else None
+        ),
+        evaluators={},
+        active_checks=(),
+        check_context_builder=check_context_builder_for(input_surface),
+        run_id="run",
+        source_snapshot_id="source-snapshot",
+    )
+
+
 def _batch_execution_result(
     batch: ScheduledBatch,
-    parity_result: ParityResult,
+    run_result: RunResult,
 ) -> BatchExecutionResult:
     return BatchExecutionResult(
         batch_index=batch.batch_index,
@@ -242,7 +297,7 @@ def _batch_execution_result(
         backend_run_count=0,
         reference_finding_count=0,
         migrated_finding_count=0,
-        parity_result=parity_result,
+        run_result=run_result,
         elapsed_seconds=0.1,
     )
 
@@ -350,7 +405,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     prepared = prepare_run(
         tmp_path,
         tmp_path / "data" / "products.duckdb",
-        logger=logging.getLogger("test-pipeline"),
+        logger=logging.getLogger("test-run-flow"),
     )
 
     assert prepared.source_snapshot_id == "snapshot-123"
@@ -395,8 +450,8 @@ def test_with_reference_result_cache_replaces_cache_location(
         evaluators={
             sample_check.id: default_check_catalog.evaluators_by_id[sample_check.id]
         },
-        reference_result_cache_key="",
-        reference_result_cache_path=Path(),
+        reference_result_cache_key=None,
+        reference_result_cache_path=None,
         python_count=1 if sample_check.definition_language == "python" else 0,
         dsl_count=1 if sample_check.definition_language == "dsl" else 0,
         legacy_parity_count=1 if sample_check.parity_baseline == "legacy" else 0,
@@ -419,19 +474,19 @@ def test_with_reference_result_cache_replaces_cache_location(
 
 
 def test_batch_scheduler_submits_and_merges_batches_in_order(
-    parity_result_factory: ParityResultFactory,
+    run_result_factory: RunResultFactory,
 ) -> None:
     scheduler = BatchScheduler(
         batch_iterator=iter(
             [
-                ScheduledBatch(batch_index=1, rows=[{"code": "1"}]),
-                ScheduledBatch(batch_index=2, rows=[{"code": "2"}]),
+                ScheduledBatch(batch_index=1, rows=[_raw_row(code="1")]),
+                ScheduledBatch(batch_index=2, rows=[_raw_row(code="2")]),
             ]
         ),
         executor=_ImmediateExecutor(),
         process_batch=lambda batch: _batch_execution_result(
             batch,
-            parity_result_factory(),
+            run_result_factory(),
         ),
         worker_limit=2,
     )
@@ -451,23 +506,23 @@ def test_batch_scheduler_submits_and_merges_batches_in_order(
 
 def test_run_batches_processes_all_batches(
     monkeypatch: pytest.MonkeyPatch,
-    parity_result_factory: ParityResultFactory,
+    run_result_factory: RunResultFactory,
     tmp_path: Path,
 ) -> None:
     def fake_iter_source_batches(
         _: Path, *, batch_size: int
-    ) -> list[list[dict[str, str]]]:
+    ) -> list[list[RawProductRow]]:
         assert batch_size == 2
         return [
-            [{"code": "1"}],
-            [{"code": "2"}, {"code": "3"}],
+            [_raw_row(code="1")],
+            [_raw_row(code="2"), _raw_row(code="3")],
         ]
 
     def fake_execute_batch(
         batch: ScheduledBatch,
         _: BatchExecutionContext,
     ) -> BatchExecutionResult:
-        return _batch_execution_result(batch, parity_result_factory())
+        return _batch_execution_result(batch, run_result_factory())
 
     monkeypatch.setattr(
         execution_module,
@@ -487,6 +542,7 @@ def test_run_batches_processes_all_batches(
         plan=BatchRunPlan(
             db_path=tmp_path / "products.duckdb",
             batch_size=2,
+            batch_workers=2,
             legacy_backend_workers=2,
         ),
         execution=_dummy_execution_context(),
@@ -496,7 +552,7 @@ def test_run_batches_processes_all_batches(
 
     assert progress.completed_batches == [(1, 1), (2, 3)]
     assert progress.heartbeats == []
-    assert len(accumulator.parity_results) == 2
+    assert len(accumulator.run_results) == 2
 
 
 @pytest.mark.parametrize(
@@ -517,13 +573,10 @@ def test_execute_batch_uses_selected_context_builder(
     expected_lang: str | None,
     expects_reference_results: bool,
     monkeypatch: pytest.MonkeyPatch,
-    parity_result_factory: ParityResultFactory,
+    run_result_factory: RunResultFactory,
     reference_result_factory: Callable[..., ReferenceResult],
 ) -> None:
-    batch = ScheduledBatch(
-        batch_index=1,
-        rows=[{"code": "123", "product_name": "Raw name"}],
-    )
+    batch = _single_row_batch()
     reference_result = reference_result_factory(
         code="123",
         enriched_snapshot={
@@ -541,26 +594,16 @@ def test_execute_batch_uses_selected_context_builder(
     )
     reference_observer = _RecordingReferenceObserver(requires_reference_results=False)
     observed_contexts: list[NormalizedContext] = []
-    expected_parity = parity_result_factory()
+    expected_run_result = run_result_factory()
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
-        execution=BatchExecutionContext(
-            batch_input_resolver=(
-                ReferenceBatchInputResolver(
-                    reference_result_loader=reference_result_loader,
-                    reference_observer=reference_observer,
-                    include_enriched_snapshots=True,
-                )
-                if reference_result_loader is not None
-                else NoOpBatchInputResolver()
-            ),
-            evaluators={},
-            active_checks=(),
-            check_context_builder=check_context_builder_for(input_surface),
-            run_id="run",
-            source_snapshot_id="source-snapshot",
+        execution=_execution_context(
+            input_surface=input_surface,
+            reference_result_loader=reference_result_loader,
+            reference_observer=reference_observer,
+            include_enriched_snapshots=True,
         ),
-        expected_parity=expected_parity,
+        expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,
         observed_contexts=observed_contexts,
     )
@@ -576,38 +619,29 @@ def test_execute_batch_uses_selected_context_builder(
         expected_product_name
     ]
     assert observed_contexts[0].product.lang == expected_lang
-    assert result.parity_result == expected_parity
+    assert result.run_result == expected_run_result
 
 
 def test_execute_batch_loads_reference_results_for_legacy_parity_without_enriched_contexts(
     monkeypatch: pytest.MonkeyPatch,
-    parity_result_factory: ParityResultFactory,
+    run_result_factory: RunResultFactory,
     reference_result_factory: Callable[..., ReferenceResult],
 ) -> None:
-    batch = ScheduledBatch(
-        batch_index=1,
-        rows=[{"code": "123", "product_name": "Raw name"}],
-    )
+    batch = _single_row_batch()
     reference_result_loader = _RecordingReferenceResultLoader(
         [reference_result_factory(code="123")]
     )
     reference_observer = _RecordingReferenceObserver(requires_reference_results=True)
-    expected_parity = parity_result_factory()
+    expected_run_result = run_result_factory()
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
-        execution=BatchExecutionContext(
-            batch_input_resolver=ReferenceBatchInputResolver(
-                reference_result_loader=reference_result_loader,
-                reference_observer=reference_observer,
-                include_enriched_snapshots=False,
-            ),
-            evaluators={},
-            active_checks=(),
-            check_context_builder=check_context_builder_for("raw_products"),
-            run_id="run",
-            source_snapshot_id="source-snapshot",
+        execution=_execution_context(
+            input_surface="raw_products",
+            reference_result_loader=reference_result_loader,
+            reference_observer=reference_observer,
+            include_enriched_snapshots=False,
         ),
-        expected_parity=expected_parity,
+        expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,
     )
 
@@ -615,19 +649,16 @@ def test_execute_batch_loads_reference_results_for_legacy_parity_without_enriche
         [product.code for product in call] for call in reference_result_loader.calls
     ] == [["123"]]
     assert [result.code for result in reference_observer.calls[0]] == ["123"]
-    assert result.parity_result == expected_parity
+    assert result.run_result == expected_run_result
 
 
 def test_execute_batch_resolves_enrichment_and_reference_from_one_batch_input_loader(
     monkeypatch: pytest.MonkeyPatch,
-    parity_result_factory: ParityResultFactory,
+    run_result_factory: RunResultFactory,
     reference_result_factory: Callable[..., ReferenceResult],
     observed_finding_factory: Callable[..., ObservedFinding],
 ) -> None:
-    batch = ScheduledBatch(
-        batch_index=1,
-        rows=[{"code": "123", "product_name": "Raw name"}],
-    )
+    batch = _single_row_batch()
     reference_result_loader = _RecordingReferenceResultLoader(
         [
             reference_result_factory(
@@ -653,21 +684,16 @@ def test_execute_batch_resolves_enrichment_and_reference_from_one_batch_input_lo
         requires_reference_results=True,
     )
     observed_contexts: list[NormalizedContext] = []
+    expected_run_result = run_result_factory().model_copy(update={"reference_total": 1})
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
-        execution=BatchExecutionContext(
-            batch_input_resolver=ReferenceBatchInputResolver(
-                reference_result_loader=reference_result_loader,
-                reference_observer=reference_observer,
-                include_enriched_snapshots=True,
-            ),
-            evaluators={},
-            active_checks=(),
-            check_context_builder=check_context_builder_for("enriched_products"),
-            run_id="run",
-            source_snapshot_id="source-snapshot",
+        execution=_execution_context(
+            input_surface="enriched_products",
+            reference_result_loader=reference_result_loader,
+            reference_observer=reference_observer,
+            include_enriched_snapshots=True,
         ),
-        expected_parity=parity_result_factory(),
+        expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,
         observed_contexts=observed_contexts,
     )

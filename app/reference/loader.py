@@ -3,14 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.pipeline.models import ResolvedReferenceResults
+from app.legacy_backend.input_projection import build_legacy_backend_input_products
+from app.run.models import ResolvedReferenceResults
 
 if TYPE_CHECKING:
-    from app.legacy_backend.input_projection import LegacyBackendInputProduct
-    from app.pipeline.models import (
+    from app.run.models import (
         SupportsLegacyBackendRunner,
         SupportsReferenceResultCache,
     )
+    from openfoodfacts_data_quality.contracts.raw import RawProductRow
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,10 +23,10 @@ class ReferenceResultLoader:
 
     def load_many(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        rows: list[RawProductRow],
     ) -> ResolvedReferenceResults:
-        """Return one ordered reference-result list matching the requested input batch."""
-        if not backend_input_products:
+        """Return one ordered reference result list matching the requested input batch."""
+        if not rows:
             return ResolvedReferenceResults(
                 reference_results=[],
                 cache_hit_count=0,
@@ -33,13 +34,12 @@ class ReferenceResultLoader:
             )
 
         cached_results = self.reference_result_cache.load_many(
-            [product.code for product in backend_input_products]
+            [row.code for row in rows]
         )
-        missing_backend_input_products = [
-            product
-            for product in backend_input_products
-            if product.code not in cached_results
-        ]
+        missing_rows = [row for row in rows if row.code not in cached_results]
+        missing_backend_input_products = (
+            build_legacy_backend_input_products(missing_rows) if missing_rows else []
+        )
         fresh_results = (
             self.legacy_backend_runner.run(missing_backend_input_products)
             if missing_backend_input_products
@@ -52,9 +52,7 @@ class ReferenceResultLoader:
             **{result.code: result for result in fresh_results},
         }
         return ResolvedReferenceResults(
-            reference_results=[
-                results_by_code[product.code] for product in backend_input_products
-            ],
+            reference_results=[results_by_code[row.code] for row in rows],
             cache_hit_count=len(cached_results),
             backend_run_count=len(missing_backend_input_products),
         )

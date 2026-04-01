@@ -5,7 +5,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, wait
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from app.pipeline.models import (
+from app.run.models import (
     BatchExecutionResult,
     ScheduledBatch,
     SupportsBatchExecutor,

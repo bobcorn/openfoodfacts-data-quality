@@ -41,6 +41,8 @@ Use `enriched` when the checks need fields derived from the backend, such as:
 
 The input items are `EnrichedSnapshotResult` objects.
 
+This is a stable input contract owned by the Python runtime, with structured `product`, `flags`, `category_props`, and `nutrition` sections. Library callers can build these snapshots directly without going through the application reference path.
+
 ```python
 from openfoodfacts_data_quality import enriched
 
@@ -60,7 +62,7 @@ If you request checks that are not valid for the selected surface, the library f
 
 The public library APIs do not expose:
 
-- the parity application
+- the application run layer
 - the reference result model
 - report generation
 - reference result caching
@@ -72,7 +74,7 @@ Those remain application concerns.
 
 The library can execute checks compared against legacy behavior. It can also execute runtime only checks.
 
-This is broader than the current migration report flow, which remains focused on checks compared under parity. Use the library APIs when you need programmatic findings without the report application.
+The application run layer supports the same model, and shipped profiles can mix compared and runtime only checks in one run. The library remains the simpler entry point when you only need programmatic findings without source loading, reference loading, or report generation.
 
 ## Next Reads
 

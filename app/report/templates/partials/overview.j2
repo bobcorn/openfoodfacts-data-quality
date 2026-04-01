@@ -44,6 +44,11 @@
             <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.affected_products_tooltip }}">{{ terms.stats.affected_products_label }}</span></span>
             <strong class="stat__value">{{ affected_products }} / {{ report.product_count }}</strong>
           </div>
+
+          <div class="stat stat--hero stat--detail">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.runtime_only_checks_tooltip }}">{{ terms.stats.runtime_only_checks_label }}</span></span>
+            <strong class="stat__value">{{ runtime_only_checks }}</strong>
+          </div>
         </div>
 
         <div class="composition">
@@ -52,7 +57,7 @@
               <span class="term" data-tooltip="{{ terms.composition.tooltip }}">{{ terms.composition.title }}</span>
             </div>
           </div>
-          <div class="composition-bar" aria-label="Migration composition across compared checks">
+          <div class="composition-bar" aria-label="Run composition across active checks">
             {% for segment in composition_segments %}
             {% if segment.count %}
             <button

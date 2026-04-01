@@ -12,8 +12,10 @@ The main runtime inputs are:
   Source DuckDB snapshot.
 - `BATCH_SIZE`
   Source batch size.
+- `BATCH_WORKERS`
+  Concurrent batch workers used by the application run loop.
 - `LEGACY_BACKEND_WORKERS`
-  Number of persistent backend workers.
+  Number of persistent backend workers used when cache misses need backend materialization.
 - `MISMATCH_EXAMPLES_LIMIT`
   Retained mismatch examples per side and check.
 - `CHECK_PROFILE`
@@ -40,7 +42,7 @@ A profile decides:
 - which input surface the run uses
 - which parity baselines are in scope
 
-The shipped profiles focus on migration runs compared against legacy behavior:
+The shipped profiles cover both legacy comparison and runtime only execution where the selected checks support those baselines:
 
 - `full`
 - `raw_products`
@@ -50,32 +52,42 @@ The shipped profiles focus on migration runs compared against legacy behavior:
 
 The application writes run outputs under `artifacts/latest/`.
 
+Source DuckDB snapshots can also carry a sidecar `<name>.duckdb.snapshot.json` manifest with an explicit `source_snapshot_id`. The refresh scripts write that manifest automatically for generated sample DuckDB files, and the runtime writes it the first time it falls back to hashing a DuckDB file directly.
+
 Main generated files:
 
 - `site/index.html`
 - `site/report.html`
-- `site/parity.json`
+- `site/run.json`
 - `site/snippets.json`
 - `site/openfoodfacts-data-quality-json.zip`
-- `legacy-backend-stderr.log`
+- `legacy-backend-stderr.log` when the backend worker starts
+- `data/reference_result_cache/*.meta.json` beside cache DB files when reference cache is used
 
 ## Artifact Use
 
 - Use the HTML report for human review.
-- Use `parity.json` for structured parity data.
-- Use `snippets.json` for structured implementation provenance.
+- Use `run.json` for structured run data.
+- Use `snippets.json` for structured implementation and legacy source provenance.
 - Use the ZIP archive when you want to download the JSON outputs as one bundle.
-- Use the legacy backend stderr log when backend execution fails or behaves unexpectedly.
+- Use the legacy backend stderr log when present and backend execution fails or behaves unexpectedly.
+
+`run.json` includes compared and runtime only counts in the same run summary when the active profile selects both.
+Both `run.json` and `snippets.json` include root `kind` and `schema_version` metadata.
 
 ## Reference Cache
 
 The reference result cache is a derived optimization artifact. It is safe to delete when you want a fresh reference materialization.
+Each cache database also writes a readable `.meta.json` sidecar with the source snapshot id, cache key, schema version, and backend fingerprints used for that cache namespace.
+If a cache file no longer matches the current runtime contract, startup fails with field level mismatch details instead of silently reusing stale data.
+
+The cache is only used for runs that require reference results. Raw runtime only runs can skip it entirely.
 
 Its cache key depends on:
 
 - the source snapshot id
 - the backend fingerprint
-- the Python reference execution contract
+- the Python reference execution contract and backend input projection
 - the optional manual salt
 
 In Docker runs, the backend fingerprint comes from the pinned legacy backend image. See [Legacy Backend Image](legacy-backend-image.md).
@@ -85,4 +97,4 @@ In Docker runs, the backend fingerprint comes from the pinned legacy backend ima
 - [Reading The Report](../getting-started/reading-the-report.md)
 - [Local Development](../guides/local-development.md)
 - [Legacy Backend Image](legacy-backend-image.md)
-- [Parity Pipeline](../architecture/parity-pipeline.md)
+- [Application Run Flow](../architecture/application-run-flow.md)

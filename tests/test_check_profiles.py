@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from app.pipeline.profiles import load_check_profile
+from app.run.profiles import load_check_profile
 
 from openfoodfacts_data_quality.checks.catalog import (
     CheckCatalog,
@@ -33,7 +33,7 @@ def test_load_check_profile_uses_default_all_profile(tmp_path: Path) -> None:
 default_profile = "all"
 
 [profiles.all]
-description = "Runs every legacy-backed check."
+description = "Runs every check with a legacy baseline."
 mode = "all"
 """.strip(),
         encoding="utf-8",
@@ -112,7 +112,7 @@ def test_load_check_profile_rejects_include_checks_unsupported_on_surface(
 default_profile = "raw_products"
 
 [profiles.raw_products]
-description = "Runs a focused raw-products workset."
+description = "Runs a focused raw products workset."
 mode = "include"
 check_input_surface = "raw_products"
 check_ids = ["en:main-language-code-missing"]
@@ -163,7 +163,7 @@ def test_load_check_profile_excludes_runtime_only_checks_by_default(
 default_profile = "all"
 
 [profiles.all]
-description = "Runs every legacy-backed check."
+description = "Runs every check with a legacy baseline."
 mode = "all"
 check_input_surface = "raw_products"
 """.strip(),
@@ -173,6 +173,29 @@ check_input_surface = "raw_products"
     profile = load_check_profile(config_path, catalog=catalog)
 
     assert profile.check_ids == ("en:legacy-check",)
+
+
+def test_shipped_full_profile_includes_runtime_only_checks() -> None:
+    profile = load_check_profile(
+        Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
+        profile_name="full",
+    )
+
+    assert profile.parity_baselines == ("legacy", "none")
+    assert "ca:trans-fat-free-claim-but-nutrition-does-not-meet-conditions" in (
+        profile.check_ids
+    )
+
+
+def test_shipped_raw_profile_includes_runtime_only_checks() -> None:
+    profile = load_check_profile(
+        Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
+        profile_name="raw_products",
+    )
+
+    assert profile.check_input_surface == "raw_products"
+    assert profile.parity_baselines == ("legacy", "none")
+    assert "ca:source-of-fibre-claim-but-fibre-below-threshold" in profile.check_ids
 
 
 def test_load_check_catalog_select_evaluators_filters_to_active_check_ids() -> None:

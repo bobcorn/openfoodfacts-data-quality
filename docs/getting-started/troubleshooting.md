@@ -24,13 +24,13 @@ The application expects that path to exist on the host so Docker can mount it in
 
 The source reader validates the `products` table against the explicit raw input contract.
 
-If you see missing column errors, your snapshot does not match `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the bundled sample, regenerate a compatible sample, or align the snapshot schema before running parity.
+If you see missing column errors, your snapshot does not match `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the bundled sample, regenerate a compatible sample, or align the snapshot schema before running the application.
 
 ## Missing Legacy Backend Modules
 
-The parity application depends on the legacy backend runtime for reference enrichment and findings.
+Compared runs and enriched application runs depend on the legacy backend environment for reference enrichment and findings.
 
-If you run outside the provided Docker flow and see Perl errors such as missing `ProductOpener` modules, switch back to the Docker flow or run from an environment that already provides the OFF backend runtime.
+If you run outside the provided Docker flow and see Perl errors such as missing `ProductOpener` modules, switch back to the Docker flow or run from an environment that already provides the OFF backend runtime. A warm reference cache can avoid live backend execution, but the supported application flow still assumes that environment is available when reference materialization is needed.
 
 ## Legacy Snippet Extraction
 
@@ -42,7 +42,7 @@ Resolution order is:
 2. `../openfoodfacts-server`
 3. `/opt/product-opener`
 
-If none of those contain the expected Perl modules, legacy snippet extraction will fail.
+If none of those contain the expected Perl modules, the report still renders and marks legacy source provenance as unavailable for the affected checks.
 
 ## Stale Reference Results
 
@@ -56,33 +56,33 @@ The cache key depends on:
 - the optional manual cache salt
 
 If you need a fresh reference materialization, either delete the cache artifact or set `REFERENCE_RESULT_CACHE_SALT` to a new value.
+Each cache DB also writes a `.meta.json` sidecar. If the runtime contract changes, startup fails with field level mismatch details instead of reusing the stale cache silently.
 
 ## Python Only Tooling
 
 Use a local virtual environment for linting, typing, focused tests, and utility scripts:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[app,dev]"
+python3.14 -m venv .venv
+.venv/bin/python -m pip install -e ".[app,dev]"
 ```
 
 Use this for:
 
-- `pytest`
+- `.venv/bin/python -m pytest`
 - `ruff`
 - `mypy`
 - `pyright`
-- `scripts/validate_dsl.py`
+- `.venv/bin/python scripts/validate_dsl.py`
 
-The parity workflow itself is still best exercised through Docker.
+Compared runs are still best exercised through Docker.
 
 ## Python Version
 
-The repository source targets code compatible with Python 3.11, but the current Docker image, `.python-version`, and GitHub Actions automation use Python 3.14.3.
+The repository targets Python 3.14.3 across local automation, `.python-version`, Docker, and GitHub Actions.
 
-- write repository code that stays within the documented Python 3.11 target
-- expect local automation and containerized runs to use 3.14.3 today
+- create local virtual environments with Python 3.14
+- expect local automation and containerized runs to use 3.14.3
 
 ## Next Reads
 

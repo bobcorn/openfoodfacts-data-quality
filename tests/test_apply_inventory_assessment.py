@@ -11,6 +11,7 @@ _CSV_FIELDNAMES = (
     "source_file",
     "line_start",
     "line_end",
+    "cluster_id",
     "target_impl",
     "size",
     "risk",
@@ -73,11 +74,13 @@ def _csv_row(
     estimated_hours: str = "",
     rationale: str = "",
 ) -> dict[str, str]:
+    source_file = "lib/ProductOpener/DataQualityFood.pm"
     return {
         "check_id": check_id,
-        "source_file": "lib/ProductOpener/DataQualityFood.pm",
+        "source_file": source_file,
         "line_start": line_start,
         "line_end": line_end,
+        "cluster_id": f"{source_file}:{line_start}-{line_end}",
         "target_impl": target_impl,
         "size": size,
         "risk": risk,
@@ -146,10 +149,12 @@ def test_apply_inventory_assessment_fills_blank_fields_and_preserves_values(
     assert summary.rows_with_missing_fields == 0
     assert rows[0]["target_impl"] == "dsl"
     assert rows[0]["size"] == "S"
+    assert rows[0]["cluster_id"] == "lib/ProductOpener/DataQualityFood.pm:10-20"
     assert rows[0]["estimated_hours"] == ""
     assert rows[1]["target_impl"] == "python"
     assert rows[1]["size"] == "L"
     assert rows[1]["risk"] == "high"
+    assert rows[1]["cluster_id"] == "lib/ProductOpener/DataQualityFood.pm:30-40"
 
 
 def test_apply_inventory_assessment_rejects_unknown_check_ids(tmp_path: Path) -> None:

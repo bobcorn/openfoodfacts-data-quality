@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import logging
     from collections.abc import Iterator, Sequence
 
-T = TypeVar("T")
 
-
-def iter_with_progress(
+def iter_with_progress[T](
     items: Sequence[T],
     *,
     desc: str,

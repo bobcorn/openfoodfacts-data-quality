@@ -39,7 +39,7 @@ def test_build_legacy_families_artifact_groups_templates_and_features(
         "en:mutually-exclusive-tags-for-${incompatible_tags_0}-and-${incompatible_tags_1}"
     ]
 
-    assert artifact["version"] == 1
+    assert artifact["version"] == 2
     assert artifact["module_paths"] == [
         "lib/ProductOpener/DataQualityCommon.pm",
         "lib/ProductOpener/DataQualityDimensions.pm",
@@ -74,6 +74,45 @@ def test_build_legacy_families_artifact_groups_templates_and_features(
         "incompatible_tags_0",
         "incompatible_tags_1",
     ]
+    assert (
+        food_groups_known["features"]["unsupported_data_quality_emission_count_total"]
+        == 0
+    )
+
+
+def test_build_legacy_families_artifact_tracks_unsupported_emission_templates(
+    tmp_path: Path,
+    legacy_source_root_factory: Callable[[Path], Path],
+) -> None:
+    legacy_root = legacy_source_root_factory(tmp_path)
+    (legacy_root / "lib" / "ProductOpener" / "DataQualityExperimental.pm").write_text(
+        """
+sub check_unknown_template_shape ($product_ref) {
+    add_tag(
+        $product_ref,
+        "data_quality_errors",
+        join("-", "en", $dynamic_tag)
+    );
+    add_tag(
+        $product_ref,
+        "data_quality_errors",
+        "en:known-template"
+    );
+    return;
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    artifact = build_legacy_families_artifact(legacy_source_root=legacy_root)
+    family = next(
+        family
+        for family in artifact["families"]
+        if family["check_id"] == "en:known-template"
+    )
+
+    assert family["features"]["unsupported_data_quality_emission_count_total"] == 1
+    assert family["sources"][0]["unsupported_data_quality_emission_count"] == 1
 
 
 def test_export_legacy_inventory_writes_json_and_csv(
@@ -97,6 +136,11 @@ def test_export_legacy_inventory_writes_json_and_csv(
 
     assert len(rows) == len(artifact["families"])
     assert "source_subroutine" not in rows[0]
+    assert all(
+        row["cluster_id"]
+        == f"{row['source_file']}:{row['line_start']}-{row['line_end']}"
+        for row in rows
+    )
     assert rows[0]["target_impl"] == ""
     assert rows[0]["size"] == ""
     assert rows[0]["risk"] == ""

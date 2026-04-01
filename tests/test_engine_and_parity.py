@@ -3,13 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 import pytest
-from app.parity.accumulator import ParityAccumulator
 from app.parity.comparator import evaluate_parity
-from app.parity.models import (
-    ObservedFinding,
-    ParityResult,
-    ParityRunMetadata,
-)
+from app.run.accumulator import RunResultAccumulator
 
 from openfoodfacts_data_quality.checks.catalog import (
     CheckCatalog,
@@ -22,6 +17,8 @@ from openfoodfacts_data_quality.checks.engine import (
 from openfoodfacts_data_quality.contracts.checks import CheckDefinition
 from openfoodfacts_data_quality.contracts.context import NormalizedContext
 from openfoodfacts_data_quality.contracts.findings import Finding
+from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+from openfoodfacts_data_quality.contracts.run import RunMetadata, RunResult
 
 _QUANTITY_CHECK_ID = "en:quantity-not-recognized"
 
@@ -64,7 +61,7 @@ def _evaluate_quantity_parity_batch(
     reference_product_ids: Sequence[str] = (),
     migrated_product_ids: Sequence[str] = (),
     product_count: int = 1,
-) -> ParityResult:
+) -> RunResult:
     return evaluate_parity(
         reference_findings=[
             _quantity_finding(
@@ -82,7 +79,7 @@ def _evaluate_quantity_parity_batch(
             )
             for product_id in migrated_product_ids
         ],
-        run=ParityRunMetadata(
+        run=RunMetadata(
             run_id="run",
             source_snapshot_id="source-snapshot",
             product_count=product_count,
@@ -250,7 +247,7 @@ def test_evaluate_parity_reports_missing_and_extra(
     result = evaluate_parity(
         reference_findings=reference_findings,
         migrated_findings=migrated_findings,
-        run=ParityRunMetadata(
+        run=RunMetadata(
             run_id="run",
             source_snapshot_id="source-snapshot",
             product_count=2,
@@ -336,14 +333,14 @@ def test_parity_accumulator_keeps_exact_counts_and_capped_examples(
         migrated_product_ids=("003",),
     )
 
-    accumulator = ParityAccumulator(
+    accumulator = RunResultAccumulator(
         max_examples_per_side=1,
         checks=default_check_catalog.checks,
     )
     accumulator.add_batch(batch_one)
     accumulator.add_batch(batch_two)
     result = accumulator.build_result(
-        run=ParityRunMetadata(
+        run=RunMetadata(
             run_id="run",
             source_snapshot_id="source-snapshot",
             product_count=3,
@@ -386,13 +383,13 @@ def test_parity_accumulator_keeps_only_active_checks(
         reference_product_ids=("123",),
     )
 
-    accumulator = ParityAccumulator(
+    accumulator = RunResultAccumulator(
         max_examples_per_side=1,
         checks=[default_checks_by_id["en:quantity-not-recognized"]],
     )
     accumulator.add_batch(batch)
     result = accumulator.build_result(
-        run=ParityRunMetadata(
+        run=RunMetadata(
             run_id="run",
             source_snapshot_id="source-snapshot",
             product_count=1,

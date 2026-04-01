@@ -125,14 +125,14 @@ class ExecutionProgressReporter:
     def log_plan(self) -> None:
         """Log the planned execution shape for the current run."""
         self._logger.info(
-            "[Execution] Planned %d products across %d batch(es); effective workers: %d/%d.",
+            "[Execution] Planned %d products across %d batch(es); effective batch workers: %d/%d.",
             self._config.plan.product_count,
             self._config.plan.batch_count,
             self._config.plan.effective_workers,
             self._config.plan.configured_workers,
         )
         self._logger.info(
-            "[Execution] Running strict parity in batches of %d products (keeping up to %d mismatch examples per side and check).",
+            "[Execution] Running checks in batches of %d products (keeping up to %d mismatch examples per side and check).",
             self._config.plan.batch_size,
             self._config.mismatch_examples_limit,
         )

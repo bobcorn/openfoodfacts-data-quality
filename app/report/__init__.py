@@ -1,1 +1,1 @@
-"""Static report rendering for parity results."""
+"""Static report rendering for application run results."""

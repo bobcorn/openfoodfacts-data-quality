@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,7 @@ from openfoodfacts_data_quality.contracts.findings import Finding
 from openfoodfacts_data_quality.progress import iter_with_progress
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Iterable, Iterator
     from importlib.resources.abc import Traversable
 
     from openfoodfacts_data_quality.checks.registry import CheckEvaluator
@@ -28,7 +29,7 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class CheckRunOptions:
-    """Optional controls for one quality-check execution pass."""
+    """Optional controls for one quality check execution pass."""
 
     active_check_ids: Collection[str] | None = None
     selection: CheckSelection | None = None
@@ -38,7 +39,7 @@ class CheckRunOptions:
 
 
 def run_checks(
-    contexts: list[NormalizedContext],
+    contexts: Iterable[NormalizedContext],
     *,
     active_check_ids: Collection[str] | None = None,
     selection: CheckSelection | None = None,
@@ -56,13 +57,34 @@ def run_checks(
 
 
 def run_checks_with_evaluators(
-    contexts: list[NormalizedContext],
+    contexts: Iterable[NormalizedContext],
     check_evaluators: dict[str, CheckEvaluator] | None = None,
     *,
     options: CheckRunOptions | None = None,
 ) -> list[Finding]:
     """Run the selected check evaluators on the normalized contexts."""
-    findings: list[Finding] = []
+    return sorted(
+        iter_check_findings_with_evaluators(
+            contexts,
+            check_evaluators,
+            options=options,
+        ),
+        key=lambda finding: (
+            finding.check_id,
+            finding.product_id,
+            finding.emitted_code or finding.check_id,
+            finding.severity,
+        ),
+    )
+
+
+def iter_check_findings_with_evaluators(
+    contexts: Iterable[NormalizedContext],
+    check_evaluators: dict[str, CheckEvaluator] | None = None,
+    *,
+    options: CheckRunOptions | None = None,
+) -> Iterator[Finding]:
+    """Yield the selected check findings for the provided normalized contexts."""
     resolved_options = options or CheckRunOptions()
     if check_evaluators is not None and resolved_options.active_check_ids is not None:
         raise ValueError("Pass either check_evaluators or active_check_ids, not both.")
@@ -84,31 +106,23 @@ def run_checks_with_evaluators(
             dsl_count,
         )
 
-    context_iterable = (
-        iter_with_progress(
-            contexts,
+    progress_contexts: Sequence[NormalizedContext] | Iterable[NormalizedContext]
+    context_iterable: Iterable[NormalizedContext]
+    if resolved_options.log_progress:
+        progress_contexts = (
+            contexts if isinstance(contexts, Sequence) else tuple(contexts)
+        )
+        context_iterable = iter_with_progress(
+            progress_contexts,
             desc="Checks | Run checks",
             unit="product",
             logger=LOGGER,
         )
-        if resolved_options.log_progress
-        else contexts
-    )
+    else:
+        context_iterable = contexts
 
     for context in context_iterable:
-        findings.extend(
-            _run_check_evaluators(context, active_evaluators, selected_catalog)
-        )
-
-    return sorted(
-        findings,
-        key=lambda finding: (
-            finding.check_id,
-            finding.product_id,
-            finding.emitted_code or finding.check_id,
-            finding.severity,
-        ),
-    )
+        yield from _run_check_evaluators(context, active_evaluators, selected_catalog)
 
 
 def load_check_evaluators(
