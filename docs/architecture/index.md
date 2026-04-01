@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / Architecture
 
-Stable boundaries of the prototype: repository split, contracts, check system, and parity flow.
+Repository boundaries, contracts, check execution, and parity flow.
 
 Use this section when you need:
 

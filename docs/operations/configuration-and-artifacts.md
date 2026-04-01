@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Configuration and Artifacts
 
-Runtime knobs for one application run and the artifacts it produces.
+Runtime configuration for one application run and the artifacts it produces.
 
 ## Runtime Configuration
 
@@ -40,7 +40,7 @@ A profile decides:
 - which input surface the run uses
 - which parity baselines are in scope
 
-The shipped profiles focus on legacy-backed migration runs:
+The shipped profiles focus on migration runs compared against legacy behavior:
 
 - `full`
 - `raw_products`
@@ -69,16 +69,16 @@ Main generated files:
 
 ## Reference Cache
 
-The reference result cache is a derived optimization artifact. It is safe to delete when you want a fresh reference-side materialization.
+The reference result cache is a derived optimization artifact. It is safe to delete when you want a fresh reference materialization.
 
 Its cache key depends on:
 
 - the source snapshot id
 - the backend fingerprint
-- the Python-side reference execution contract
+- the Python reference execution contract
 - the optional manual salt
 
-In Docker-based runs, the backend fingerprint comes from the pinned legacy backend image. See [Legacy Backend Image](legacy-backend-image.md).
+In Docker runs, the backend fingerprint comes from the pinned legacy backend image. See [Legacy Backend Image](legacy-backend-image.md).
 
 ## Next Reads
 

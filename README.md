@@ -1,4 +1,4 @@
-# OpenFoodFacts - Data Quality
+# Open Food Facts - Data Quality
 
 Framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
@@ -6,7 +6,7 @@ The repository combines three parts:
 
 - a reusable Python library that packages migrated checks and new regional checks
 - a parity application that compares migrated output with the current legacy backend
-- migration-planning tooling that analyzes legacy Perl sources and produces review artifacts
+- migration planning tooling that analyzes legacy Perl sources and produces review artifacts
 
 ## Purpose
 
@@ -16,11 +16,9 @@ Open Food Facts already has a large body of trusted data quality logic in the le
 - a disciplined way to compare migrated behavior against the legacy backend
 - artifacts that help reviewers understand what changed, what still mismatches, and what remains to migrate
 
-The repository is the prototype for that workflow.
-
 ## Current Capabilities
 
-- run a parity-backed demo and inspect the generated migration report
+- run a parity demo and inspect the generated migration report
 - execute the parity application locally against a DuckDB snapshot
 - use the Python library directly on `raw_products` rows or explicit `enriched_products` snapshots
 - author checks in Python or in the repository DSL
@@ -28,7 +26,7 @@ The repository is the prototype for that workflow.
 
 ## Repository Layers
 
-The diagram shows the main runtime-oriented layers and the most important dependency edges between them. The table below restates the same structure in text.
+The diagram shows the main runtime layers and the most important dependency edges between them. The table below restates the same structure in text.
 
 ```mermaid
 flowchart TB
@@ -77,11 +75,11 @@ flowchart TB
       <td rowspan="4"><code>Shared Runtime Layer</code></td>
       <td rowspan="4">Defines the reusable check runtime used by the public library APIs and by the parity application.</td>
       <td><code>Python Check Packs</code></td>
-      <td>Packaged Python-defined checks shipped with the shared runtime.</td>
+      <td>Packaged Python checks shipped with the shared runtime.</td>
     </tr>
     <tr>
       <td><code>DSL Check Packs</code></td>
-      <td>Packaged DSL-defined checks shipped with the shared runtime.</td>
+      <td>Packaged DSL checks shipped with the shared runtime.</td>
     </tr>
     <tr>
       <td><code>Check Catalog and Metadata</code></td>
@@ -93,36 +91,36 @@ flowchart TB
     </tr>
     <tr>
       <td rowspan="2"><code>Public Library APIs</code></td>
-      <td rowspan="2">Expose the shared runtime directly to Python callers without the parity-report application layer.</td>
+      <td rowspan="2">Expose the shared runtime directly to Python callers without the parity report application layer.</td>
       <td><code>Raw API</code></td>
-      <td>Public entrypoint for running checks on raw public-product rows.</td>
+      <td>Public API for running checks on raw public product rows.</td>
     </tr>
     <tr>
       <td><code>Enriched API</code></td>
-      <td>Public entrypoint for running checks on explicit enriched snapshots.</td>
+      <td>Public API for running checks on explicit enriched snapshots.</td>
     </tr>
     <tr>
       <td rowspan="2"><code>Parity Application Layer</code></td>
       <td rowspan="2">Builds on the shared runtime and adds reference loading, parity comparison, artifacts, and report rendering.</td>
       <td><code>Source and Reference Pipeline</code></td>
-      <td>Loads source products, resolves reference-side data, and executes the migrated runtime for one run.</td>
+      <td>Loads source products, resolves reference data, and executes the migrated runtime for one run.</td>
     </tr>
     <tr>
       <td><code>Parity, Artifacts, and Report</code></td>
-      <td>Compares reference and migrated findings, emits machine-readable artifacts, and renders the static report site.</td>
+      <td>Compares reference and migrated findings, emits machine readable artifacts, and renders the static report site.</td>
     </tr>
     <tr>
       <td><code>External Dependency</code></td>
-      <td>The external Perl runtime used to produce reference results for parity-backed runs.</td>
+      <td>The external Perl runtime used to produce reference results for parity runs.</td>
       <td><code>Legacy Backend Runtime</code></td>
-      <td>Materializes enriched snapshots and legacy-emitted finding tags for the parity application.</td>
+      <td>Materializes enriched snapshots and legacy emitted finding tags for the parity application.</td>
     </tr>
   </tbody>
 </table>
 
 ## Demo
 
-For reviewers and mentors, the demo image is the quickest entrypoint. It requires Docker but does not require cloning the repository.
+Use the demo image to review the repository without a local checkout. Docker is required.
 
 ```bash
 docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
@@ -141,7 +139,7 @@ The demo container:
 
 ## Local Run
 
-The normal local workflow for parity-backed development uses Docker.
+The normal local workflow for parity development uses Docker.
 
 ```bash
 git clone https://github.com/bobcorn/openfoodfacts-data-quality.git
@@ -158,9 +156,9 @@ Key points:
 - the starter configuration points to the tracked sample DuckDB snapshot
 - generated outputs are written under `artifacts/latest/`
 - reference results are cached across runs
-- source code is not bind-mounted into the container, so code changes require a rebuild
+- source code is not mounted into the container, so code changes require a rebuild
 
-For focused Python-only work outside Docker, create a local virtual environment and install `.[app,dev]`. The parity workflow itself is still best exercised through Docker because it provides the legacy backend runtime in a controlled environment.
+For focused Python only work outside Docker, create a local virtual environment and install `.[app,dev]`. The parity workflow itself is still best exercised through Docker because it provides the legacy backend runtime in a controlled environment.
 
 ## Library Usage
 
@@ -169,7 +167,7 @@ The public Python API is organized by input surface:
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
 
-Minimal raw-surface example:
+Minimal raw surface example:
 
 ```python
 from openfoodfacts_data_quality import raw
@@ -180,28 +178,28 @@ findings = raw.run_checks(
 )
 ```
 
-Use the `raw` surface for checks that can run directly from public-product rows. Use the `enriched` surface when a check depends on backend-derived data such as enriched flags, category properties, or richer nutrition structures.
+Use the `raw` surface for checks that can run directly from public product rows. Use the `enriched` surface when a check depends on data derived from the backend, such as enriched flags, category properties, or richer nutrition structures.
 
 ## Current Status
 
-The repository is public and usable today, but still a prototype.
+The repository is in a prototype phase.
 
-What is already in good shape:
+More stable parts:
 
 - the shared Python check runtime
 - the packaged check catalog
-- parity-backed execution for legacy-backed check sets
-- static report and machine-readable artifacts
-- migration-planning support around legacy inventory export
+- parity execution for legacy based check sets
+- static report and machine readable artifacts
+- migration planning support around legacy inventory export
 
-What is still intentionally provisional:
+Less settled parts:
 
-- the long-term boundary of the public enriched API
-- full-corpus operational strategy
+- the long term boundary of the public enriched API
+- full corpus operational strategy
 - the breadth of migrated legacy coverage
-- report UX for non-parity runtime-only checks
+- report UX for runtime only checks without parity
 
-The parity application is still coupled to the current legacy backend. That dependency is deliberate at this stage because strict comparison against trusted legacy behavior is part of the project goal.
+The parity application still depends on the current legacy backend because strict comparison against trusted legacy behavior is part of the project goal.
 
 ## Documentation
 

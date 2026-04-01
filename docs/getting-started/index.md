@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / Getting Started
 
-This is the shortest path from first contact with the repository to a useful mental model of what it does.
+First local run, report reading, and common setup issues.
 
 Use this section to:
 
