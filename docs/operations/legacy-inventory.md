@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Legacy Inventory
 
-The legacy inventory workflow supports migration planning. It is separate from parity execution.
+The legacy inventory workflow supports migration planning and stays separate from parity execution.
 
 ## Export
 
@@ -12,7 +12,7 @@ Entry point:
 python scripts/export_legacy_inventory.py --legacy-source-root /path/to/openfoodfacts-server
 ```
 
-This inspects the legacy Perl data-quality modules and writes:
+This inspects the legacy Perl data quality modules and writes:
 
 - `artifacts/legacy_inventory/legacy_families.json`
 - `artifacts/legacy_inventory/estimation_sheet.csv`
@@ -21,7 +21,7 @@ This inspects the legacy Perl data-quality modules and writes:
 
 ### `legacy_families.json`
 
-Machine-readable inventory artifact. It groups legacy emitted code templates into migration families and records:
+Machine readable inventory artifact. It groups legacy emitted code templates into migration families and records:
 
 - source locations
 - placeholder information
@@ -30,13 +30,13 @@ Machine-readable inventory artifact. It groups legacy emitted code templates int
 
 ### `estimation_sheet.csv`
 
-Planning-oriented flat CSV scaffold. It is intentionally simpler than the JSON artifact and meant for human estimation work.
+Flat CSV scaffold for planning. It is simpler than the JSON artifact and meant for human estimation work.
 
 ## Assessment
 
 `scripts/apply_inventory_assessment.py` applies planning decisions from `assessment.json` back onto the estimation sheet.
 
-The split keeps facts, judgments, and sheet updates separate:
+The workflow keeps facts, judgments, and sheet updates in separate artifacts:
 
 - export generates facts
 - assessment records judgments

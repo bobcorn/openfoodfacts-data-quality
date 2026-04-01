@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Local Development
 
-For parity-backed work, Docker is the default path.
+Use Docker for parity work.
 
 ## Requirements
 
@@ -11,7 +11,7 @@ For the normal application workflow:
 - Docker
 - a local `.env` file
 
-For Python-only tooling outside Docker:
+For Python only tooling outside Docker:
 
 - Python
 - a local virtual environment
@@ -42,20 +42,20 @@ The first local run:
 - `DATABASE_PATH`
   The DuckDB snapshot used as the source input for the application.
 
-The starter `.env.example` points to the tracked sample DuckDB so the first run succeeds with repository-local data.
+The starter `.env.example` points to the tracked sample DuckDB so the first run succeeds with local repository data.
 
 ## Docker Workflow
 
 Choose Docker for:
 
-- parity-backed execution
+- parity execution
 - the legacy backend runtime
 - report generation
 - a setup that mirrors the documented project workflow
 
-This is the right default for reviewers, mentors, and contributors working on application behavior.
+Use Docker when working on application behavior.
 
-The Docker image builds on a pinned multi-arch legacy backend image. Normal Docker runs do not need a local `openfoodfacts-server` checkout. See [Legacy Backend Image](../operations/legacy-backend-image.md).
+The Docker image builds on a pinned image for multiple architectures. Normal Docker runs do not need a local `openfoodfacts-server` checkout. See [Legacy Backend Image](../operations/legacy-backend-image.md).
 
 ## `.venv` Workflow
 
@@ -86,14 +86,14 @@ python scripts/validate_dsl.py
 ## Development Loops
 
 - edit `config/check-profiles.toml` to narrow the active check set
-- use the bundled sample snapshot for quick parity loops
+- use the bundled sample snapshot for short parity runs
 - switch to a richer local snapshot when you need more representative behavior
-- keep Docker for parity validation and use `.venv` for quicker Python-only iterations
+- keep Docker for parity validation and use `.venv` for quicker Python only iterations
 
 ## Practical Notes
 
-- The Docker Compose flow does not bind-mount the source tree, so code changes require a rebuild.
-- Reference-side results are cached across runs to avoid repeating legacy backend work unnecessarily.
+- The Docker Compose flow does not mount the source tree, so code changes require a rebuild.
+- Reference side results are cached across runs to avoid repeating legacy backend work.
 
 ## Next Reads
 

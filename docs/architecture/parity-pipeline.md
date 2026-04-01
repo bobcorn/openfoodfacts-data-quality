@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / Parity Pipeline
 
-Application flow from source snapshot to rendered report.
+One application run from source snapshot to rendered report.
 
 ## Pipeline Overview
 
@@ -56,7 +56,7 @@ flowchart TB
     end
 
     subgraph ART["Output Artifacts"]
-        Q["Emit Machine-Readable Artifacts"]
+        Q["Emit Machine Readable Artifacts"]
     end
 
     subgraph PRES["Presentation"]
@@ -77,18 +77,18 @@ flowchart TB
     P --> R
 ```
 
-The table restates the same flow stage by stage.
+The table below restates the same flow stage by stage.
 
 | Stage | Nodes In The Diagram | Role In The Flow |
 | --- | --- | --- |
 | Input | DuckDB Source | Provides the source snapshot consumed by the run. |
-| Run preparation | Resolve Snapshot Metadata, Load Active Profile, Configure Run Strategy | Determines the source snapshot id, selected checks, required input surface, and whether reference-side data is needed. |
+| Run preparation | Resolve Snapshot Metadata, Load Active Profile, Configure Run Strategy | Determines the source snapshot id, selected checks, required input surface, and whether reference data is needed. |
 | Batch source | Read Source Batches, Prepare Backend Payload | Streams ordered source rows and shapes the payload sent to the legacy backend path when reference data is required. |
-| External dependency | Legacy Backend Runtime | Executes the trusted Perl boundary that materializes reference-side enriched data and legacy finding tags. |
-| Reference path | Resolve Reference Results, Normalize Reference Findings, Provide Enriched Snapshots | Reuses cache when possible, normalizes reference findings, and exposes enriched snapshots for parity-backed or enriched-surface runs. |
+| External dependency | Legacy Backend Runtime | Executes the trusted Perl boundary that materializes enriched reference data and legacy finding tags. |
+| Reference path | Resolve Reference Results, Normalize Reference Findings, Provide Enriched Snapshots | Reuses cache when possible, normalizes reference findings, and exposes enriched snapshots for parity or enriched surface runs. |
 | Migrated runtime | Build Check Contexts, Run Python Checks, Run DSL Checks, Normalize Migrated Findings | Builds normalized contexts, executes the selected migrated checks, and turns the results into comparable findings. |
-| Parity | Compare Findings, Accumulate Run Summary | Applies strict multiset comparison and aggregates batch results into run-level parity data. |
-| Output artifacts | Emit Machine-Readable Artifacts | Writes the machine-readable outputs used for inspection and downstream review. |
+| Parity | Compare Findings, Accumulate Run Summary | Applies strict multiset comparison and aggregates batch results into run level parity data. |
+| Output artifacts | Emit Machine Readable Artifacts | Writes the machine readable outputs used for inspection and downstream review. |
 | Presentation | Render Report Site, Preview Site | Builds the static report site and serves it locally for review. |
 
 ## Run Preparation
@@ -104,30 +104,30 @@ The active profile determines the check set, input surface, and parity baselines
 
 ## Source Batches
 
-Source rows are streamed from DuckDB in ordered batches. The same source-reader contract is used for the bundled sample and for larger snapshots that follow the same schema.
+Source rows are streamed from DuckDB in ordered batches. The same source reader contract is used for the bundled sample and for larger snapshots that follow the same schema.
 
 ## Reference Results
 
-If the run needs parity-backed findings or enriched snapshots:
+If the run needs parity findings or enriched snapshots:
 
 - raw rows are projected into the explicit legacy backend input contract
 - cached reference results are reused when possible
 - missing results are materialized through persistent legacy backend workers
 
-If the run does not need reference-side data, this branch is skipped.
+If the run does not need reference data, this branch is skipped.
 
 ## Legacy Backend
 
-Parity-backed runs compare migrated output against the behavior of the current trusted backend.
+Parity runs compare migrated output against the behavior of the current trusted backend.
 
 For that reason the pipeline still materializes:
 
 - enriched snapshots from the legacy side
-- legacy-emitted check tags from the legacy side
+- legacy emitted check tags from the legacy side
 
-This dependency is deliberate in the current prototype. It is part of the validation story, not an accidental leftover.
+The dependency is deliberate. Parity validation still relies on the current legacy backend.
 
-That includes parity-backed `raw_products` runs. Even when migrated contexts are built from raw rows, the reference side still comes from legacy-emitted tags. Only runtime-only runs can skip the backend entirely. See [Legacy Backend Image](../operations/legacy-backend-image.md).
+That includes parity `raw_products` runs. Even when migrated contexts are built from raw rows, the reference side still comes from legacy emitted tags. Only runtime only runs can skip the backend entirely. See [Legacy Backend Image](../operations/legacy-backend-image.md).
 
 ## Migrated Contexts
 
@@ -136,7 +136,7 @@ The migrated runtime builds normalized contexts from:
 - raw rows for `raw_products`
 - enriched snapshots for `enriched_products`
 
-That keeps the execution engine independent from the source-specific shapes.
+That keeps the execution engine independent from source specific shapes.
 
 ## Check Execution
 
@@ -144,24 +144,24 @@ The shared execution engine loads the selected evaluators and runs them on the n
 
 ## Parity Comparison
 
-The parity layer normalizes both sides into observed findings and compares them with strict multiset equality over:
+The parity layer normalizes reference and migrated outputs into observed findings and compares them with strict multiset equality over:
 
 - product id
 - observed code
 - severity
 
-This is intentionally stricter than check-id-only comparison.
+This comparison is stricter than matching on check id alone.
 
 ## Outputs
 
-Batch-level parity results are accumulated into one run summary. The completed run then produces:
+Batch level parity results are accumulated into one run summary. The completed run then produces:
 
 - a static HTML report
 - `parity.json`
 - `snippets.json`
 - a bundled JSON export archive
 
-The current renderer is scoped to parity-compared migration runs. Runtime-only checks are supported by the shared runtime and catalog, but they are not yet part of the report presentation model.
+The current renderer is scoped to migration runs compared under parity. Runtime only checks are supported by the shared runtime and catalog, but they are not yet part of the report presentation model.
 
 ## Next Reads
 

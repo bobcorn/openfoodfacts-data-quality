@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / Guides
 
-Practical workflows for running the repository, using the library, and authoring checks.
+Workflows for local runs, library usage, and check authoring.
 
 Use this section to:
 
@@ -10,7 +10,7 @@ Use this section to:
 - use the Python package directly
 - add or modify checks
 
-For contributors, read in this order:
+If you are contributing, read in this order:
 
 1. [Local Development](local-development.md)
 2. [Library Usage](library-usage.md)

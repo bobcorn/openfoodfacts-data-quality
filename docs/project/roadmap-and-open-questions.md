@@ -2,42 +2,42 @@
 
 [Documentation](../index.md) / [Project](index.md) / Roadmap and Open Questions
 
-Project-level decisions still in motion and the areas most likely to change next.
+Project decisions and areas most likely to change.
 
-## Near-Term Priorities
+## Near Term Priorities
 
-- migrate more legacy-backed checks into the shared packaged runtime
+- migrate more checks compared against legacy behavior into the shared packaged runtime
 - keep tightening parity behavior where legacy comparison is expected
 - improve onboarding and contributor workflow around check authoring
-- make the library-facing boundaries clearer as the runtime matures
+- make the library boundaries clearer as the runtime matures
 
 ## Open Questions
 
 ### DSL Scope
 
-The current DSL is intentionally narrow. Expanding it too far would hide logic that is easier to review in Python. The main question is not whether the DSL can do more, but which additions would still keep migrated logic obvious and auditable.
+The DSL stays narrow by design. Expanding it too far would hide logic that is easier to review in Python. The open question is which additions would keep migrated logic obvious and auditable.
 
 ### Enriched API Stability
 
-The repository already exposes explicit enriched snapshots through the public library APIs. The open question is which enriched fields deserve to be treated as long-lived shared contracts and which should remain app-local or backend-adjacent details.
+The repository already exposes explicit enriched snapshots through the public library APIs. The open question is which enriched fields deserve to be treated as durable shared contracts and which should remain local to `app/` or close to the backend.
 
-### Full-Corpus Execution
+### Full Corpus Execution
 
-The Docker flow is appropriate for local development and modest validation loops. It is still open whether full-snapshot parity runs should remain local, move to CI-like automation, or live in a different execution environment altogether.
+The Docker flow is appropriate for local development and modest validation loops. It is still open whether whole snapshot parity runs should remain local, move to CI style automation, or run in a different environment.
 
 ### Report Detail
 
-The current report is intentionally summary-first. More debugging detail could help investigation, but too much detail risks turning the main report into a noisy artifact that is harder to review quickly.
+The report stays at summary level. More debugging detail could help investigations. Too much detail would make the main report harder to review quickly.
 
 ### Public API Stability
 
-The raw and enriched APIs are explicit today. The unresolved question is when they should be documented and supported as durable public interfaces rather than as prototype-era public APIs.
+The raw and enriched APIs are explicit today. The open question is when they should be documented and supported as durable public interfaces.
 
 ## Risk Areas
 
-### Full-Corpus Performance
+### Full Corpus Performance
 
-A workflow that feels lightweight on sample data can behave very differently on millions of products. Batch sizing, cache behavior, legacy backend throughput, and report usability all become more sensitive at that scale.
+A workflow that is lightweight on sample data can behave very differently on millions of products. Batch sizing, cache behavior, legacy backend throughput, and report usability all become more sensitive at that scale.
 
 ### Parity Investigation At Scale
 
@@ -48,10 +48,10 @@ Even low mismatch rates can produce large absolute mismatch volumes on full snap
 The repository depends on a clean split between:
 
 - reusable runtime contracts
-- parity-only application behavior
-- one-off migration-planning workflows
+- application behavior used only for parity
+- dedicated migration planning workflows
 
-That split is already present in the codebase, but it will need continued discipline as the project grows.
+The split is already present in the codebase. It will need continued discipline as the project grows.
 
 ## Next Reads
 

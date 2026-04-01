@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / Operations
 
-Runtime knobs, produced artifacts, CI automation, and the migration-planning workflow around legacy inventory.
+Runtime configuration, artifacts, CI, and legacy inventory.
 
 Use this section when you need:
 

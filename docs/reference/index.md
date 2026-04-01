@@ -2,14 +2,14 @@
 
 [Documentation](../index.md) / Reference
 
-Use this section as a lookup, not as a first pass.
+Lookup pages for terminology and validation expectations.
 
-It collects:
+This section collects:
 
 - the canonical project vocabulary
 - the repository quality and validation expectations
 
-Come here once you already know what part of the system you are working on and need precise terminology or toolchain expectations.
+Use this section when you need precise terminology or toolchain expectations.
 
 - [Glossary](../glossary.md)
 - [Testing and Quality](testing-and-quality.md)

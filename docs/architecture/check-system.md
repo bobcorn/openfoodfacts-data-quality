@@ -9,9 +9,9 @@ Checks are packaged definitions loaded through one catalog and executed through 
 The check system supports two definition languages:
 
 - `python`
-  For checks that need loops, helper-driven logic, aggregation, dynamic emitted codes, or other imperative behavior.
+  For checks that need loops, logic driven by helpers, aggregation, dynamic emitted codes, or other imperative behavior.
 - `dsl`
-  For readable boolean predicates over approved normalized-context paths.
+  For readable boolean predicates over approved normalized context paths.
 
 Both languages share the same catalog, selection model, and metadata concepts.
 
@@ -21,7 +21,7 @@ Every check definition has stable metadata:
 
 - canonical check id
 - definition language
-- required normalized-context paths
+- required normalized context paths
 - supported input surfaces
 - parity baseline
 - jurisdictions
@@ -45,33 +45,33 @@ The same selection model is used by the public library APIs and by application r
 `parity_baseline` answers one specific question: should this check participate in parity comparison?
 
 - `legacy`
-  The check is legacy-backed and participates in parity.
+  The check is compared against legacy behavior and participates in parity.
 - `none`
-  The check is runtime-only and can execute without legacy comparison.
+  The check runs without legacy comparison.
 
-This is a more useful axis than informal labels such as "old" and "new".
+This axis is more precise than informal labels such as "old" or "new".
 
 ## Legacy Identity
 
-Parity-backed checks may need an explicit mapping to the legacy emitted code template. That mapping is stored as `legacy_identity`.
+Checks compared against legacy behavior may need an explicit mapping to the legacy emitted code template. That mapping is stored as `legacy_identity`.
 
-This allows the application to compare one migrated check against the correct legacy-side tags even when the migrated implementation no longer mirrors the Perl source structure.
+It lets the application compare one migrated check against the correct tags on the legacy side even when the migrated implementation no longer mirrors the Perl source structure.
 
 ## DSL Scope
 
-The DSL is intentionally small. It is meant for checks that are fundamentally:
+The DSL stays small. Use it for checks that are:
 
 - a boolean predicate
-- over stable normalized-context fields
+- over stable normalized context fields
 - with one static severity
-- without helper-driven control flow
+- without control flow driven by helpers
 
 It does not model:
 
 - iteration
 - aggregation
-- cross-field arithmetic
-- field-to-field comparison
+- arithmetic across fields
+- field comparisons
 - helper calls
 - dynamic emitted codes
 - stateful logic
@@ -82,7 +82,7 @@ Those cases stay in Python.
 
 For Python checks, declared `requires=(...)` metadata is validated against inferred context usage from the check function and helper annotations.
 
-The contract is enforced, not just documented.
+The repository enforces this contract.
 
 ## Next Reads
 

@@ -2,23 +2,23 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Library Usage
 
-The public Python API is organized by input surface rather than by parity workflow.
+The public Python API is organized by input surface.
 
-## Public Entry Points
+## Public APIs
 
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
 
-Both surfaces expose:
+Each surface exposes:
 
 - `list_checks(...)`
 - `run_checks(...)`
 
-The root package intentionally exposes these two namespaces rather than one flat API.
+The root package exposes these two namespaces.
 
 ## Raw Surface
 
-Use `raw` when the checks you care about can be decided from public-product rows alone.
+Use `raw` when the checks you care about can be decided from public product rows alone.
 
 Those rows should match the explicit raw source contract anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
 
@@ -33,7 +33,7 @@ findings = raw.run_checks(
 
 ## Enriched Surface
 
-Use `enriched` when the checks need backend-derived fields such as:
+Use `enriched` when the checks need fields derived from the backend, such as:
 
 - enriched flags
 - category properties
@@ -68,11 +68,11 @@ The public library APIs do not expose:
 
 Those remain application concerns.
 
-## Runtime-Only Checks
+## Runtime Only Checks
 
-The library can execute both parity-backed and runtime-only checks.
+The library can execute checks compared against legacy behavior. It can also execute runtime only checks.
 
-That is broader than the current migration report flow, which is still focused on parity-compared checks. If you only need programmatic findings and not the full migration-report application, the library APIs are the right entrypoint.
+This is broader than the current migration report flow, which remains focused on checks compared under parity. Use the library APIs when you need programmatic findings without the report application.
 
 ## Next Reads
 
