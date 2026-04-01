@@ -10,7 +10,7 @@ Repository validation model and main development commands.
 make check
 ```
 
-This is the normal repository validation gate used in CI.
+CI uses this command.
 
 It covers:
 
@@ -31,11 +31,11 @@ This adds broader checks such as:
 - `pyright`
 - `jscpd`
 
-For substantive local work, this is the better completion target even though the CI gate is smaller.
+For substantive local work, prefer this command.
 
 ## Test Coverage
 
-The test suite covers the Python-owned parts of the system, including:
+The test suite covers the Python owned parts of the system, including:
 
 - context construction
 - check catalog and execution behavior
@@ -50,7 +50,7 @@ The test suite covers the Python-owned parts of the system, including:
 
 - `make check` is the repository CI gate and the minimum local validation pass
 - `make quality` is the broader local sweep for deeper confidence
-- parity-sensitive changes may still need a Docker-based end-to-end run in addition to the Python toolchain
+- changes that affect parity may still need an end to end Docker run in addition to the Python toolchain
 
 ## Next Reads
 

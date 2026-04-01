@@ -2,11 +2,11 @@
 
 [Documentation](../index.md) / [Getting Started](index.md) / Troubleshooting
 
-Common setup and execution issues for the current prototype.
+Common setup and execution issues.
 
 ## Code Changes Do Not Show Up
 
-The Docker Compose flow does not bind-mount the source tree into the container.
+The Docker Compose flow does not mount the source tree into the container.
 
 If you changed code and still see the old behavior, rebuild:
 
@@ -18,23 +18,23 @@ docker compose up --build
 
 Check `DATABASE_PATH` in `.env`.
 
-The application expects that path to exist on the host so Docker can bind-mount it into the container. The starter `.env.example` points at the tracked sample snapshot under `examples/data/products.duckdb`.
+The application expects that path to exist on the host so Docker can mount it into the container. The starter `.env.example` points at the tracked sample snapshot under `examples/data/products.duckdb`.
 
 ## DuckDB Schema Validation
 
 The source reader validates the `products` table against the explicit raw input contract.
 
-If you see missing-column errors, your snapshot does not match `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the bundled sample, regenerate a compatible sample, or align the snapshot schema before running parity.
+If you see missing column errors, your snapshot does not match `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the bundled sample, regenerate a compatible sample, or align the snapshot schema before running parity.
 
 ## Missing Legacy Backend Modules
 
-The parity application depends on the legacy backend runtime for reference-side enrichment and findings.
+The parity application depends on the legacy backend runtime for reference enrichment and findings.
 
 If you run outside the provided Docker flow and see Perl errors such as missing `ProductOpener` modules, switch back to the Docker flow or run from an environment that already provides the OFF backend runtime.
 
 ## Legacy Snippet Extraction
 
-Report snippet extraction and legacy inventory export need access to the legacy Perl source tree, not only the runtime image.
+Report snippet extraction and legacy inventory export need access to the legacy Perl source tree. The runtime image alone is not sufficient.
 
 Resolution order is:
 
@@ -52,12 +52,12 @@ The cache key depends on:
 
 - the source snapshot id
 - the legacy backend fingerprint
-- selected Python-side execution-contract files
+- selected Python execution contract files
 - the optional manual cache salt
 
-If you need a fresh reference-side materialization, either delete the cache artifact or set `REFERENCE_RESULT_CACHE_SALT` to a new value.
+If you need a fresh reference materialization, either delete the cache artifact or set `REFERENCE_RESULT_CACHE_SALT` to a new value.
 
-## Python-Only Tooling
+## Python Only Tooling
 
 Use a local virtual environment for linting, typing, focused tests, and utility scripts:
 
@@ -67,7 +67,7 @@ source .venv/bin/activate
 pip install -e ".[app,dev]"
 ```
 
-This is suitable for:
+Use this for:
 
 - `pytest`
 - `ruff`
@@ -75,13 +75,11 @@ This is suitable for:
 - `pyright`
 - `scripts/validate_dsl.py`
 
-The parity-backed workflow itself is still best exercised through Docker.
+The parity workflow itself is still best exercised through Docker.
 
 ## Python Version
 
-The repository source targets Python 3.11-compatible code, but the current Docker image, `.python-version`, and GitHub Actions automation use Python 3.14.3.
-
-Today:
+The repository source targets code compatible with Python 3.11, but the current Docker image, `.python-version`, and GitHub Actions automation use Python 3.14.3.
 
 - write repository code that stays within the documented Python 3.11 target
 - expect local automation and containerized runs to use 3.14.3 today

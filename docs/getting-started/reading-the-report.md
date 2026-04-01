@@ -4,8 +4,6 @@
 
 The parity application writes a static report site and companion JSON artifacts under `artifacts/latest/site/`.
 
-Use this page to read those outputs quickly.
-
 ## Run Outputs
 
 Main generated files:
@@ -16,11 +14,11 @@ Main generated files:
 - `snippets.json`
 - `openfoodfacts-data-quality-json.zip`
 
-`index.html` and `report.html` currently carry the same rendered report. The JSON files are the machine-readable artifacts. The ZIP file bundles those JSON outputs for convenience.
+`index.html` and `report.html` currently carry the same rendered report. The JSON files are the machine readable artifacts. The ZIP file bundles those JSON outputs for convenience.
 
 ## HTML Report
 
-The HTML report is the reviewer-facing summary for one parity run.
+The HTML report is the review summary for one parity run.
 
 It answers questions like:
 
@@ -29,7 +27,7 @@ It answers questions like:
 - which checks produce extra migrated findings
 - which products appear in the retained mismatch examples
 
-The report is intentionally summary-first. It does not try to inline every finding from the run.
+The report stays at summary level. It does not inline every finding from the run.
 
 ## Main Counters
 
@@ -44,7 +42,7 @@ The report is intentionally summary-first. It does not try to inline every findi
 
 ## Parity Comparison
 
-Parity is strict and check-local.
+Parity is strict and applied per check.
 
 For each active check, the application compares reference and migrated findings as multisets over:
 
@@ -69,15 +67,15 @@ Each check card shows:
 - retained mismatch examples for each side
 - code snippets for the migrated implementation and, when available, the matched legacy source
 
-The mismatch examples are capped. They are illustrative, not exhaustive.
+The mismatch examples are capped. They are examples, not a complete list.
 
 ## `parity.json`
 
-`parity.json` is the canonical machine-readable output of the parity domain model.
+`parity.json` is the canonical machine readable output of the parity model.
 
 Use it when you want to:
 
-- post-process parity results
+- process parity results after the run
 - build other viewers or dashboards
 - diff runs programmatically
 - archive one run in a stable structured format
@@ -95,11 +93,11 @@ It combines:
 
 Use it when you want provenance and review context without parsing HTML.
 
-## Current Limitation
+## Report Scope
 
-The current report renderer expects only parity-compared checks.
+The report renderer expects checks compared under parity.
 
-That means the report is aimed at legacy-backed migration runs. Runtime-only checks with `parity_baseline="none"` are supported by the shared library and the check catalog, but they are not part of the current migration-report presentation flow.
+The report currently targets migration runs compared against legacy behavior. Runtime only checks with `parity_baseline="none"` are supported by the shared library and the check catalog, but they are outside the current report flow.
 
 ## Next Reads
 

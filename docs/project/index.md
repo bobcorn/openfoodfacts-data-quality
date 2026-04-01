@@ -2,14 +2,14 @@
 
 [Documentation](../index.md) / Project
 
-Project framing, current scope, and open design questions.
+Project scope, status, and open design questions.
 
-Use this section for:
+Use this section when you need:
 
 - the problem statement behind the repository
 - what is already implemented versus still provisional
-- the current scope and non-goals
-- the project-level decisions that are still intentionally unsettled
+- the current scope and what is out of scope
+- the project decisions that are still open
 
 Read in this order:
 

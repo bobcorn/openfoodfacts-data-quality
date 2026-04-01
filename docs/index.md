@@ -1,6 +1,6 @@
 # Documentation
 
-These docs are organized around reading paths first and folders second.
+Documentation organized by reading path.
 
 ## Start Here
 
@@ -15,7 +15,7 @@ New to the repository? Start here:
 
 ### Reviewer Or Mentor
 
-For a fast project review, the current prototype state, and the main design choices:
+For project review and design context:
 
 - [Project Overview and Scope](project/overview-and-scope.md)
 - [System Overview](architecture/system-overview.md)
@@ -25,7 +25,7 @@ For a fast project review, the current prototype state, and the main design choi
 
 ### Contributor
 
-For local runs, repository boundaries, and day-to-day development work:
+For local runs, repository boundaries, and daily development work:
 
 - [Local Development](guides/local-development.md)
 - [Troubleshooting](getting-started/troubleshooting.md)
@@ -36,7 +36,7 @@ For local runs, repository boundaries, and day-to-day development work:
 
 ### Library User
 
-For the Python package without the parity application:
+For Python package usage without the parity application:
 
 - [Library Usage](guides/library-usage.md)
 - [Data Contracts](architecture/data-contracts.md)
@@ -72,7 +72,7 @@ Repository boundaries, runtime flow, and data contracts.
 
 ### Guides
 
-Hands-on usage and contribution workflows.
+Practical usage and contribution workflows.
 
 - [Guides Index](guides/index.md)
 - [Local Development](guides/local-development.md)
@@ -81,7 +81,7 @@ Hands-on usage and contribution workflows.
 
 ### Operations
 
-Runtime knobs, artifacts, CI, and migration-planning workflows.
+Runtime knobs, artifacts, CI, and migration planning workflows.
 
 - [Operations Index](operations/index.md)
 - [Configuration and Artifacts](operations/configuration-and-artifacts.md)
