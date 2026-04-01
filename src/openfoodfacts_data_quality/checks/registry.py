@@ -85,7 +85,7 @@ def check(
 
 
 def check_bindings(module: ModuleType) -> tuple[CheckBinding, ...]:
-    """Collect decorator-defined checks with required pack metadata applied."""
+    """Collect defined by decorators checks with required pack metadata applied."""
     pack_metadata = _required_pack_metadata_for(module)
     bindings: list[CheckBinding] = []
     for value in module.__dict__.values():
@@ -106,7 +106,7 @@ def check_bindings(module: ModuleType) -> tuple[CheckBinding, ...]:
 
 
 def _required_pack_metadata_for(module: ModuleType) -> CheckPackMetadata:
-    """Return the required module-level check-pack metadata block."""
+    """Return the required module-level check pack metadata block."""
     metadata = getattr(module, _CHECK_PACK_METADATA_ATTR, None)
     if isinstance(metadata, CheckPackMetadata):
         return metadata

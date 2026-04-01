@@ -4,7 +4,7 @@
         const exportHtmlButton = document.getElementById("export-html");
         const exportPdfButton = document.getElementById("export-pdf");
         const exportJsonButton = document.getElementById("export-json");
-        const mismatchParityValues = ["legacy_only", "migrated_only", "mixed"];
+        const mismatchOutcomeValues = ["legacy_only", "migrated_only", "mixed"];
         const statButtons = Array.from(document.querySelectorAll(".stat[data-kind-filter]"));
         const compositionButtons = Array.from(document.querySelectorAll(".composition-segment"));
         const checksContainer = document.querySelector(".checks");
@@ -24,15 +24,16 @@
         const emptyState = document.getElementById("empty-state");
         const tooltip = document.getElementById("tooltip");
         const tooltipTerms = Array.from(document.querySelectorAll("[data-tooltip]"));
-        const parityPriority = {
+        const outcomePriority = {
           mixed: 0,
           legacy_only: 1,
           migrated_only: 2,
-          pass: 3,
+          runtime_only: 3,
+          pass: 4,
         };
 
         const filters = {
-          parity: new Set(),
+          outcome: new Set(),
           definitionLanguage: new Set(),
         };
 
@@ -55,7 +56,7 @@
         }
 
         function getFilterCount() {
-          return filters.parity.size + filters.definitionLanguage.size;
+          return filters.outcome.size + filters.definitionLanguage.size;
         }
 
         function toggleFilterPanel(forceOpen) {
@@ -98,14 +99,14 @@
           statButtons.forEach((button) => {
             const buttonKind = button.dataset.kindFilter;
             const isActive = buttonKind === "pass"
-              ? isSameSelection(filters.parity, ["pass"])
-              : isSameSelection(filters.parity, mismatchParityValues);
+              ? isSameSelection(filters.outcome, ["pass"])
+              : isSameSelection(filters.outcome, mismatchOutcomeValues);
             button.classList.toggle("stat--active", isActive);
             button.setAttribute("aria-pressed", isActive ? "true" : "false");
           });
 
           compositionButtons.forEach((button) => {
-            const isActive = filters.parity.has(button.dataset.kindFilter);
+            const isActive = filters.outcome.has(button.dataset.kindFilter);
             button.classList.toggle("is-active", isActive);
             button.setAttribute("aria-pressed", isActive ? "true" : "false");
           });
@@ -118,13 +119,13 @@
         function applyFilters() {
           let visibleChecks = 0;
           checks.forEach((check) => {
-            const parityMatch = matchesFilterGroup(check.dataset.parityOutcome, filters.parity);
+            const outcomeMatch = matchesFilterGroup(check.dataset.runOutcome, filters.outcome);
             const definitionLanguageMatch = matchesFilterGroup(
               check.dataset.definitionLanguage,
               filters.definitionLanguage
             );
             const searchMatch = searchQuery === "" || check.dataset.searchText.includes(searchQuery);
-            check.hidden = !(parityMatch && definitionLanguageMatch && searchMatch);
+            check.hidden = !(outcomeMatch && definitionLanguageMatch && searchMatch);
             if (!check.hidden) {
               visibleChecks += 1;
             }
@@ -146,6 +147,9 @@
             case "matched_count":
               primaryResult = Number(a.dataset.matchedCount) - Number(b.dataset.matchedCount);
               break;
+            case "migrated_count":
+              primaryResult = Number(a.dataset.migratedCount) - Number(b.dataset.migratedCount);
+              break;
             case "check_id":
               primaryResult = a.dataset.checkId.localeCompare(b.dataset.checkId);
               break;
@@ -159,7 +163,7 @@
           }
 
           return (
-            parityPriority[a.dataset.parityOutcome] - parityPriority[b.dataset.parityOutcome]
+            outcomePriority[a.dataset.runOutcome] - outcomePriority[b.dataset.runOutcome]
             || a.dataset.checkId.localeCompare(b.dataset.checkId)
             || Number(a.dataset.originalIndex) - Number(b.dataset.originalIndex)
           );
@@ -179,7 +183,7 @@
         }
 
         function clearAllFilters() {
-          filters.parity.clear();
+          filters.outcome.clear();
           filters.definitionLanguage.clear();
           renderChecks();
         }
@@ -187,15 +191,15 @@
         statButtons.forEach((button) => {
           button.addEventListener("click", () => {
             if (button.dataset.kindFilter === "pass") {
-              if (isSameSelection(filters.parity, ["pass"])) {
-                filters.parity.clear();
+              if (isSameSelection(filters.outcome, ["pass"])) {
+                filters.outcome.clear();
               } else {
-                filters.parity = new Set(["pass"]);
+                filters.outcome = new Set(["pass"]);
               }
-            } else if (isSameSelection(filters.parity, mismatchParityValues)) {
-              filters.parity.clear();
+            } else if (isSameSelection(filters.outcome, mismatchOutcomeValues)) {
+              filters.outcome.clear();
             } else {
-              filters.parity = new Set(mismatchParityValues);
+              filters.outcome = new Set(mismatchOutcomeValues);
             }
             renderChecks();
           });
@@ -204,10 +208,10 @@
         compositionButtons.forEach((button) => {
           button.addEventListener("click", () => {
             const value = button.dataset.kindFilter;
-            if (filters.parity.has(value)) {
-              filters.parity.delete(value);
+            if (filters.outcome.has(value)) {
+              filters.outcome.delete(value);
             } else {
-              filters.parity.add(value);
+              filters.outcome.add(value);
             }
             renderChecks();
           });

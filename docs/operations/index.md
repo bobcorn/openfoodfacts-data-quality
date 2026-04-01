@@ -7,7 +7,7 @@ Runtime configuration, artifacts, CI, and legacy inventory.
 Use this section when you need:
 
 - which environment variables and profiles shape a run
-- what artifacts the parity application emits
+- what artifacts the application emits
 - how CI and release automation work
 - how legacy inventory export fits into the broader migration effort
 

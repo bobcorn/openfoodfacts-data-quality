@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import TypeAlias, TypeGuard
+from typing import TypeGuard
 
-StringObjectMapping: TypeAlias = dict[str, object]
+type StringObjectMapping = dict[str, object]
 
 
 def is_object_list(value: object) -> TypeGuard[list[object]]:

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 
 class Finding(BaseModel):
-    """Library-facing finding emitted by the quality-check runtime."""
+    """Library-facing finding emitted by the quality check runtime."""
 
     product_id: str
     check_id: str

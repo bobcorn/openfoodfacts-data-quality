@@ -1,4 +1,4 @@
-"""Public enriched-snapshot runtime surface."""
+"""Public enriched snapshot runtime surface."""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from openfoodfacts_data_quality._surface_api import (
 )
 from openfoodfacts_data_quality.context.builder import build_enriched_contexts
 from openfoodfacts_data_quality.contracts.enrichment import (
+    EnrichedCategoryPropsSnapshot,
+    EnrichedFlagsSnapshot,
+    EnrichedNutritionSnapshot,
+    EnrichedProductSnapshot,
     EnrichedSnapshot,
     EnrichedSnapshotResult,
 )
@@ -34,7 +38,7 @@ def list_checks(
     jurisdictions: Collection[CheckJurisdiction] | None = None,
     catalog: CheckCatalog | None = None,
 ) -> tuple[CheckDefinition, ...]:
-    """Return the checks exposed on the enriched-snapshot surface."""
+    """Return the checks exposed on the enriched snapshot surface."""
     return list_surface_checks(
         input_surface=INPUT_SURFACE,
         check_ids=check_ids,
@@ -50,7 +54,7 @@ def run_checks(
     jurisdictions: Collection[CheckJurisdiction] | None = None,
     catalog: CheckCatalog | None = None,
 ) -> list[Finding]:
-    """Run enriched-surface checks on explicit enriched snapshots."""
+    """Run enriched surface checks on explicit enriched snapshots."""
     return run_surface_checks(
         snapshots,
         input_surface=INPUT_SURFACE,
@@ -62,6 +66,10 @@ def run_checks(
 
 
 __all__ = [
+    "EnrichedCategoryPropsSnapshot",
+    "EnrichedFlagsSnapshot",
+    "EnrichedNutritionSnapshot",
+    "EnrichedProductSnapshot",
     "EnrichedSnapshot",
     "EnrichedSnapshotResult",
     "INPUT_SURFACE",

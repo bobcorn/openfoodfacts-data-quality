@@ -1,22 +1,22 @@
 default_profile = "full"
 
 [profiles.full]
-description = "Runs every legacy-backed check available for strict parity."
+description = "Runs every shipped check across legacy parity and runtime-only baselines."
 mode = "all"
 check_input_surface = "enriched_products"
-parity_baselines = ["legacy"]
+parity_baselines = ["legacy", "none"]
 
 [profiles.raw_products]
-description = "Runs legacy-backed checks supported by the current Open Food Facts public database schema."
+description = "Runs every shipped raw-surface check across legacy parity and runtime-only baselines."
 mode = "all"
 check_input_surface = "raw_products"
-parity_baselines = ["legacy"]
+parity_baselines = ["legacy", "none"]
 
 [profiles.focused]
 description = "Runs the current migration workset. Edit check_ids as migration focus changes."
 mode = "include"
 check_input_surface = "enriched_products"
-parity_baselines = ["legacy"]
+parity_baselines = ["legacy", "none"]
 check_ids = [
   "en:serving-quantity-over-product-quantity",
 ]

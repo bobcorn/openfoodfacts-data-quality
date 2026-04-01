@@ -2,13 +2,13 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Legacy Backend Image
 
-Parity runs in this repository depend on a custom Open Food Facts server image.
+Application runs in this repository depend on a custom Open Food Facts server image when they may need to materialize reference results through the backend.
 
 ## Source
 
 The image comes from the [`data-quality`](https://github.com/bobcorn/openfoodfacts-server/tree/data-quality) branch of the [`bobcorn/openfoodfacts-server`](https://github.com/bobcorn/openfoodfacts-server) fork.
 
-That branch supports this repository's parity workflow. It keeps the legacy backend runnable on `linux/amd64` and `linux/arm64` and publishes deterministic tags to GHCR.
+That branch supports this repository's compared and enriched run workflows. It keeps the legacy backend runnable on `linux/amd64` and `linux/arm64` and publishes deterministic tags to GHCR.
 
 ## Published Tags
 
@@ -50,18 +50,22 @@ That keeps the backend image buildable on ARM for the data quality flows used he
 
 ## Runtime Scope
 
-This dependency applies whenever a run needs reference results from the backend.
+This dependency applies to the reference path whenever a run needs backend-backed reference results.
 
 That includes:
 
-- `enriched_products` runs, because migrated contexts come from snapshots enriched by the backend
-- parity `raw_products` runs, because reference findings still come from legacy emitted tags
+- `enriched_products` runs, because the application reference path currently materializes enriched snapshots through the backend
+- compared `raw_products` runs, because reference findings still come from legacy emitted tags
+
+The backend emits a versioned result envelope. Python validates that envelope and then projects `ReferenceResult` onto enriched snapshots and reference findings.
+
+The reference loader checks the cache before starting backend work. A warm cache can satisfy a compared or enriched run without starting a live backend worker for the covered products. Cold cache materialization still uses this image.
 
 Runtime only execution can avoid the backend image if it does not need reference findings or enriched snapshots.
 
 ## Local Checkout
 
-A local checkout of `openfoodfacts-server` is not required for the normal Docker parity flow.
+A local checkout of `openfoodfacts-server` is not required for the normal Docker application flow.
 
 The container already embeds the backend runtime and sets `LEGACY_BACKEND_FINGERPRINT` from the pinned image reference.
 
@@ -88,7 +92,7 @@ To refresh the backend dependency:
 
 ## Next Reads
 
-- [Parity Pipeline](../architecture/parity-pipeline.md)
+- [Application Run Flow](../architecture/application-run-flow.md)
 - [Local Development](../guides/local-development.md)
 - [Configuration and Artifacts](configuration-and-artifacts.md)
 - [CI and Releases](ci-and-releases.md)

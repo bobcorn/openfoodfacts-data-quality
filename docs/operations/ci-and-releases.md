@@ -31,7 +31,7 @@ It:
 - builds the Docker `demo` target
 - publishes an image for multiple architectures to GHCR
 
-The demo image runs the parity application with defaults for the demo against the bundled sample snapshot, on top of the Open Food Facts server base image used for legacy backend execution.
+The demo image runs the application with defaults for the demo against the bundled sample snapshot, on top of the Open Food Facts server base image used for legacy backend execution.
 
 That base image is pinned through the repository `Dockerfile` and comes from the backend flow for multiple architectures documented in [Legacy Backend Image](legacy-backend-image.md).
 

@@ -5,21 +5,27 @@ import logging
 import queue
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
+from app.legacy_backend.contracts import (
+    LEGACY_BACKEND_RESULT_CONTRACT_KIND,
+    LEGACY_BACKEND_RESULT_CONTRACT_VERSION,
+)
 from app.legacy_backend.input_projection import LegacyBackendInputProduct
 from app.legacy_backend.runner import (
+    LazyLegacyBackendRunner,
     LegacyBackendSession,
     LegacyBackendSessionPool,
 )
-from app.reference.findings import emit_reference_findings
+from app.reference.findings import iter_reference_findings
 from app.reference.models import ReferenceResult
 
 from openfoodfacts_data_quality.checks.catalog import get_default_check_catalog
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
 
 _EOF = object()
 
@@ -102,18 +108,22 @@ class _FakeStdin:
             if not line.strip():
                 continue
             incoming = json.loads(line)
-            payload = {
-                "code": incoming["code"],
-                "enriched_snapshot": {
-                    "product": {
-                        "code": incoming["code"],
-                        "product_name": "Prepared",
+            payload: dict[str, object] = {
+                "contract_kind": LEGACY_BACKEND_RESULT_CONTRACT_KIND,
+                "contract_version": 1,
+                "reference_result": {
+                    "code": incoming["code"],
+                    "enriched_snapshot": {
+                        "product": {
+                            "code": incoming["code"],
+                            "product_name": "Prepared",
+                        },
+                        "flags": {},
+                        "category_props": {},
+                        "nutrition": {},
                     },
-                    "flags": {},
-                    "category_props": {},
-                    "nutrition": {},
+                    "legacy_check_tags": {},
                 },
-                "legacy_check_tags": {},
             }
             self._process.stdout.push(json.dumps(payload) + "\n")
         return len(text)
@@ -189,6 +199,43 @@ class _BrokenPipeStdin:
         raise BrokenPipeError(32, "Broken pipe")
 
 
+def _reference_result_envelope_payload(
+    *,
+    code: str = "123",
+    contract_kind: str = LEGACY_BACKEND_RESULT_CONTRACT_KIND,
+) -> dict[str, object]:
+    """Build one minimal backend result envelope for session tests."""
+    return {
+        "contract_kind": contract_kind,
+        "contract_version": 1,
+        "reference_result": {
+            "code": code,
+            "enriched_snapshot": {
+                "product": {"code": code},
+                "flags": {},
+                "category_props": {},
+                "nutrition": {},
+            },
+            "legacy_check_tags": {},
+        },
+    }
+
+
+def _sorted_reference_findings(
+    findings: list[ObservedFinding] | tuple[ObservedFinding, ...],
+) -> list[ObservedFinding]:
+    """Return findings in stable order for assertions."""
+    return sorted(
+        findings,
+        key=lambda finding: (
+            finding.check_id,
+            finding.product_id,
+            finding.observed_code,
+            finding.severity,
+        ),
+    )
+
+
 def _legacy_backend_batch(
     legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
     *codes: str,
@@ -240,9 +287,13 @@ def test_emit_reference_findings_maps_codes_and_keeps_highest_severity(
         },
     )
 
-    findings = emit_reference_findings(
-        [reference_result],
-        active_checks=active_checks,
+    findings = _sorted_reference_findings(
+        list(
+            iter_reference_findings(
+                [reference_result],
+                active_checks=active_checks,
+            )
+        )
     )
     findings_by_key = {
         (finding.check_id, finding.observed_code): finding for finding in findings
@@ -280,7 +331,7 @@ def test_emit_reference_findings_maps_codes_and_keeps_highest_severity(
     )
 
 
-def test_emit_reference_findings_filters_to_active_checks(
+def test_iter_reference_findings_filters_to_active_checks(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
     checks_by_id = get_default_check_catalog().checks_by_id
@@ -294,9 +345,15 @@ def test_emit_reference_findings_filters_to_active_checks(
         },
     )
 
-    findings = emit_reference_findings(
-        [reference_result],
-        active_checks=[checks_by_id["en:serving-quantity-over-product-quantity"]],
+    findings = _sorted_reference_findings(
+        list(
+            iter_reference_findings(
+                [reference_result],
+                active_checks=[
+                    checks_by_id["en:serving-quantity-over-product-quantity"]
+                ],
+            )
+        )
     )
 
     assert [finding.check_id for finding in findings] == [
@@ -362,10 +419,7 @@ def test_legacy_backend_session_logs_slow_first_output_warning(
             [
                 queue.Empty(),
                 queue.Empty(),
-                json.dumps(
-                    {"code": "123", "enriched_snapshot": {}, "legacy_check_tags": {}}
-                )
-                + "\n",
+                json.dumps(_reference_result_envelope_payload()) + "\n",
             ]
         )
     )
@@ -378,10 +432,53 @@ def test_legacy_backend_session_logs_slow_first_output_warning(
 
     line = session.next_stdout_line(batch_size=250, received_count=0)
 
-    assert json.loads(line)["code"] == "123"
+    assert json.loads(line)["reference_result"]["code"] == "123"
     assert caplog.messages == [
         "[Legacy Backend] Worker still waiting for backend output after 31.0s (batch size: 250)."
     ]
+
+
+def test_legacy_backend_session_rejects_unsupported_contract_kind(
+    monkeypatch: pytest.MonkeyPatch,
+    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
+) -> None:
+    process = _FakeProcess()
+    process.stdout.push(
+        json.dumps(
+            _reference_result_envelope_payload(
+                contract_kind="unexpected.contract",
+            )
+        )
+        + "\n"
+    )
+    _patch_fake_popen(monkeypatch, process)
+
+    with (
+        LegacyBackendSession() as session,
+        pytest.raises(
+            ValueError,
+            match="Unsupported legacy backend result contract kind",
+        ),
+    ):
+        session.run(_legacy_backend_batch(legacy_backend_input_product_factory, "123"))
+
+
+def test_legacy_backend_wrapper_contract_constants_match_python_contract() -> None:
+    wrapper_text = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "legacy_backend"
+        / "off_runtime.pl"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        f'my $result_contract_kind = "{LEGACY_BACKEND_RESULT_CONTRACT_KIND}";'
+        in wrapper_text
+    )
+    assert (
+        f"my $result_contract_version = {LEGACY_BACKEND_RESULT_CONTRACT_VERSION};"
+        in wrapper_text
+    )
 
 
 def test_legacy_backend_session_pool_runs_batches_through_multiple_workers(
@@ -446,3 +543,32 @@ def test_legacy_backend_session_pool_replaces_failed_worker_before_re_raise(
 
     assert len(popen_calls) == 2
     assert [product.code for product in result] == ["456"]
+
+
+def test_lazy_legacy_backend_runner_skips_backend_start_without_cache_misses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    popen_calls = _patch_fake_popen(monkeypatch)
+
+    with LazyLegacyBackendRunner(worker_count=1) as runner:
+        assert runner.started is False
+        assert runner.run([]) == []
+        assert runner.started is False
+
+    assert len(popen_calls) == 0
+
+
+def test_lazy_legacy_backend_runner_starts_backend_on_first_materialization(
+    monkeypatch: pytest.MonkeyPatch,
+    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
+) -> None:
+    popen_calls = _patch_fake_popen(monkeypatch)
+
+    with LazyLegacyBackendRunner(worker_count=1) as runner:
+        result = runner.run(
+            _legacy_backend_batch(legacy_backend_input_product_factory, "123")
+        )
+        assert runner.started is True
+
+    assert len(popen_calls) == 1
+    assert [product.code for product in result] == ["123"]

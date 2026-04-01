@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 from openfoodfacts_data_quality.checks.catalog import (
     CheckCatalog,
@@ -23,8 +23,10 @@ if TYPE_CHECKING:
     )
     from openfoodfacts_data_quality.contracts.findings import Finding
 
-SurfaceInput = TypeVar("SurfaceInput")
-ContextBuilder = Callable[[Iterable[SurfaceInput]], list[NormalizedContext]]
+type ContextBuilder[SurfaceInput] = Callable[
+    [Iterable[SurfaceInput]],
+    list[NormalizedContext],
+]
 
 
 def list_surface_checks(
@@ -43,7 +45,7 @@ def list_surface_checks(
     )
 
 
-def run_surface_checks(
+def run_surface_checks[SurfaceInput](
     inputs: Iterable[SurfaceInput],
     *,
     input_surface: CheckInputSurface,

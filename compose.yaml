@@ -1,7 +1,7 @@
 name: openfoodfacts-data-quality
 
 services:
-  parity_engine:
+  run_app:
     image: openfoodfacts-data-quality:local
     build:
       context: .

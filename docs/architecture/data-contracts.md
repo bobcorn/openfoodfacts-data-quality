@@ -10,9 +10,9 @@ The check catalog spans two input surfaces because not every check needs the sam
 
 ### Raw Source Rows
 
-Raw runs start from public product rows loaded from a DuckDB snapshot.
+Raw runs start from `RawProductRow` objects loaded from a DuckDB snapshot.
 
-The raw input contract is explicit and anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
+The raw input contract is explicit. Its canonical model lives in `src/openfoodfacts_data_quality/contracts/raw.py`, and its OFF column names are anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
 
 Checks that only need public product fields can remain on this surface and avoid the enrichment path entirely.
 
@@ -21,9 +21,11 @@ Checks that only need public product fields can remain on this surface and avoid
 Enriched runs start from `EnrichedSnapshotResult`, which wraps:
 
 - a product `code`
-- an `enriched_snapshot` payload with `product`, `flags`, `category_props`, and `nutrition`
+- an `enriched_snapshot` payload with structured `product`, `flags`, `category_props`, and `nutrition` sections
 
-This is the library contract for enriched inputs. It is narrower than the full legacy backend payload.
+This is the stable library contract for enriched inputs, owned by the Python runtime.
+
+In application runs, the legacy backend emits a versioned result envelope whose stable payload includes `ReferenceResult.enriched_snapshot`. The application then projects that validated payload into `EnrichedSnapshotResult`.
 
 ## Input Surfaces
 
@@ -32,7 +34,7 @@ This is the library contract for enriched inputs. It is narrower than the full l
 - `raw_products`
   The check can run from the public source snapshot alone.
 - `enriched_products`
-  The check depends on data that must first be materialized through the legacy backend boundary.
+  The check depends on stable enriched data. In application runs, that data is materialized through the legacy backend boundary and then projected onto the enriched contract owned by the Python runtime. In library usage, callers can provide explicit enriched snapshots directly.
 
 This affects:
 
@@ -58,14 +60,17 @@ The path metadata derived from the context contract also drives input surface in
 
 ### ReferenceResult
 
-The legacy backend boundary returns `ReferenceResult`.
+The application reference path returns `ReferenceResult`.
 
 Fields:
 
+- `code`
 - `enriched_snapshot`
 - `legacy_check_tags`
 
-The boundary is explicit. The Python side receives named fields.
+The cross language boundary is explicit. The legacy backend emits `LegacyBackendResultEnvelope`, which carries `contract_kind`, `contract_version`, and a stable `reference_result` payload. Python validates that envelope and then works with `ReferenceResult`.
+
+That keeps the public enriched and reference contracts owned by Python instead of by the Perl boundary details.
 
 ## Output Contracts
 
@@ -75,15 +80,27 @@ The boundary is explicit. The Python side receives named fields.
 
 ### ObservedFinding
 
-`ObservedFinding` is the comparison model used by parity. Both reference and migrated outputs are adapted into this shape before parity evaluation.
+`ObservedFinding` is the comparison model used by strict comparison. Both reference and migrated outputs are adapted into this shape before comparison.
 
-### ParityResult
+### RunCheckResult
 
-`ParityResult` is the top level application summary for one run. It drives:
+`RunCheckResult` is the application result for one check. It records:
+
+- the check definition
+- whether the check is `compared` or `runtime_only`
+- migrated counts
+- reference counts and mismatch details when comparison applies
+
+### RunResult
+
+`RunResult` is the overall application summary for one run. It drives:
 
 - the HTML report
-- `parity.json`
+- `run.json`
 - snippet artifacts and JSON download bundles
+
+`run.json` and `snippets.json` are versioned JSON artifacts. They carry root `kind` and `schema_version` metadata around the serialized payload.
+`snippets.json` records snippet provenance with `origin="implementation"` for current repository code and `origin="legacy"` for matched legacy source spans. Each check entry also records `legacy_snippet_status` as `available`, `not_applicable`, or `unavailable`.
 
 ## Contract Stability
 
@@ -95,6 +112,7 @@ Changes to them often have broad effects on:
 - context projection
 - DSL validation
 - reference loading
+- comparison behavior
 - artifact generation
 
 ## Next Reads

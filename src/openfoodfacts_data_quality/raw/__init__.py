@@ -1,4 +1,4 @@
-"""Public raw-product runtime surface."""
+"""Public raw product runtime surface."""
 
 from __future__ import annotations
 
@@ -20,6 +20,9 @@ if TYPE_CHECKING:
         CheckJurisdiction,
     )
     from openfoodfacts_data_quality.contracts.findings import Finding
+    from openfoodfacts_data_quality.contracts.raw import RawProductRow
+
+from openfoodfacts_data_quality.contracts.raw import RawProductRow
 
 INPUT_SURFACE: CheckInputSurface = "raw_products"
 
@@ -30,7 +33,7 @@ def list_checks(
     jurisdictions: Collection[CheckJurisdiction] | None = None,
     catalog: CheckCatalog | None = None,
 ) -> tuple[CheckDefinition, ...]:
-    """Return the checks exposed on the raw-product surface."""
+    """Return the checks exposed on the raw product surface."""
     return list_surface_checks(
         input_surface=INPUT_SURFACE,
         check_ids=check_ids,
@@ -40,13 +43,13 @@ def list_checks(
 
 
 def run_checks(
-    rows: Iterable[Mapping[str, Any]],
+    rows: Iterable[RawProductRow | Mapping[str, Any]],
     *,
     check_ids: Collection[str] | None = None,
     jurisdictions: Collection[CheckJurisdiction] | None = None,
     catalog: CheckCatalog | None = None,
 ) -> list[Finding]:
-    """Run raw-surface checks on public Open Food Facts product rows."""
+    """Run raw surface checks on public Open Food Facts product rows."""
     return run_surface_checks(
         rows,
         input_surface=INPUT_SURFACE,
@@ -59,6 +62,7 @@ def run_checks(
 
 __all__ = [
     "INPUT_SURFACE",
+    "RawProductRow",
     "list_checks",
     "run_checks",
 ]

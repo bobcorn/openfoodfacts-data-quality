@@ -19,7 +19,7 @@ For project review and design context:
 
 - [Project Overview and Scope](project/overview-and-scope.md)
 - [System Overview](architecture/system-overview.md)
-- [Parity Pipeline](architecture/parity-pipeline.md)
+- [Application Run Flow](architecture/application-run-flow.md)
 - [Reading The Report](getting-started/reading-the-report.md)
 - [Roadmap and Open Questions](project/roadmap-and-open-questions.md)
 
@@ -36,7 +36,7 @@ For local runs, repository boundaries, and daily development work:
 
 ### Library User
 
-For Python package usage without the parity application:
+For Python package usage without the application run layer:
 
 - [Library Usage](guides/library-usage.md)
 - [Data Contracts](architecture/data-contracts.md)
@@ -68,7 +68,7 @@ Repository boundaries, runtime flow, and data contracts.
 - [System Overview](architecture/system-overview.md)
 - [Data Contracts](architecture/data-contracts.md)
 - [Check System](architecture/check-system.md)
-- [Parity Pipeline](architecture/parity-pipeline.md)
+- [Application Run Flow](architecture/application-run-flow.md)
 
 ### Guides
 

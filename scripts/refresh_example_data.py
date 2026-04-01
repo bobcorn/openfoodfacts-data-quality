@@ -10,6 +10,11 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
+from app.source.duckdb_products import (
+    source_snapshot_id_for,
+    write_source_snapshot_manifest,
+)
+
 from openfoodfacts_data_quality.raw_products import RAW_INPUT_COLUMNS
 
 DEFAULT_SOURCE = ROOT / "data" / "en.openfoodfacts.org.products.csv"
@@ -55,6 +60,10 @@ def main() -> int:
     row_count = write_sample_csv(source_csv, output_csv, sample_size=args.sample_size)
     write_sample_parquet(output_csv, output_parquet)
     write_sample_duckdb(output_csv, output_duckdb)
+    write_source_snapshot_manifest(
+        output_duckdb,
+        source_snapshot_id=source_snapshot_id_for(output_duckdb),
+    )
 
     print(f"Wrote {row_count} products to {output_csv}")
     print(f"Wrote {row_count} products to {output_parquet}")
@@ -63,7 +72,7 @@ def main() -> int:
 
 
 def write_sample_csv(source_csv: Path, output_csv: Path, *, sample_size: int) -> int:
-    """Write one reduced comma-separated CSV with only the columns used by the library demo."""
+    """Write one reduced comma separated CSV with only the columns used by the library demo."""
     with source_csv.open("r", encoding="utf-8", newline="") as source_handle:
         reader = csv.DictReader(source_handle, delimiter="\t")
         with output_csv.open("w", encoding="utf-8", newline="") as output_handle:
@@ -85,7 +94,7 @@ def write_sample_csv(source_csv: Path, output_csv: Path, *, sample_size: int) ->
                     return written
 
     raise ValueError(
-        f"Source CSV {source_csv} did not contain {sample_size} unique products with a non-empty code."
+        f"Source CSV {source_csv} did not contain {sample_size} unique products with a not empty code."
     )
 
 

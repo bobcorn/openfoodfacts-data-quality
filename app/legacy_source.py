@@ -18,6 +18,14 @@ _LEGACY_MODULE_GLOB = "DataQuality*.pm"
 
 
 @dataclass(frozen=True, slots=True)
+class _LegacyEmissionAnalysis:
+    """Supported and unsupported data-quality emissions extracted from one expression."""
+
+    emitted_templates: tuple[str, ...] = ()
+    unsupported_data_quality_emission_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class LegacySourceMatch:
     """One legacy subroutine that emits a normalized data-quality tag template."""
 
@@ -39,6 +47,7 @@ class LegacySubroutineRecord:
     end_line: int
     code: str
     emitted_templates: tuple[str, ...]
+    unsupported_data_quality_emission_count: int = 0
 
     @property
     def line_span(self) -> int:
@@ -126,7 +135,7 @@ def resolve_legacy_module_paths(legacy_source_root: Path) -> tuple[Path, ...]:
 
 
 def resolve_legacy_source_root() -> Path | None:
-    """Resolve the legacy server source tree for Tree-sitter-based analysis."""
+    """Resolve the legacy server source tree used for Tree-sitter analysis."""
     configured_root = os.getenv("LEGACY_SOURCE_ROOT")
     repo_root = Path(__file__).resolve().parents[2]
     candidates = [
@@ -161,19 +170,19 @@ def collect_legacy_subroutine_records(
             if subroutine_name is None or block is None:
                 continue
 
-            emitted_templates = tuple(
-                sorted(
-                    {
-                        code_template
-                        for expression_statement in _iter_expression_statements(block)
-                        for code_template in _code_templates_for_expression(
-                            expression_statement,
-                            source,
-                        )
-                    }
+            emitted_templates: set[str] = set()
+            unsupported_data_quality_emission_count = 0
+            for expression_statement in _iter_expression_statements(block):
+                emission_analysis = _analyze_data_quality_emission(
+                    expression_statement,
+                    source,
                 )
-            )
-            if not emitted_templates:
+                emitted_templates.update(emission_analysis.emitted_templates)
+                unsupported_data_quality_emission_count += (
+                    emission_analysis.unsupported_data_quality_emission_count
+                )
+            emitted_templates_tuple = tuple(sorted(emitted_templates))
+            if not emitted_templates_tuple:
                 continue
 
             records.append(
@@ -185,7 +194,10 @@ def collect_legacy_subroutine_records(
                     code=source[subroutine.start_byte : subroutine.end_byte]
                     .decode("utf-8")
                     .strip(),
-                    emitted_templates=emitted_templates,
+                    emitted_templates=emitted_templates_tuple,
+                    unsupported_data_quality_emission_count=(
+                        unsupported_data_quality_emission_count
+                    ),
                 )
             )
 
@@ -213,7 +225,7 @@ def _get_perl_parser() -> Any:
 
 
 def _iter_subroutine_nodes(root_node: Any) -> Iterator[Any]:
-    """Yield every top-level or nested Perl subroutine declaration node."""
+    """Yield every root level or nested Perl subroutine declaration node."""
     yield from (
         node
         for node in _iter_nodes(root_node)
@@ -255,25 +267,22 @@ def _subroutine_block(subroutine_node: Any) -> Any | None:
     return None
 
 
-def _code_templates_for_expression(
+def _analyze_data_quality_emission(
     expression_statement: Any,
     source: bytes,
-) -> tuple[str, ...]:
-    """Return normalized data-quality templates emitted by one expression."""
+) -> _LegacyEmissionAnalysis:
+    """Return normalized and unsupported data-quality emissions from one expression."""
     named_children = _named_children(expression_statement)
     if not named_children:
-        return ()
+        return _LegacyEmissionAnalysis()
 
     expression = named_children[0]
     function_name = _function_name(expression, source)
     if expression.type == "function_call_expression" and function_name == "add_tag":
         arguments = _function_arguments(expression)
         if len(arguments) < 3 or not _is_data_quality_bucket(arguments[1], source):
-            return ()
-        code_template = _template_from_expression(arguments[2], source)
-        if code_template is None or not code_template.startswith("en:"):
-            return ()
-        return (code_template,)
+            return _LegacyEmissionAnalysis()
+        return _emission_analysis_for_template_expression(arguments[2], source)
 
     if (
         expression.type == "ambiguous_function_call_expression"
@@ -281,17 +290,25 @@ def _code_templates_for_expression(
     ):
         arguments = _function_arguments(expression)
         if len(arguments) < 2 or not _is_data_quality_push_target(arguments[0], source):
-            return ()
-        code_template = _template_from_expression(arguments[1], source)
-        if code_template is None or not code_template.startswith("en:"):
-            return ()
-        return (code_template,)
+            return _LegacyEmissionAnalysis()
+        return _emission_analysis_for_template_expression(arguments[1], source)
 
-    return ()
+    return _LegacyEmissionAnalysis()
+
+
+def _emission_analysis_for_template_expression(
+    expression: Any,
+    source: bytes,
+) -> _LegacyEmissionAnalysis:
+    """Return normalized data-quality emission templates for one recognized target."""
+    code_template = _template_from_expression(expression, source)
+    if code_template is None or not code_template.startswith("en:"):
+        return _LegacyEmissionAnalysis(unsupported_data_quality_emission_count=1)
+    return _LegacyEmissionAnalysis(emitted_templates=(code_template,))
 
 
 def _function_name(expression: Any, source: bytes) -> str | None:
-    """Return the invoked function name for one call-like expression."""
+    """Return the invoked function name for one call expression."""
     for child in _children(expression):
         if getattr(child, "type", None) == "function":
             return _node_text(child, source)
@@ -515,7 +532,7 @@ def _hash_key_name(node: Any, source: bytes) -> str | None:
 
 
 def _hash_element_placeholder_name(node: Any, source: bytes) -> str | None:
-    """Return one stable placeholder name for a Perl hash-access expression."""
+    """Return one stable placeholder name for a Perl hash access expression."""
     segments = _hash_element_segments(node, source)
     if segments is None:
         return None
@@ -527,7 +544,7 @@ def _hash_element_placeholder_name(node: Any, source: bytes) -> str | None:
 
 
 def _hash_element_segments(node: Any, source: bytes) -> tuple[str, ...] | None:
-    """Return flattened identifier-like segments for one hash-access expression."""
+    """Return flattened identifier-like segments for one hash access expression."""
     named_children = _named_children(node)
     if len(named_children) != 2:
         return None

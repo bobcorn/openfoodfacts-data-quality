@@ -29,5 +29,5 @@ def default_python_check_pack_module_names() -> tuple[str, ...]:
 
 @cache
 def default_dsl_check_pack_resources() -> tuple[Traversable, ...]:
-    """Return the packaged DSL check-pack files shipped with the library."""
+    """Return the packaged DSL check pack files shipped with the library."""
     return dsl_check_pack_resources()

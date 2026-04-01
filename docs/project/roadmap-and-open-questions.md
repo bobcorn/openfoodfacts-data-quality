@@ -9,7 +9,7 @@ Project decisions and areas most likely to change.
 - migrate more checks compared against legacy behavior into the shared packaged runtime
 - keep tightening parity behavior where legacy comparison is expected
 - improve onboarding and contributor workflow around check authoring
-- make the library boundaries clearer as the runtime matures
+- keep the explicit raw, enriched, and reference contracts aligned as new checks land
 
 ## Open Questions
 
@@ -17,9 +17,9 @@ Project decisions and areas most likely to change.
 
 The DSL stays narrow by design. Expanding it too far would hide logic that is easier to review in Python. The open question is which additions would keep migrated logic obvious and auditable.
 
-### Enriched API Stability
+### Enriched Surface Growth
 
-The repository already exposes explicit enriched snapshots through the public library APIs. The open question is which enriched fields deserve to be treated as durable shared contracts and which should remain local to `app/` or close to the backend.
+The repository already exposes an explicit enriched contract owned by the Python runtime. The open question is which additional fields, if any, deserve to widen that contract as more migrated checks land.
 
 ### Full Corpus Execution
 
@@ -56,5 +56,5 @@ The split is already present in the codebase. It will need continued discipline 
 ## Next Reads
 
 - [Project Overview and Scope](overview-and-scope.md)
-- [Parity Pipeline](../architecture/parity-pipeline.md)
+- [Application Run Flow](../architecture/application-run-flow.md)
 - [Configuration and Artifacts](../operations/configuration-and-artifacts.md)

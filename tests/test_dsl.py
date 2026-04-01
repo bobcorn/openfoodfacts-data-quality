@@ -77,7 +77,7 @@ def test_validate_dsl_definitions_rejects_helper_shaped_path() -> None:
         ),
     )
 
-    with pytest.raises(ValueError, match="Unknown normalized-context field"):
+    with pytest.raises(ValueError, match="Unknown normalized context field"):
         validate_dsl_definitions(checks)
 
 

@@ -1,1 +1,1 @@
-"""Packaged Python quality-check packs."""
+"""Packaged Python quality check packs."""

@@ -3,36 +3,36 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from app.parity.models import (
-    CheckParityResult,
-    ObservedFinding,
-    ParityResult,
-    ParityRunMetadata,
+from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+from openfoodfacts_data_quality.contracts.run import (
+    RunCheckResult,
+    RunMetadata,
+    RunResult,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from openfoodfacts_data_quality.contracts.checks import CheckDefinition
 
 
 def evaluate_parity(
-    reference_findings: list[ObservedFinding],
-    migrated_findings: list[ObservedFinding],
-    run: ParityRunMetadata,
+    reference_findings: Iterable[ObservedFinding],
+    migrated_findings: Iterable[ObservedFinding],
+    run: RunMetadata,
     *,
     checks: Sequence[CheckDefinition],
-) -> ParityResult:
-    """Evaluate strict parity across reference and migrated findings."""
+) -> RunResult:
+    """Evaluate strict comparison across reference and migrated findings."""
     active_checks = tuple(checks)
 
-    reference_by_check = _group_findings_by_check(reference_findings)
-    migrated_by_check = _group_findings_by_check(migrated_findings)
+    reference_by_check, reference_total = _group_findings_by_check(reference_findings)
+    migrated_by_check, _migrated_total = _group_findings_by_check(migrated_findings)
 
-    parity_checks: list[CheckParityResult] = []
+    run_checks: list[RunCheckResult] = []
     compared_migrated_total = 0
     matched_total = 0
-    not_compared_migrated_total = 0
+    runtime_only_migrated_total = 0
 
     for check in active_checks:
         reference_items = sorted(
@@ -45,11 +45,11 @@ def evaluate_parity(
         )
 
         if check.parity_baseline == "none":
-            not_compared_migrated_total += len(migrated_items)
-            parity_checks.append(
-                CheckParityResult(
+            runtime_only_migrated_total += len(migrated_items)
+            run_checks.append(
+                RunCheckResult(
                     definition=check,
-                    comparison_status="not_compared",
+                    comparison_status="runtime_only",
                     reference_count=0,
                     migrated_count=len(migrated_items),
                     matched_count=0,
@@ -70,8 +70,8 @@ def evaluate_parity(
         compared_migrated_total += len(migrated_items)
         matched_total += matched_count
 
-        parity_checks.append(
-            CheckParityResult(
+        run_checks.append(
+            RunCheckResult(
                 definition=check,
                 comparison_status="compared",
                 reference_count=len(reference_items),
@@ -85,30 +85,32 @@ def evaluate_parity(
             )
         )
 
-    return ParityResult(
+    return RunResult(
         run_id=run.run_id,
         source_snapshot_id=run.source_snapshot_id,
         product_count=run.product_count,
-        checks=parity_checks,
-        compared_check_count=sum(1 for check in parity_checks if check.is_compared),
-        not_compared_check_count=sum(
-            1 for check in parity_checks if not check.is_compared
+        checks=run_checks,
+        compared_check_count=sum(1 for check in run_checks if check.is_compared),
+        runtime_only_check_count=sum(
+            1 for check in run_checks if check.is_runtime_only
         ),
-        reference_total=len(reference_findings),
-        migrated_total=compared_migrated_total,
+        reference_total=reference_total,
+        compared_migrated_total=compared_migrated_total,
         matched_total=matched_total,
-        not_compared_migrated_total=not_compared_migrated_total,
+        runtime_only_migrated_total=runtime_only_migrated_total,
     )
 
 
 def _group_findings_by_check(
-    findings: list[ObservedFinding],
-) -> dict[str, list[ObservedFinding]]:
+    findings: Iterable[ObservedFinding],
+) -> tuple[dict[str, list[ObservedFinding]], int]:
     """Group observed findings by canonical check id."""
     grouped: defaultdict[str, list[ObservedFinding]] = defaultdict(list)
+    total = 0
     for finding in findings:
         grouped[finding.check_id].append(finding)
-    return dict(grouped)
+        total += 1
+    return dict(grouped), total
 
 
 def _findings_for_check(
@@ -120,7 +122,7 @@ def _findings_for_check(
 
 
 def _finding_strict_key(item: ObservedFinding) -> tuple[str, str, str]:
-    """Return the multiset identity used for strict parity comparisons."""
+    """Return the multiset identity used for strict comparison."""
     return item.strict_key()
 
 

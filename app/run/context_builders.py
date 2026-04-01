@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from openfoodfacts_data_quality.context.builder import (
     build_enriched_contexts,
     build_raw_contexts,
+    iter_enriched_contexts,
+    iter_raw_contexts,
 )
 
 if TYPE_CHECKING:
     from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
     from openfoodfacts_data_quality.contracts.context import NormalizedContext
     from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
+    from openfoodfacts_data_quality.contracts.raw import RawProductRow
 
 
 class SupportsCheckContextBuilder(Protocol):
@@ -27,9 +30,16 @@ class SupportsCheckContextBuilder(Protocol):
     def build_contexts(
         self,
         *,
-        rows: list[dict[str, Any]],
+        rows: list[RawProductRow],
         enriched_snapshots: Sequence[EnrichedSnapshotResult],
     ) -> list[NormalizedContext]: ...
+
+    def iter_contexts(
+        self,
+        *,
+        rows: list[RawProductRow],
+        enriched_snapshots: Sequence[EnrichedSnapshotResult],
+    ) -> Iterable[NormalizedContext]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,12 +52,22 @@ class RawProductsContextBuilder:
     def build_contexts(
         self,
         *,
-        rows: list[dict[str, Any]],
+        rows: list[RawProductRow],
         enriched_snapshots: Sequence[EnrichedSnapshotResult],
     ) -> list[NormalizedContext]:
         """Build runtime contexts from the raw source rows."""
         del enriched_snapshots
         return build_raw_contexts(rows)
+
+    def iter_contexts(
+        self,
+        *,
+        rows: list[RawProductRow],
+        enriched_snapshots: Sequence[EnrichedSnapshotResult],
+    ) -> Iterable[NormalizedContext]:
+        """Yield runtime contexts from the raw source rows."""
+        del enriched_snapshots
+        return iter_raw_contexts(rows)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,12 +80,22 @@ class EnrichedProductsContextBuilder:
     def build_contexts(
         self,
         *,
-        rows: list[dict[str, Any]],
+        rows: list[RawProductRow],
         enriched_snapshots: Sequence[EnrichedSnapshotResult],
     ) -> list[NormalizedContext]:
         """Build runtime contexts from the enriched backend snapshot."""
         del rows
         return build_enriched_contexts(enriched_snapshots)
+
+    def iter_contexts(
+        self,
+        *,
+        rows: list[RawProductRow],
+        enriched_snapshots: Sequence[EnrichedSnapshotResult],
+    ) -> Iterable[NormalizedContext]:
+        """Yield runtime contexts from the enriched backend snapshot."""
+        del rows
+        return iter_enriched_contexts(enriched_snapshots)
 
 
 RAW_PRODUCTS_CONTEXT_BUILDER = RawProductsContextBuilder()

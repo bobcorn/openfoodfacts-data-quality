@@ -17,7 +17,7 @@ def test_dsl_capabilities_manifest_matches_supported_operators_and_context_roots
         .read_text(encoding="utf-8")
     )
 
-    assert payload["kind"] == "openfoodfacts_dqm.dsl_capabilities"
+    assert payload["kind"] == "openfoodfacts_data_quality.dsl_capabilities"
     assert payload["version"] == 1
     assert payload["logical_forms"] == ["all", "any", "not"]
     assert payload["atom_operators"] == list(get_args(Operator))

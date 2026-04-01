@@ -7,6 +7,13 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
+from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
+from openfoodfacts_data_quality.contracts.structured import (
+    IngredientNode,
+    NutritionAggregatedSet,
+    NutritionInputSet,
+    PackagingEntry,
+)
 
 PathType = Literal["string", "number", "boolean", "array", "object"]
 
@@ -18,7 +25,7 @@ CHECK_INPUT_SURFACES: tuple[CheckInputSurface, ...] = (
 
 @dataclass(frozen=True)
 class ContextFieldMetadata:
-    """Path metadata attached directly to one normalized-context contract field."""
+    """Path metadata attached directly to one normalized context contract field."""
 
     type: PathType
     dsl_allowed: bool = True
@@ -27,7 +34,7 @@ class ContextFieldMetadata:
 
 @dataclass(frozen=True)
 class ContextPathSpec:
-    """Materialized metadata for one dotted normalized-context path."""
+    """Materialized metadata for one dotted normalized context path."""
 
     path: str
     type: PathType
@@ -41,7 +48,7 @@ def context_field(
     dsl_allowed: bool = True,
     supported_input_surfaces: tuple[CheckInputSurface, ...] = CHECK_INPUT_SURFACES,
 ) -> ContextFieldMetadata:
-    """Attach normalized-context path metadata to one contract field."""
+    """Attach normalized context path metadata to one contract field."""
     return ContextFieldMetadata(
         type=path_type,
         dsl_allowed=dsl_allowed,
@@ -49,29 +56,15 @@ def context_field(
     )
 
 
-def _empty_object_list() -> list[object]:
-    """Build an empty object list with a concrete static type."""
+def _empty_nutrition_input_sets() -> list[NutritionInputSet]:
+    """Build an empty nutrition-input-set list with a concrete static type."""
     return []
 
 
-class ContextSectionModel(BaseModel):
-    """Immutable typed section with a mapping view for path-based consumers."""
+class ContextSectionModel(MappingViewModel):
+    """Immutable typed section with a mapping view for path based consumers."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
-
-    def as_mapping(self) -> dict[str, Any]:
-        """Serialize one section using the stable normalized-context shape."""
-        return self.model_dump(mode="python", exclude_none=True)
-
-    def __getitem__(self, key: str) -> Any:
-        return self.as_mapping()[key]
-
-    def __contains__(self, key: object) -> bool:
-        return key in self.as_mapping()
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Read one field from the mapping view while preserving missing semantics."""
-        return self.as_mapping().get(key, default)
 
 
 class ProductContext(ContextSectionModel):
@@ -96,7 +89,7 @@ class ProductContext(ContextSectionModel):
     product_name: Annotated[str | None, context_field("string")] = None
     quantity: Annotated[str | None, context_field("string")] = None
     packagings: Annotated[
-        list[object] | None,
+        list[PackagingEntry] | None,
         context_field(
             "array",
             supported_input_surfaces=("enriched_products",),
@@ -111,7 +104,7 @@ class ProductContext(ContextSectionModel):
     emb_codes: Annotated[str | None, context_field("string")] = None
     ingredients_text: Annotated[str | None, context_field("string")] = None
     ingredients: Annotated[
-        list[object] | None,
+        list[IngredientNode] | None,
         context_field(
             "array",
             dsl_allowed=False,
@@ -216,7 +209,7 @@ class FlagsContext(ContextSectionModel):
 
 
 class CategoryPropsContext(ContextSectionModel):
-    """Stable normalized category-property subset derived from enriched snapshots."""
+    """Stable normalized category property subset derived from enriched snapshots."""
 
     minimum_number_of_ingredients: Annotated[
         float | None,
@@ -244,11 +237,11 @@ class NutritionContext(ContextSectionModel):
     """Stable normalized nutrition subset shared by raw and enriched runs."""
 
     input_sets: Annotated[
-        list[object],
+        list[NutritionInputSet],
         context_field("array", dsl_allowed=False),
-    ] = Field(default_factory=_empty_object_list)
+    ] = Field(default_factory=_empty_nutrition_input_sets)
     aggregated_set: Annotated[
-        dict[str, object] | None,
+        NutritionAggregatedSet | None,
         context_field(
             "object",
             dsl_allowed=False,
@@ -271,7 +264,7 @@ class NormalizedContext(BaseModel):
 
     @model_validator(mode="after")
     def validate_product_code(self) -> NormalizedContext:
-        """Keep the top-level code and product projection aligned."""
+        """Keep the outer code and product projection aligned."""
         if self.product.code != self.code:
             raise ValueError(
                 "Normalized context code must match product.code. "
@@ -280,7 +273,7 @@ class NormalizedContext(BaseModel):
         return self
 
     def as_mapping(self) -> dict[str, Any]:
-        """Expose the stable nested mapping used by path-based evaluation."""
+        """Expose the stable nested mapping used by path based evaluation."""
         return {
             "product": self.product.as_mapping(),
             "flags": self.flags.as_mapping(),
@@ -290,7 +283,7 @@ class NormalizedContext(BaseModel):
 
 
 def iter_normalized_context_path_specs() -> tuple[ContextPathSpec, ...]:
-    """Derive every dotted normalized-context path directly from the contract."""
+    """Derive every dotted normalized context path directly from the contract."""
     return tuple(_collect_path_specs(NormalizedContext))
 
 
@@ -323,7 +316,7 @@ def _collect_path_specs(
 
 
 def _context_field_metadata(metadata_items: list[Any]) -> ContextFieldMetadata | None:
-    """Return the normalized-context metadata item attached to one field."""
+    """Return the normalized context metadata item attached to one field."""
     for metadata_item in metadata_items:
         if isinstance(metadata_item, ContextFieldMetadata):
             return metadata_item

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Iterator, Mapping
 
 from openfoodfacts_data_quality.context.projection import (
     build_enriched_category_props_projection,
@@ -13,19 +12,31 @@ from openfoodfacts_data_quality.context.projection import (
 )
 from openfoodfacts_data_quality.contracts.context import NormalizedContext
 from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
+from openfoodfacts_data_quality.contracts.raw import (
+    RawProductRow,
+    validate_raw_product_row,
+)
 
 
 def build_raw_contexts(
-    rows: Iterable[Mapping[str, Any]],
+    rows: Iterable[RawProductRow | Mapping[str, object]],
 ) -> list[NormalizedContext]:
     """Build normalized contexts directly from raw OFF product rows."""
-    return [_build_raw_context(dict(row)) for row in rows]
+    return list(iter_raw_contexts(rows))
 
 
-def _build_raw_context(row: dict[str, Any]) -> NormalizedContext:
+def iter_raw_contexts(
+    rows: Iterable[RawProductRow | Mapping[str, object]],
+) -> Iterator[NormalizedContext]:
+    """Yield normalized contexts directly from raw OFF product rows."""
+    for row in rows:
+        yield _build_raw_context(validate_raw_product_row(row))
+
+
+def _build_raw_context(row: RawProductRow) -> NormalizedContext:
     """Assemble the normalized context from one raw OFF row."""
     return NormalizedContext(
-        code=str(row["code"]),
+        code=row.code,
         product=build_raw_product_projection(row),
         nutrition=build_raw_nutrition_projection(row),
     )
@@ -35,10 +46,15 @@ def build_enriched_contexts(
     enriched_snapshots: Iterable[EnrichedSnapshotResult],
 ) -> list[NormalizedContext]:
     """Build normalized contexts from explicit enriched snapshots."""
-    return [
-        _build_enriched_context(enriched_snapshot)
-        for enriched_snapshot in enriched_snapshots
-    ]
+    return list(iter_enriched_contexts(enriched_snapshots))
+
+
+def iter_enriched_contexts(
+    enriched_snapshots: Iterable[EnrichedSnapshotResult],
+) -> Iterator[NormalizedContext]:
+    """Yield normalized contexts from explicit enriched snapshots."""
+    for enriched_snapshot in enriched_snapshots:
+        yield _build_enriched_context(enriched_snapshot)
 
 
 def _build_enriched_context(
@@ -46,18 +62,12 @@ def _build_enriched_context(
 ) -> NormalizedContext:
     """Assemble the stable check context from one enriched snapshot."""
     snapshot = enriched_snapshot.enriched_snapshot
-    product_snapshot = snapshot.product
-    snapshot_code = product_snapshot.get("code")
-    if snapshot_code is not None and snapshot_code != enriched_snapshot.code:
-        raise ValueError(
-            f"Enriched snapshot code mismatch for snapshot {enriched_snapshot.code}."
-        )
 
     return NormalizedContext(
         code=enriched_snapshot.code,
         product=build_enriched_product_projection(
             code=enriched_snapshot.code,
-            product_snapshot=product_snapshot,
+            product_snapshot=snapshot.product,
         ),
         flags=build_enriched_flags_projection(snapshot.flags),
         category_props=build_enriched_category_props_projection(

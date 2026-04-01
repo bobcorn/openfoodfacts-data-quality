@@ -31,7 +31,7 @@ def validate_dsl_definitions(checks: list[DSLDefinition]) -> None:
 
 
 def collect_required_paths(expression: Expression) -> tuple[str, ...]:
-    """Collect first-seen atom fields from one DSL expression."""
+    """Collect first seen atom fields from one DSL expression."""
     ordered_paths: list[str] = []
     seen: set[str] = set()
 
@@ -101,7 +101,7 @@ def _validated_path_spec(expression: Atom, check_id: str) -> ContextPathSpec:
     spec = path_spec_for(expression.field)
     if spec is None:
         raise ValueError(
-            f"Unknown normalized-context field '{expression.field}' in DSL definition '{check_id}'."
+            f"Unknown normalized context field '{expression.field}' in DSL definition '{check_id}'."
         )
     if not spec.dsl_allowed:
         raise ValueError(

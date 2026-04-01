@@ -6,14 +6,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 
-from app.pipeline.context_builders import check_context_builder_for
-from app.pipeline.models import PreparedRun
-from app.pipeline.profiles import (
+from app.reference.observers import reference_observer_for
+from app.run.context_builders import check_context_builder_for
+from app.run.models import PreparedRun
+from app.run.profiles import (
     configured_check_profile_name,
     load_check_profile,
 )
-from app.reference.observers import reference_observer_for
-from app.sources.duckdb_products import count_source_rows, source_snapshot_id_for
+from app.source.duckdb_products import count_source_rows, source_snapshot_id_for
 from openfoodfacts_data_quality.checks.catalog import (
     get_default_check_catalog,
 )
@@ -77,8 +77,8 @@ def prepare_run(
         ),
         reference_observer=reference_observer_for(active_check_profile.checks),
         evaluators=evaluators,
-        reference_result_cache_key="",
-        reference_result_cache_path=Path(),
+        reference_result_cache_key=None,
+        reference_result_cache_path=None,
         python_count=python_count,
         dsl_count=len(active_check_profile.checks) - python_count,
         legacy_parity_count=sum(
@@ -113,7 +113,7 @@ def log_run_configuration(
         run.dsl_count,
     )
     logger.info(
-        "[Checks] Legacy parity-backed checks: %d. Runtime-only checks: %d.",
+        "[Checks] Legacy parity backed checks: %d. Runtime-only checks: %d.",
         run.legacy_parity_count,
         run.runtime_only_count,
     )
@@ -122,6 +122,7 @@ def log_run_configuration(
         (
             display_path(run.reference_result_cache_path, project_root)
             if run.requires_reference_results
+            and run.reference_result_cache_path is not None
             else "disabled for this run"
         ),
     )

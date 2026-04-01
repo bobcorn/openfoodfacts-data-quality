@@ -80,7 +80,7 @@ Those cases stay in Python.
 
 ## Runtime Invariant
 
-For Python checks, declared `requires=(...)` metadata is validated against inferred context usage from the check function and helper annotations.
+For Python checks, declared `requires=(...)` metadata is validated against inferred context usage from the check function and helper annotations. Helpers that receive `context` or any non-leaf context object must declare their dependency paths explicitly with `@depends_on_context_paths(...)`.
 
 The repository enforces this contract.
 
