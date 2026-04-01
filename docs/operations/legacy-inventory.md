@@ -2,11 +2,11 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Legacy Inventory
 
-The legacy inventory workflow exists for migration planning, not for parity execution.
+The legacy inventory workflow supports migration planning. It is separate from parity execution.
 
 ## Export
 
-The main entrypoint is:
+Entry point:
 
 ```bash
 python scripts/export_legacy_inventory.py --legacy-source-root /path/to/openfoodfacts-server
@@ -17,33 +17,37 @@ This inspects the legacy Perl data-quality modules and writes:
 - `artifacts/legacy_inventory/legacy_families.json`
 - `artifacts/legacy_inventory/estimation_sheet.csv`
 
-## What The Export Produces
+## Export Outputs
 
 ### `legacy_families.json`
 
-This is the machine-readable inventory artifact. It groups legacy emitted code templates into families and records:
+Machine-readable inventory artifact. It groups legacy emitted code templates into migration families and records:
 
 - source locations
 - placeholder information
-- structural signals from the source subroutine
+- structural signals from the legacy subroutine
 - source fingerprinting data
 
 ### `estimation_sheet.csv`
 
-This is the planning file. Its structure is intentionally flat and does not mirror every detail from the JSON artifact.
+Planning-oriented flat CSV scaffold. It is intentionally simpler than the JSON artifact and meant for human estimation work.
 
-## Assessment Application
+## Assessment
 
 `scripts/apply_inventory_assessment.py` applies planning decisions from `assessment.json` back onto the estimation sheet.
 
-This separation preserves a distinction between the machine-derived inventory and the human planning layer:
+The split keeps facts, judgments, and sheet updates separate:
 
 - export generates facts
 - assessment records judgments
 - apply writes those judgments into the planning sheet
 
-## Role In The Repository
+## Repository Role
 
-This workflow is documented alongside the runtime because it supports migration planning. It is not used in routine check execution.
+This workflow sits alongside the runtime because it supports the migration effort. It is not part of routine check execution or the public library API.
 
-[Back to Operations](index.md) | [Back to Documentation](../index.md)
+## Next Reads
+
+- [Project Overview and Scope](../project/overview-and-scope.md)
+- [Roadmap and Open Questions](../project/roadmap-and-open-questions.md)
+- [System Overview](../architecture/system-overview.md)

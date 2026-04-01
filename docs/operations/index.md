@@ -2,10 +2,23 @@
 
 [Documentation](../index.md) / Operations
 
-This section covers runtime configuration and operational workflows.
+Runtime knobs, produced artifacts, CI automation, and the migration-planning workflow around legacy inventory.
 
-- [Configuration and Artifacts](configuration-and-artifacts.md)
-- [CI and Releases](ci-and-releases.md)
-- [Legacy Inventory](legacy-inventory.md)
+Use this section when you need:
 
-[Back to Documentation](../index.md)
+- which environment variables and profiles shape a run
+- what artifacts the parity application emits
+- how CI and release automation work
+- how legacy inventory export fits into the broader migration effort
+
+Read in this order:
+
+1. [Configuration and Artifacts](configuration-and-artifacts.md)
+2. [Legacy Backend Image](legacy-backend-image.md)
+3. [CI and Releases](ci-and-releases.md)
+4. [Legacy Inventory](legacy-inventory.md)
+
+See also:
+
+- [Reading The Report](../getting-started/reading-the-report.md)
+- [Roadmap and Open Questions](../project/roadmap-and-open-questions.md)

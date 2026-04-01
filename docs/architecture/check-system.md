@@ -2,29 +2,20 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / Check System
 
-Checks are packaged definitions loaded through one catalog.
+Checks are packaged definitions loaded through one catalog and executed through one runtime, whether their logic is written in Python or in the DSL.
 
 ## Definition Languages
 
-The repository supports two definition languages:
+The check system supports two definition languages:
 
-- `python` for checks whose logic is easier to express imperatively
-- `dsl` for simple predicate-style checks over normalized fields
+- `python`
+  For checks that need loops, helper-driven logic, aggregation, dynamic emitted codes, or other imperative behavior.
+- `dsl`
+  For readable boolean predicates over approved normalized-context paths.
 
-Both languages share the same catalog, metadata model, and execution flow.
+Both languages share the same catalog, selection model, and metadata concepts.
 
-## DSL Scope
-
-The DSL covers checks that are fundamentally:
-
-- a boolean predicate
-- over stable normalized-context fields
-- with one static severity
-- without helper-driven control flow
-
-Use Python for checks that need richer logic.
-
-## What A Check Definition Carries
+## Check Definition Metadata
 
 Every check definition has stable metadata:
 
@@ -36,7 +27,7 @@ Every check definition has stable metadata:
 - jurisdictions
 - optional legacy identity
 
-Most runtime behavior comes from these metadata fields.
+Most execution behavior is selected from this metadata, not from ad hoc application conditionals.
 
 ## Selection Model
 
@@ -47,26 +38,33 @@ Checks are selected through the catalog by:
 - jurisdictions
 - optional explicit check ids
 
-The same selection model is used by the public library surface and by application profiles.
+The same selection model is used by the public library APIs and by application run profiles.
 
 ## Parity Baseline
 
-`parity_baseline` answers one question: should this check participate in parity comparison?
+`parity_baseline` answers one specific question: should this check participate in parity comparison?
 
-- `legacy` means the check is parity-backed
-- `none` means the check can run in the migrated runtime without legacy comparison
+- `legacy`
+  The check is legacy-backed and participates in parity.
+- `none`
+  The check is runtime-only and can execute without legacy comparison.
 
-This matters more than informal labels such as "old" or "new".
+This is a more useful axis than informal labels such as "old" and "new".
 
 ## Legacy Identity
 
 Parity-backed checks may need an explicit mapping to the legacy emitted code template. That mapping is stored as `legacy_identity`.
 
-This lets the application compare one migrated check against the correct legacy-side tags, even when the runtime code is no longer structured like the Perl source.
+This allows the application to compare one migrated check against the correct legacy-side tags even when the migrated implementation no longer mirrors the Perl source structure.
 
-## DSL Limits
+## DSL Scope
 
-The DSL is intentionally narrow. It is meant for readable boolean predicates over approved normalized-context paths.
+The DSL is intentionally small. It is meant for checks that are fundamentally:
+
+- a boolean predicate
+- over stable normalized-context fields
+- with one static severity
+- without helper-driven control flow
 
 It does not model:
 
@@ -80,4 +78,14 @@ It does not model:
 
 Those cases stay in Python.
 
-[Back to Architecture](index.md) | [Back to Documentation](../index.md)
+## Runtime Invariant
+
+For Python checks, declared `requires=(...)` metadata is validated against inferred context usage from the check function and helper annotations.
+
+The contract is enforced, not just documented.
+
+## Next Reads
+
+- [Authoring Checks](../guides/authoring-checks.md)
+- [Data Contracts](data-contracts.md)
+- [Glossary](../glossary.md)

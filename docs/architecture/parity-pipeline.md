@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / Parity Pipeline
 
-This is the application flow from one source snapshot to one report.
+Application flow from source snapshot to rendered report.
 
 ## Pipeline Overview
 
@@ -77,7 +77,21 @@ flowchart TB
     P --> R
 ```
 
-## 1. Prepare The Run
+The table restates the same flow stage by stage.
+
+| Stage | Nodes In The Diagram | Role In The Flow |
+| --- | --- | --- |
+| Input | DuckDB Source | Provides the source snapshot consumed by the run. |
+| Run preparation | Resolve Snapshot Metadata, Load Active Profile, Configure Run Strategy | Determines the source snapshot id, selected checks, required input surface, and whether reference-side data is needed. |
+| Batch source | Read Source Batches, Prepare Backend Payload | Streams ordered source rows and shapes the payload sent to the legacy backend path when reference data is required. |
+| External dependency | Legacy Backend Runtime | Executes the trusted Perl boundary that materializes reference-side enriched data and legacy finding tags. |
+| Reference path | Resolve Reference Results, Normalize Reference Findings, Provide Enriched Snapshots | Reuses cache when possible, normalizes reference findings, and exposes enriched snapshots for parity-backed or enriched-surface runs. |
+| Migrated runtime | Build Check Contexts, Run Python Checks, Run DSL Checks, Normalize Migrated Findings | Builds normalized contexts, executes the selected migrated checks, and turns the results into comparable findings. |
+| Parity | Compare Findings, Accumulate Run Summary | Applies strict multiset comparison and aggregates batch results into run-level parity data. |
+| Output artifacts | Emit Machine-Readable Artifacts | Writes the machine-readable outputs used for inspection and downstream review. |
+| Presentation | Render Report Site, Preview Site | Builds the static report site and serves it locally for review. |
+
+## Run Preparation
 
 The pipeline resolves:
 
@@ -86,11 +100,13 @@ The pipeline resolves:
 - the required input surface
 - whether reference results are needed at all
 
-## 2. Read Source Batches
+The active profile determines the check set, input surface, and parity baselines in scope.
 
-Source rows are streamed from DuckDB in ordered batches. This uses the same pipeline on both the bundled sample and larger snapshots.
+## Source Batches
 
-## 3. Resolve Reference Results When Needed
+Source rows are streamed from DuckDB in ordered batches. The same source-reader contract is used for the bundled sample and for larger snapshots that follow the same schema.
+
+## Reference Results
 
 If the run needs parity-backed findings or enriched snapshots:
 
@@ -100,29 +116,33 @@ If the run needs parity-backed findings or enriched snapshots:
 
 If the run does not need reference-side data, this branch is skipped.
 
-## Legacy Backend Dependency
+## Legacy Backend
 
-Parity-backed runs compare migrated output against artifacts produced by the current legacy backend.
+Parity-backed runs compare migrated output against the behavior of the current trusted backend.
 
 For that reason the pipeline still materializes:
 
 - enriched snapshots from the legacy side
 - legacy-emitted check tags from the legacy side
 
-The containerized runtime makes this dependency reproducible across local and CI runs.
+This dependency is deliberate in the current prototype. It is part of the validation story, not an accidental leftover.
 
-## 4. Build Migrated Contexts
+That includes parity-backed `raw_products` runs. Even when migrated contexts are built from raw rows, the reference side still comes from legacy-emitted tags. Only runtime-only runs can skip the backend entirely. See [Legacy Backend Image](../operations/legacy-backend-image.md).
+
+## Migrated Contexts
 
 The migrated runtime builds normalized contexts from:
 
 - raw rows for `raw_products`
 - enriched snapshots for `enriched_products`
 
-## 5. Run The Selected Checks
+That keeps the execution engine independent from the source-specific shapes.
 
-The shared execution engine runs the selected Python and DSL evaluators and emits migrated findings.
+## Check Execution
 
-## 6. Compare Reference And Migrated Output
+The shared execution engine loads the selected evaluators and runs them on the normalized contexts. Python and DSL checks are executed through one unified path.
+
+## Parity Comparison
 
 The parity layer normalizes both sides into observed findings and compares them with strict multiset equality over:
 
@@ -130,15 +150,22 @@ The parity layer normalizes both sides into observed findings and compares them 
 - observed code
 - severity
 
-## 7. Emit Artifacts
+This is intentionally stricter than check-id-only comparison.
 
-The completed run produces:
+## Outputs
+
+Batch-level parity results are accumulated into one run summary. The completed run then produces:
 
 - a static HTML report
 - `parity.json`
 - `snippets.json`
-- a JSON export archive
+- a bundled JSON export archive
 
-The report emphasizes exact totals and bounded examples rather than embedding every finding.
+The current renderer is scoped to parity-compared migration runs. Runtime-only checks are supported by the shared runtime and catalog, but they are not yet part of the report presentation model.
 
-[Back to Architecture](index.md) | [Back to Documentation](../index.md)
+## Next Reads
+
+- [Reading The Report](../getting-started/reading-the-report.md)
+- [Configuration and Artifacts](../operations/configuration-and-artifacts.md)
+- [Legacy Backend Image](../operations/legacy-backend-image.md)
+- [System Overview](system-overview.md)

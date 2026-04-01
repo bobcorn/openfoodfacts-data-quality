@@ -2,86 +2,103 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / Data Contracts
 
-These contracts define how the main layers exchange data.
+These contracts are the main data boundaries between layers. They change more slowly than the surrounding orchestration code and deserve extra stability.
 
 ## Input Contracts
 
-The repository has two input surfaces because checks do not all need the same kind of data.
-
-- some checks can run directly on the raw public-product columns
-- some checks need backend-derived data that only exists after enrichment
+The check catalog spans two input surfaces because not every check needs the same source data.
 
 ### Raw Source Rows
 
-Raw runs start from public-product rows loaded from a DuckDB snapshot. The raw input contract is explicit and anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
+Raw runs start from public-product rows loaded from a DuckDB snapshot.
+
+The raw input contract is explicit and anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
+
+Checks that only need public-product fields can remain on this surface and avoid the enrichment path entirely.
 
 ### Enriched Snapshot
 
 Enriched runs start from `EnrichedSnapshotResult`, which wraps:
 
 - a product `code`
-- an `enriched_snapshot` payload with product, flags, category props, and nutrition sections
+- an `enriched_snapshot` payload with `product`, `flags`, `category_props`, and `nutrition`
 
-This is the library-facing enriched contract. It is narrower than the full legacy backend internals.
-
-The enriched surface is explicit today, but it is more sensitive than the raw surface because it depends on backend-derived data. Its long-term stability depends on which enriched fields are treated as part of the reusable contract.
+This is the library-facing enriched contract. It is narrower than the full legacy backend payload.
 
 ## Input Surfaces
 
-`raw_products` and `enriched_products` represent two execution situations.
+`raw_products` and `enriched_products` describe two different execution situations:
 
-- `raw_products` means the check can be evaluated from the public source snapshot alone
-- `enriched_products` means the check depends on data that must first be materialized through the legacy backend boundary
+- `raw_products`
+  The check can run from the public source snapshot alone.
+- `enriched_products`
+  The check depends on data that must first be materialized through the legacy backend boundary.
 
-This affects:
+That affects:
 
 - which checks are eligible for a run
 - whether the reference path must be activated
-- which normalized-context fields are actually available
+- which normalized-context fields are available
 
 ## Shared Runtime Contract
 
 ### NormalizedContext
 
-Checks do not read raw rows or backend payloads directly. They read `NormalizedContext`.
+Checks do not consume raw rows or backend payloads directly. They consume `NormalizedContext`.
 
-`NormalizedContext` is the shared runtime contract because it:
+`NormalizedContext` is the central shared runtime contract because it:
 
 - decouples checks from source-specific input shapes
-- makes raw and enriched runs comparable
-- defines which paths are legal for DSL and for each input surface
+- lets raw and enriched runs share one execution model
+- defines which dotted paths are legal for DSL use and for each input surface
+
+The path metadata derived from the context contract also drives supported-surface inference for checks.
 
 ## Reference-Side Contract
 
 ### ReferenceResult
 
-The legacy backend boundary returns `ReferenceResult`. It contains:
+The legacy backend boundary returns `ReferenceResult`.
+
+It contains:
 
 - `enriched_snapshot`
 - `legacy_check_tags`
 
-The backend output remains explicit. The Python side receives named fields rather than an opaque prepared payload.
+The boundary is explicit on purpose. The Python side receives named fields rather than an opaque prepared blob.
 
 ## Output Contracts
 
 ### Finding
 
-The library emits `Finding` objects. They are the public output of the shared check runtime.
+`Finding` is the library-facing output of the shared runtime.
 
 ### ObservedFinding
 
-The parity application adapts both reference and migrated outputs into `ObservedFinding`, the common comparison shape.
+`ObservedFinding` is the parity-side comparison model. Both reference and migrated outputs are adapted into this shape before parity evaluation.
 
 ### ParityResult
 
-The application summarizes one run into `ParityResult`, which then drives:
+`ParityResult` is the top-level application summary for one run. It drives:
 
 - the HTML report
 - `parity.json`
-- snippet artifacts and download bundles
+- snippet artifacts and JSON download bundles
 
 ## Contract Stability
 
-These contracts change more slowly than the surrounding code. They are the interfaces between the major layers.
+Treat these contracts as the stable spine of the prototype.
 
-[Back to Architecture](index.md) | [Back to Documentation](../index.md)
+Changes to them often have wide blast radius across:
+
+- check selection
+- context projection
+- DSL validation
+- reference loading
+- artifact generation
+
+## Next Reads
+
+- [Check System](check-system.md)
+- [Library Usage](../guides/library-usage.md)
+- [Configuration and Artifacts](../operations/configuration-and-artifacts.md)
