@@ -6,7 +6,10 @@ from pathlib import Path
 
 import duckdb
 
-from _bootstrap import ROOT
+from _bootstrap import ROOT, bootstrap_paths
+
+bootstrap_paths()
+
 from openfoodfacts_data_quality.raw_products import RAW_INPUT_COLUMNS
 
 DEFAULT_SOURCE = ROOT / "data" / "en.openfoodfacts.org.products.csv"

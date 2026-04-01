@@ -5,9 +5,11 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from _bootstrap import SRC_ROOT
+from _bootstrap import SRC_ROOT, bootstrap_paths
 
 PACKAGE_ROOT = SRC_ROOT / "openfoodfacts_data_quality"
+
+bootstrap_paths()
 
 from openfoodfacts_data_quality.checks.dsl.parser import load_dsl_definitions
 

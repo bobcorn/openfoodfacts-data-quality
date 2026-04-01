@@ -78,6 +78,7 @@ skip_empty = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = [".", "src", "scripts"]
 addopts = "-ra"
 
 [tool.mypy]
