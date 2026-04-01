@@ -1,0 +1,38 @@
+name: Validate Pull Request Title
+
+run-name: Validate pull request title (${{ github.event.pull_request.number }})
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  semantic-pr:
+    name: Check Pull Request Title
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Pull Request Title
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            test
+            chore
+            ci
+            build
+            perf
+            revert

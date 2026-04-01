@@ -2,11 +2,20 @@
 
 [Documentation](../index.md) / [Operations](index.md) / CI and Releases
 
-The repository has three GitHub workflows:
+GitHub Actions currently covers four workflows:
 
+- pull request title validation
 - validation
 - demo image publishing
 - Python release publishing
+
+## Pull Request Title Workflow
+
+[`semantic-pr.yml`](../../.github/workflows/semantic-pr.yml) runs on pull requests from branches in this repository.
+
+It validates pull request titles against the Conventional Commits style used for squash merges on `main`.
+
+This workflow is meant to keep pull request titles and squashed commit messages aligned.
 
 ## Validation Workflow
 
