@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Authoring Checks
 
-Author checks as shared packaged definitions.
+Keep check logic in the shared packaged runtime rather than application-local special cases.
 
 ## Workflow
 
@@ -28,17 +28,31 @@ flowchart TB
     H --> I
 ```
 
-## 1. Decide The Runtime Shape
+The table below restates the workflow step by step.
 
-Before writing code, decide:
+| Step | Diagram Node | Purpose |
+| --- | --- | --- |
+| 1 | Choose Check Target | Decide which product-quality invariant the check should express and whether it belongs in the shared runtime at all. |
+| 2 | Choose DSL or Python | Pick the definition language that keeps the logic clear and reviewable. |
+| 3 | Declare Metadata | Set the contract that drives selection and execution, including input surface, parity baseline, jurisdictions, and required context paths. |
+| 4 | Parity-backed? | Decide whether the check should be compared against legacy behavior or can remain runtime-only. |
+| 5 | Run Focused Parity | For parity-backed work, run a narrow validation loop so mismatches are easy to inspect. |
+| 6 | Review Findings and Artifacts | Inspect mismatches, snippets, and report output before deciding whether the migrated behavior is acceptable. |
+| 7 | Iterate | Refine the check, metadata, or tests until the behavior is acceptable. |
+| 8 | Keep In Shared Runtime | Land the final definition in the packaged check system, not in app-local orchestration code. |
+| 9 | Available Through Library and Profiles | Once packaged, the check becomes selectable through the public library APIs and through application profiles. |
 
-- which input surface the check really needs
+## 1. Runtime Shape
+
+Before writing the check itself, decide:
+
+- which input surface the check truly needs
 - whether it must be parity-backed
-- whether the logic should be expressed in the DSL or in Python
+- whether the logic belongs in the DSL or in Python
 
-This avoids writing a check first and discovering later that its metadata model is wrong.
+Most avoidable integration problems come from getting the metadata wrong early, not from getting the boolean condition wrong later.
 
-## 2. Choose DSL Or Python
+## 2. DSL Or Python
 
 Use the DSL when the check is a readable boolean predicate over approved normalized-context paths.
 
@@ -49,57 +63,54 @@ Use Python when the check needs:
 - multi-step numeric reasoning
 - dynamic emitted codes
 
-Choose the language that makes the check easy to review.
+Choose the language that keeps the logic easiest to review.
 
-## 3. Put The Check In A Pack
+## 3. Check Packs
 
-- Python checks live in `src/openfoodfacts_data_quality/checks/packs/python/`
-- DSL checks live in `src/openfoodfacts_data_quality/checks/packs/dsl/`
+- Python checks live under `src/openfoodfacts_data_quality/checks/packs/python/`
+- DSL checks live under `src/openfoodfacts_data_quality/checks/packs/dsl/`
 
-Checks are packaged content, not local experiment files.
+Checks are packaged repository content. Do not hide them in app-local code.
 
-## 4. Declare Metadata Correctly
+## 4. Metadata
 
-The important metadata decisions are:
+The important metadata choices are:
 
 - `parity_baseline`
 - jurisdictions
 - required context paths
 - optional `legacy_identity` when the legacy mapping is not the default one
 
-Most integration bugs come from wrong metadata, not from wrong syntax.
+For Python checks, the declared required context paths are validated against inferred context access. They are part of the contract, not just comments for humans.
 
-## 5. Validate Early
+## 5. Validation
 
 - add or update tests
-- run the DSL validator if you changed DSL packs
-- use a focused profile when you are working on a parity-backed check
+- validate DSL packs if you changed DSL definitions
+- use a focused profile when working on a parity-backed check
 
-### DSL Validation And Editor Support
+## DSL Validation
 
 The DSL has two validation layers:
 
-- structural validation against the shared JSON Schema in [definitions.schema.json](../../src/openfoodfacts_data_quality/checks/dsl/schema/definitions.schema.json)
-- structural and semantic validation through [scripts/validate_dsl.py](../../scripts/validate_dsl.py)
+- structural validation against the shared JSON Schema at `src/openfoodfacts_data_quality/checks/dsl/schema/definitions.schema.json`
+- structural and semantic validation through `scripts/validate_dsl.py`
 
-The supported language features are also described explicitly in [capabilities.json](../../src/openfoodfacts_data_quality/checks/dsl/capabilities.json).
+The currently supported language features are described in `src/openfoodfacts_data_quality/checks/dsl/capabilities.json`.
 
-In this repository, VS Code support is already configured:
+For VS Code:
 
-- [`.vscode/settings.json`](../../.vscode/settings.json) associates the DSL YAML files with the schema
-- [`.vscode/tasks.json`](../../.vscode/tasks.json) defines `Validate DSL Checks` and `Watch DSL Checks`
+- `.vscode/settings.json` associates the DSL YAML files with the schema
+- `.vscode/tasks.json` defines validation tasks for one-shot and watch-mode runs
 
-That gives you:
+## 6. Contract Hygiene
 
-- inline structural feedback from the YAML schema integration
-- terminal or task-driven validation for semantic issues such as unsupported fields
+Checks should depend on normalized context paths, not on app-local helper shapes or ad hoc payloads introduced only for one rule.
 
-Other IDEs with YAML and JSON Schema support can likely be configured similarly, but this repository only documents the VS Code path today.
+If a check needs new stable data, extend the normalized contract intentionally and update the surrounding documentation and tests in the same task.
 
-## 6. Keep The Check Contract Clean
+## Next Reads
 
-Checks should depend on normalized context paths, not on repo-local helper shapes being introduced into the public model.
-
-If a check needs new stable data, add it to the normalized contract.
-
-[Back to Guides](index.md) | [Back to Documentation](../index.md)
+- [Check System](../architecture/check-system.md)
+- [Data Contracts](../architecture/data-contracts.md)
+- [Testing and Quality](../reference/testing-and-quality.md)

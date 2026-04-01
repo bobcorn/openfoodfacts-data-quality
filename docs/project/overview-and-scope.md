@@ -2,40 +2,81 @@
 
 [Documentation](../index.md) / [Project](index.md) / Project Overview and Scope
 
-This repository supports migration, review, and maintenance work for Open Food Facts data quality checks.
+The repository migrates Open Food Facts data quality checks from the legacy Perl backend into a reusable Python system.
 
-It combines:
+The project also aims to:
 
-- a Python-owned runtime for migrated checks
-- a defined path for parity validation against the legacy backend
-- report and artifact output for review
-
-## What The Repository Contains
-
-- a reusable library under `src/openfoodfacts_data_quality/`
-- a parity and reporting application under `app/`
-- operational scripts for validation, sample refresh, and migration planning
-
-## Current Coverage
-
-- migrated checks can live in one shared runtime
-- simple checks can be expressed in a small DSL, while more complex checks can remain Python
-- parity-backed execution is supported as a regular workflow
-- the project can emit both a reviewer-facing report and machine-readable artifacts
-
-## Current Limits
-
-- it is not a full replacement for every legacy data quality rule
-- it is not a stable public product API in the sense of a finished platform
-- parity-backed workflows still depend on the legacy backend
+- preserve trusted behavior where parity is expected
+- leave behind a reusable check runtime, not only one migration script
+- make review practical through parity artifacts and report output
+- create a repeatable workflow for future migrations
 
 ## Repository Split
 
-The main split is between reusable runtime logic and migration application logic.
+The repository intentionally separates three concerns:
 
-- `src/` owns the check system and the public library surface
-- `app/` owns orchestration, reference loading, parity, and reporting
+- reusable runtime logic in `src/openfoodfacts_data_quality/`
+- parity orchestration and report generation in `app/`
+- migration-planning workflows in `scripts/`
 
-This split allows the migrated check runtime to remain reusable even when the parity application evolves.
+That split matters because not every future caller needs the parity application, but the migration work still needs parity while the prototype is being validated.
 
-[Back to Project](index.md) | [Back to Documentation](../index.md)
+## Current Capabilities
+
+- a shared Python check runtime with explicit raw and enriched input surfaces
+- packaged check definitions in both Python and DSL form
+- a parity application that compares migrated output against the current legacy backend
+- static HTML and JSON artifacts for review
+- tooling to inspect legacy Perl sources and group emitted code templates into migration families
+
+## Audiences
+
+The current documentation and workflows are designed for three overlapping audiences:
+
+- reviewers and mentors who need to understand the prototype and inspect its outputs
+- contributors who need to run the repository and work on checks or runtime behavior
+- Python callers who want to use the shared library APIs directly
+
+## Current Status
+
+The repository is public and usable today, but it is still a prototype.
+
+Stable or intentionally solid parts of the current design:
+
+- the shared runtime contracts
+- the normalized context model
+- the packaged check catalog
+- parity-backed execution as a regular workflow
+- machine-readable parity and snippet artifacts
+
+Areas that are still intentionally in motion:
+
+- how broad the DSL should become
+- how much enriched data should be part of the long-lived public API contract
+- how full-corpus runs should be operated outside small local loops
+- how the report should evolve beyond migration-review needs
+
+## Current Limits
+
+- the repository is not yet a full replacement for every legacy data quality rule
+- parity-backed execution still depends on the legacy backend
+- the current report renderer is scoped to parity-compared checks
+- the public Python API is explicit, but not yet presented as a fully stabilized external platform contract
+
+## Parity Run
+
+For a typical parity-backed run, the repository:
+
+1. reads a DuckDB source snapshot
+2. materializes reference-side enrichment and findings through the legacy backend
+3. executes the selected migrated checks
+4. compares reference and migrated findings under strict parity
+5. emits a static report plus JSON artifacts
+
+That workflow is already useful for review, iteration, and migration planning even though the overall project remains incomplete.
+
+## Next Reads
+
+- [System Overview](../architecture/system-overview.md)
+- [Local Development](../guides/local-development.md)
+- [Roadmap and Open Questions](roadmap-and-open-questions.md)
