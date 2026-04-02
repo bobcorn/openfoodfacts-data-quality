@@ -56,11 +56,11 @@ Checks do not consume raw rows or backend payloads directly. They consume `Norma
 
 The path metadata derived from the context contract also drives input surface inference for checks.
 
-## Reference Side Contract
+## Reference Contract
 
 ### ReferenceResult
 
-The application reference path returns `ReferenceResult`.
+The application [reference path](application-run-flow.md) returns `ReferenceResult`.
 
 Fields:
 
@@ -80,7 +80,7 @@ That keeps the public enriched and reference contracts owned by Python instead o
 
 ### ObservedFinding
 
-`ObservedFinding` is the comparison model used by strict comparison. Both reference and migrated outputs are adapted into this shape before comparison.
+`ObservedFinding` is the comparison model used by [strict comparison](../getting-started/reading-the-report.md). Both reference and migrated outputs are adapted into this shape before comparison.
 
 ### RunCheckResult
 
@@ -115,7 +115,7 @@ Changes to them often have broad effects on:
 - comparison behavior
 - artifact generation
 
-## Next Reads
+## Next
 
 - [Check System](check-system.md)
 - [Library Usage](../guides/library-usage.md)

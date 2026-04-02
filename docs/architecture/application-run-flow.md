@@ -4,7 +4,7 @@
 
 One application run from source snapshot to rendered report.
 
-## Flow Overview
+## Overview
 
 ```mermaid
 flowchart TB
@@ -220,7 +220,7 @@ For that reason the reference path still depends on the current backend runtime 
 
 That includes compared `raw_products` runs. Even when migrated contexts are built from raw rows, the reference side still comes from legacy emitted tags. Only runs that need no reference results can skip the reference path entirely. Compared and enriched runs can still avoid live backend execution when the cache already covers the requested products. See [Legacy Backend Image](../operations/legacy-backend-image.md).
 
-## Migrated Contexts
+## Contexts
 
 The migrated runtime builds normalized contexts from:
 
@@ -229,7 +229,7 @@ The migrated runtime builds normalized contexts from:
 
 That keeps the execution engine independent from source specific shapes.
 
-## Check Execution
+## Execution
 
 The shared execution engine loads the selected evaluators and runs them on the normalized contexts. Python and DSL checks are executed through one unified path.
 
@@ -245,7 +245,7 @@ This comparison is stricter than matching on check id alone.
 
 Checks with `parity_baseline="none"` do not enter this step. They still contribute findings and counts to the run result with `comparison_status="runtime_only"`.
 
-## Run Result
+## Result
 
 Batch level results are accumulated into one `RunResult`.
 
@@ -266,7 +266,7 @@ The completed run produces:
 
 The report supports both compared and runtime only checks. Strict comparison metrics only apply to the compared subset. The shipped `full` profile exercises both modes together.
 
-## Next Reads
+## Next
 
 - [Reading The Report](../getting-started/reading-the-report.md)
 - [Configuration and Artifacts](../operations/configuration-and-artifacts.md)

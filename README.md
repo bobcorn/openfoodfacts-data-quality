@@ -2,27 +2,17 @@
 
 Framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
-The repository has three parts:
-
-- a reusable Python library that packages migrated checks and country specific checks
-- an application layer that runs checks, loads reference data when needed, and renders review artifacts
-- migration tooling that analyzes legacy Perl sources and produces review artifacts
-
 ## Purpose
 
-Open Food Facts already has trusted data quality logic in the legacy backend. This repository adds:
-
-- a check runtime that remains useful after the migration project
-- a disciplined way to compare migrated behavior against the legacy backend when parity is expected
-- artifacts that help reviewers understand what changed, what still mismatches, and what remains to migrate
+Open Food Facts already relies on more than 200 data quality checks in the legacy Perl backend. This prototype explores a Python framework for migrating that logic, validating parity against the legacy backend, supporting Canada specific rules, and running the checks more easily in local DuckDB based workflows.
 
 ## Capabilities
 
-- run the demo and view the generated quality run report
-- execute the application locally against a DuckDB snapshot
-- use the Python library directly on `raw_products` rows or on stable explicit `enriched_products` snapshots
-- author checks in Python or in the repository DSL
-- generate legacy inventory artifacts to support migration planning
+- run the demo and view the generated quality run [report](docs/getting-started/reading-the-report.md)
+- execute the [application](docs/architecture/application-run-flow.md) locally against a DuckDB [source snapshot](docs/glossary.md)
+- use the Python [library](docs/guides/library-usage.md) directly on [`raw_products` rows or `enriched_products` snapshots](docs/architecture/data-contracts.md#input-surfaces)
+- author checks in [Python or in the repository dsl](docs/guides/authoring-checks.md)
+- generate [legacy inventory artifacts](docs/operations/legacy-inventory.md) to support migration planning
 
 ## Layers
 
@@ -133,22 +123,22 @@ docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
 
 The first start can take a short while because Docker must pull the image and build the sample report.
 
-Open [http://localhost:8000](http://localhost:8000) to view the report.
+Open [http://localhost:8000](http://localhost:8000) to view the [report](docs/getting-started/reading-the-report.md).
 
 The demo:
 
 - runs against the included DuckDB sample
 - executes migrated checks
-- compares findings where a legacy baseline exists
-- writes the HTML report plus `run.json` and `snippets.json`
+- compares findings where a legacy baseline exists under [strict comparison](docs/architecture/application-run-flow.md#strict-comparison)
+- writes the HTML report plus [`run.json` and `snippets.json`](docs/operations/configuration-and-artifacts.md)
 - serves the generated site locally
-- uses cached reference results and calls the legacy backend only on cache misses
+- uses cached [reference results](docs/architecture/application-run-flow.md#reference-path) and calls the [legacy backend](docs/architecture/application-run-flow.md#legacy-backend) only on cache misses
 
 ## Local Workflows
 
 ### Docker Setup
 
-Use Docker for local application runs that need reference data, report generation, or other steps that span multiple components.
+Use Docker for local application runs that need [reference data](docs/architecture/application-run-flow.md#reference-path), [report generation](docs/getting-started/reading-the-report.md), or other steps that span multiple components.
 
 ```bash
 git clone https://github.com/bobcorn/openfoodfacts-data-quality.git
@@ -162,10 +152,10 @@ Then open [http://localhost:8000](http://localhost:8000).
 Defaults:
 
 - `.env` points to the tracked sample DuckDB snapshot
-- the default `full` profile runs included compared and runtime only checks
-- outputs are written under `artifacts/latest/`
-- reference results are cached across runs
-- cached products skip live legacy backend execution
+- the default [`full` profile](docs/operations/configuration-and-artifacts.md) runs included compared and runtime only checks
+- outputs are written under [`artifacts/latest/`](docs/operations/configuration-and-artifacts.md)
+- [reference results](docs/architecture/application-run-flow.md#reference-path) are cached across runs
+- cached products skip live [legacy backend](docs/architecture/application-run-flow.md#legacy-backend) execution
 - source code is not mounted into the container, so code changes require a rebuild
 
 ### Python Setup
@@ -177,11 +167,11 @@ python3.14 -m venv .venv
 .venv/bin/python -m pip install -e ".[app,dev]"
 ```
 
-Use Docker for compared runs, enriched application runs, report rendering, and preview. Those workflows depend on the supported legacy backend environment.
+Compared runs, enriched application runs, report rendering, and preview still depend on the supported legacy backend environment, so those workflows stay in Docker.
 
 ## Library
 
-The public Python API has two input surfaces:
+The public Python API has two [input surfaces](docs/architecture/data-contracts.md#input-surfaces):
 
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
@@ -197,7 +187,7 @@ findings = raw.run_checks(
 )
 ```
 
-Use the `raw` surface for checks that can run directly on public product rows. Use the `enriched` surface when a check depends on stable enriched data such as enriched flags, category properties, or richer nutrition structures. In application runs, that data usually comes through the reference path. In direct library usage, callers provide it explicitly.
+Use the `raw` surface for checks that can run directly on public product rows. Use the `enriched` surface when a check depends on stable enriched data such as enriched flags, category properties, or richer nutrition structures. In application runs, that data usually comes through the [reference path](docs/architecture/application-run-flow.md#reference-path). In direct library usage, callers provide it explicitly.
 
 ## Status
 
@@ -206,28 +196,30 @@ The repository is still a prototype.
 Stable today:
 
 - the shared Python check runtime
-- explicit raw and enriched library contracts owned by the Python runtime
-- the packaged check catalog
-- the application run flow
-- static report and JSON artifacts
-- migration planning support around legacy inventory export
+- explicit [raw and enriched library contracts](docs/architecture/data-contracts.md) owned by the Python runtime
+- the packaged [check catalog](docs/architecture/check-system.md)
+- the [application run flow](docs/architecture/application-run-flow.md)
+- static [report and JSON artifacts](docs/operations/configuration-and-artifacts.md)
+- migration planning support around [legacy inventory export](docs/operations/legacy-inventory.md)
 
 Open areas:
 
-- how broad the DSL should become
+- how broad the [dsl](docs/architecture/check-system.md#dsl-scope) should become
 - full corpus operational strategy
 - the breadth of migrated legacy coverage
-- how the review artifacts should evolve for larger and more varied runs
+- how the [review artifacts](docs/operations/configuration-and-artifacts.md) should evolve for larger and more varied runs
 
 Notes:
 
-- the public raw and enriched contracts are explicit and owned by the Python runtime
-- application runs that need reference results still depend on a versioned legacy backend result envelope validated in Python
-- live backend execution happens only on cache misses
+- the public [raw and enriched contracts](docs/architecture/data-contracts.md) are explicit and owned by the Python runtime
+- application runs that need [reference results](docs/architecture/application-run-flow.md#reference-path) still depend on a versioned [legacy backend result envelope](docs/architecture/data-contracts.md#referenceresult) validated in Python
+- live [legacy backend](docs/architecture/application-run-flow.md#legacy-backend) execution happens only on cache misses
 
 ## Documentation
 
 Documentation lives under [`docs/`](docs/index.md).
+
+For a first look at the prototype, start with [Project Overview and Scope](docs/project/overview-and-scope.md), [System Overview](docs/architecture/system-overview.md), [Application Run Flow](docs/architecture/application-run-flow.md), and [Reading The Report](docs/getting-started/reading-the-report.md).
 
 Starting points:
 
@@ -238,3 +230,4 @@ Starting points:
 - Reading the report: [Reading The Report](docs/getting-started/reading-the-report.md)
 - Library usage: [Library Usage](docs/guides/library-usage.md)
 - Authoring checks: [Authoring Checks](docs/guides/authoring-checks.md)
+- Terminology: [Glossary](docs/glossary.md)

@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Authoring Checks
 
-Keep check logic in the shared packaged runtime. Avoid special cases local to the application.
+Keep check logic in the shared packaged runtime described in the [Check System](../architecture/check-system.md). Avoid special cases local to the application.
 
 ## Workflow
 
@@ -44,17 +44,17 @@ The table below restates the workflow step by step.
 
 ## 1. Runtime Shape
 
-Before writing the check itself, decide:
+Before writing the check, decide:
 
 - which input surface the check truly needs
 - whether it must be compared against legacy behavior
 - whether the logic belongs in the DSL or in Python
 
-Most avoidable integration problems come from getting the metadata wrong early, not from getting the boolean condition wrong later.
+Most integration problems here come from metadata and contract mistakes.
 
 ## 2. DSL Or Python
 
-Use the DSL when the check is a readable boolean predicate over approved normalized context paths.
+Use the DSL when the check is a readable boolean predicate over approved [normalized context](../architecture/data-contracts.md) paths.
 
 Use Python when the check needs:
 
@@ -74,7 +74,7 @@ Checks are packaged repository content. Do not hide them in code local to `app/`
 
 ## 4. Metadata
 
-The important metadata choices are:
+The main metadata choices are:
 
 - `parity_baseline`
 - jurisdictions
@@ -109,9 +109,9 @@ Checks should depend on normalized context paths, not on helper shapes local to 
 
 When a Python helper needs anything broader than leaf context values, annotate it with `@depends_on_context_paths(...)`. The catalog validator rejects unannotated helpers that receive `context`, a whole section, or any intermediate context object.
 
-If a check needs new stable data, extend the normalized contract and update the surrounding documentation and tests in the same task.
+If a check needs new stable data, extend the [normalized contract](../architecture/data-contracts.md) and update the surrounding documentation and tests in the same task.
 
-## Next Reads
+## Next
 
 - [Check System](../architecture/check-system.md)
 - [Data Contracts](../architecture/data-contracts.md)

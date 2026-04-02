@@ -4,13 +4,6 @@
 
 Repository boundaries, contracts, check execution, and application run flow.
 
-Use this section when you need:
-
-- what belongs in `src/` versus `app/`
-- how raw and enriched inputs become normalized contexts
-- how checks are packaged, selected, and executed
-- how one application run moves from source snapshot to report artifacts
-
 Read in this order:
 
 1. [System Overview](system-overview.md)

@@ -54,7 +54,7 @@ The test suite covers the Python owned parts of the system, including:
 - `make quality` is the broader local sweep for deeper confidence
 - changes that affect reference loading, strict comparison, or report generation may still need an end to end Docker run in addition to the Python toolchain
 
-## Next Reads
+## Next
 
 - [Local Development](../guides/local-development.md)
 - [Authoring Checks](../guides/authoring-checks.md)

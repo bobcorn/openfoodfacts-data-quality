@@ -2,13 +2,13 @@
 
 [Documentation](../index.md) / [Architecture](index.md) / System Overview
 
-The repository has one shared check runtime and one application run layer built on top of it.
+The repository has one shared check runtime and one [application run layer](application-run-flow.md) above it. See [Check System](check-system.md), [Data Contracts](data-contracts.md), and [Application Run Flow](application-run-flow.md).
 
-## High Level Split
+## Split
 
 `src/openfoodfacts_data_quality/` owns the reusable runtime.
 
-`app/` owns orchestration, source loading, reference loading, optional strict comparison, and report generation.
+`app/` owns orchestration, source loading, the [reference path](application-run-flow.md#reference-path), optional [strict comparison](application-run-flow.md#strict-comparison), and report generation.
 
 `scripts/` owns operational workflows that support validation, sample refresh, and migration planning.
 
@@ -19,11 +19,11 @@ The repository has one shared check runtime and one application run layer built 
 `src/openfoodfacts_data_quality/` provides:
 
 - check contracts and metadata
-- normalized context contracts
-- packaged Python and DSL checks
-- the check catalog and evaluator selection logic
+- [normalized context](data-contracts.md#normalizedcontext) contracts
+- packaged [Python and dsl checks](check-system.md)
+- the [check catalog](check-system.md) and evaluator selection logic
 - context building and projection
-- public `raw` and `enriched` Python APIs
+- public [`raw` and `enriched` Python APIs](../guides/library-usage.md)
 
 This layer can be used without the application run layer.
 
@@ -31,15 +31,15 @@ This layer can be used without the application run layer.
 
 `app/` covers application execution and migration evaluation:
 
-- source snapshot loading from DuckDB
-- reference loading that checks the cache first and uses the legacy backend on cache misses
-- reference result caching, loading, envelope validation, and projection onto parity findings and enriched snapshots
+- [source snapshot](../glossary.md) loading from DuckDB
+- reference loading that checks the cache first and uses the [legacy backend](application-run-flow.md#legacy-backend) on cache misses
+- [reference result](data-contracts.md#referenceresult) caching, loading, envelope validation, and projection onto parity findings and enriched snapshots
 - run result accumulation
-- strict comparison where a legacy baseline exists
+- [strict comparison](application-run-flow.md#strict-comparison) where a legacy baseline exists
 - report rendering, snippet extraction, and preview serving
 - shared legacy source analysis reused by the report and inventory tooling
 
-## Operational Layer
+## Operations
 
 The repository also includes workflows outside the core runtime:
 
@@ -71,13 +71,13 @@ The repository also includes workflows outside the core runtime:
 - `app/report/`
   Static report rendering, JSON download bundling, and snippet presentation.
 
-## Placement Rule
+## Placement
 
 Concerns that exist independently of the application run layer usually belong in `src/`.
 
 Concerns that exist to load source data, compare against the legacy backend, or produce review artifacts usually belong in `app/`.
 
-## Next Reads
+## Next
 
 - [Data Contracts](data-contracts.md)
 - [Check System](check-system.md)

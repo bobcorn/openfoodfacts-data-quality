@@ -17,7 +17,7 @@ This inspects the legacy Perl data quality modules and writes:
 - `artifacts/legacy_inventory/legacy_families.json`
 - `artifacts/legacy_inventory/estimation_sheet.csv`
 
-## Export Outputs
+## Outputs
 
 ### `legacy_families.json`
 
@@ -50,13 +50,13 @@ The workflow keeps facts, judgments, and sheet updates in separate artifacts:
 - assessment records judgments
 - apply writes those judgments into the planning sheet
 
-## Repository Role
+## Role
 
 This workflow sits alongside the runtime because it supports the migration effort. It is not part of routine check execution or the public library API.
 
 The export and report snippet workflows share the same legacy source analysis module in `app/legacy_source.py`.
 
-## Next Reads
+## Next
 
 - [Project Overview and Scope](../project/overview-and-scope.md)
 - [Roadmap and Open Questions](../project/roadmap-and-open-questions.md)
