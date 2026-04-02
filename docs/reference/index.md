@@ -4,11 +4,6 @@
 
 Lookup pages for terminology and validation expectations.
 
-This section collects:
-
-- the canonical project vocabulary
-- the repository quality and validation expectations
-
 Use this section when you need precise terminology or toolchain expectations.
 
 - [Glossary](../glossary.md)

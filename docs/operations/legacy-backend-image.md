@@ -90,7 +90,7 @@ To refresh the backend dependency:
 3. update `SERVER_BASE_IMAGE` in this repository
 4. rebuild the data-quality image and let the reference cache compute a new fingerprint
 
-## Next Reads
+## Next
 
 - [Application Run Flow](../architecture/application-run-flow.md)
 - [Local Development](../guides/local-development.md)

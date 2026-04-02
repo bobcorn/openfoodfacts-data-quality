@@ -2,14 +2,7 @@
 
 [Documentation](../index.md) / Project
 
-Project scope, status, and open design questions.
-
-Use this section when you need:
-
-- the problem statement behind the repository
-- what is already implemented versus still provisional
-- the current scope and what is out of scope
-- the project decisions that are still open
+Project scope, status, and open design questions. Start here for the project framing behind the prototype.
 
 Read in this order:
 

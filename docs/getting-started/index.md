@@ -4,12 +4,6 @@
 
 First local run, report reading, and common setup issues.
 
-Use this section to:
-
-- understand the first successful local run
-- inspect the generated quality run report and JSON artifacts
-- recover from the most common environment and setup issues
-
 Read in this order:
 
 1. [Local Development](../guides/local-development.md)

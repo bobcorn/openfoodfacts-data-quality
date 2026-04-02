@@ -2,15 +2,9 @@
 
 [Documentation](../index.md) / Guides
 
-Workflows for local runs, library usage, and check authoring.
+Workflows for local runs, library use, and check authoring.
 
-Use this section to:
-
-- get a first successful local run
-- use the Python package directly
-- add or modify checks
-
-If you are contributing, read in this order:
+Read in this order:
 
 1. [Local Development](local-development.md)
 2. [Library Usage](library-usage.md)

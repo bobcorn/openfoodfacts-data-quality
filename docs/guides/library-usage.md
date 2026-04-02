@@ -2,9 +2,9 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Library Usage
 
-The public Python API is organized by input surface.
+The public Python API is organized by [input surface](../architecture/data-contracts.md#input-surfaces).
 
-## Public APIs
+## APIs
 
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
@@ -20,7 +20,7 @@ The root package exposes these two namespaces.
 
 Use `raw` when the checks you care about can be decided from public product rows alone.
 
-Those rows should match the explicit raw source contract anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
+Those rows should match the explicit [raw source contract](../architecture/data-contracts.md#raw-source-rows) anchored by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
 
 ```python
 from openfoodfacts_data_quality import raw
@@ -39,9 +39,9 @@ Use `enriched` when the checks need fields derived from the backend, such as:
 - category properties
 - richer nutrition structures
 
-The input items are `EnrichedSnapshotResult` objects.
+The input items are [`EnrichedSnapshotResult`](../architecture/data-contracts.md#enriched-snapshot) objects.
 
-This is a stable input contract owned by the Python runtime, with structured `product`, `flags`, `category_props`, and `nutrition` sections. Library callers can build these snapshots directly without going through the application reference path.
+This is a stable [input contract](../architecture/data-contracts.md) owned by the Python runtime, with structured `product`, `flags`, `category_props`, and `nutrition` sections. Library callers can build these snapshots directly without going through the application [reference path](../architecture/application-run-flow.md#reference-path).
 
 ```python
 from openfoodfacts_data_quality import enriched
@@ -49,7 +49,7 @@ from openfoodfacts_data_quality import enriched
 findings = enriched.run_checks(snapshots)
 ```
 
-## Selection Parameters
+## Selection
 
 Both surfaces support:
 
@@ -58,25 +58,25 @@ Both surfaces support:
 
 If you request checks that are not valid for the selected surface, the library fails explicitly instead of silently skipping them.
 
-## Public API Boundaries
+## Boundaries
 
 The public library APIs do not expose:
 
-- the application run layer
-- the reference result model
+- the [application run layer](../architecture/application-run-flow.md)
+- the [reference result](../architecture/data-contracts.md#referenceresult) model
 - report generation
 - reference result caching
-- the internal details of normalized context construction
+- the internal details of [normalized context](../architecture/data-contracts.md#normalizedcontext) construction
 
 Those remain application concerns.
 
 ## Runtime Only Checks
 
-The library can execute checks compared against legacy behavior. It can also execute runtime only checks.
+The library can execute checks compared against legacy behavior. It can also execute [runtime only checks](../architecture/check-system.md#parity-baseline).
 
 The application run layer supports the same model, and shipped profiles can mix compared and runtime only checks in one run. The library remains the simpler entry point when you only need programmatic findings without source loading, reference loading, or report generation.
 
-## Next Reads
+## Next
 
 - [Data Contracts](../architecture/data-contracts.md)
 - [Check System](../architecture/check-system.md)

@@ -2,7 +2,7 @@
 
 [Documentation](../index.md) / [Operations](index.md) / Configuration and Artifacts
 
-Runtime configuration for one application run and the artifacts it produces.
+Runtime configuration for one application run and the artifacts it produces. For the full execution sequence, see [Application Run Flow](../architecture/application-run-flow.md).
 
 ## Runtime Configuration
 
@@ -64,9 +64,9 @@ Main generated files:
 - `legacy-backend-stderr.log` when the backend worker starts
 - `data/reference_result_cache/*.meta.json` beside cache DB files when reference cache is used
 
-## Artifact Use
+## Usage
 
-- Use the HTML report for human review.
+- Use the HTML report for human review. See [Reading The Report](../getting-started/reading-the-report.md).
 - Use `run.json` for structured run data.
 - Use `snippets.json` for structured implementation and legacy source provenance.
 - Use the ZIP archive when you want to download the JSON outputs as one bundle.
@@ -92,7 +92,7 @@ Its cache key depends on:
 
 In Docker runs, the backend fingerprint comes from the pinned legacy backend image. See [Legacy Backend Image](legacy-backend-image.md).
 
-## Next Reads
+## Next
 
 - [Reading The Report](../getting-started/reading-the-report.md)
 - [Local Development](../guides/local-development.md)

@@ -4,11 +4,11 @@
 
 Project decisions and areas most likely to change.
 
-## Near Term Priorities
+## Priorities
 
 - migrate more checks compared against legacy behavior into the shared packaged runtime
 - keep tightening parity behavior where legacy comparison is expected
-- improve onboarding and contributor workflow around check authoring
+- improve the local check authoring workflow
 - keep the explicit raw, enriched, and reference contracts aligned as new checks land
 
 ## Open Questions
@@ -51,9 +51,9 @@ The repository depends on a clean split between:
 - application behavior used only for parity
 - dedicated migration planning workflows
 
-The split is already present in the codebase. It will need continued discipline as the project grows.
+The split is already present in the codebase. It still needs discipline as the project grows.
 
-## Next Reads
+## Next
 
 - [Project Overview and Scope](overview-and-scope.md)
 - [Application Run Flow](../architecture/application-run-flow.md)

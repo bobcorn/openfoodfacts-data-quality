@@ -2,16 +2,16 @@
 
 [Documentation](../index.md) / [Guides](index.md) / Local Development
 
-Use Docker for application runs that need backend reference data.
+Use Docker for application runs that need backend [reference data](../architecture/application-run-flow.md).
 
 ## Requirements
 
-For the normal application workflow:
+For application runs:
 
 - Docker
 - a local `.env` file
 
-For Python only tooling outside Docker:
+For Python tooling outside Docker:
 
 - Python 3.14
 - a local virtual environment
@@ -38,33 +38,25 @@ The first local run:
 - `.env`
   Local runtime configuration.
 - `config/check-profiles.toml`
-  Named check subsets for application runs.
+  Named [check subsets](../operations/configuration-and-artifacts.md) for application runs.
 - `DATABASE_PATH`
-  The DuckDB snapshot used as the source input for the application.
+  The DuckDB [source snapshot](../glossary.md) used as the source input for the application.
 - `BATCH_WORKERS`
-  Concurrent batch workers for the application run loop.
+  Concurrent batch workers for the [application run loop](../architecture/application-run-flow.md).
 - `LEGACY_BACKEND_WORKERS`
-  Persistent backend workers used only for cache misses that need backend materialization.
+  Persistent [legacy backend](../architecture/application-run-flow.md#legacy-backend) workers used only for cache misses that need backend materialization.
 
 The starter `.env.example` points to the tracked sample DuckDB so the first run succeeds with local repository data.
 
-## Docker Workflow
+## Docker
 
-Choose Docker for:
-
-- runs that may need reference results
-- compared execution
-- enriched application runs
-- report generation
-- a setup that mirrors the documented project workflow
-
-Use Docker when working on application behavior.
+Keep Docker for runs that may need [reference results](../architecture/application-run-flow.md#reference-path), compared execution, enriched application runs, [report generation](../getting-started/reading-the-report.md), and preview.
 
 The Docker image builds on a pinned image for multiple architectures. Normal Docker runs do not need a local `openfoodfacts-server` checkout. See [Legacy Backend Image](../operations/legacy-backend-image.md).
 
 ## `.venv` Workflow
 
-Choose a local `.venv` for:
+Use a local `.venv` for:
 
 - focused tests
 - linting and formatting
@@ -87,7 +79,7 @@ make check
 make quality
 ```
 
-## Development Loops
+## Short Loops
 
 - edit `config/check-profiles.toml` to narrow the active check set
 - use the bundled sample snapshot for short compared runs
@@ -96,12 +88,12 @@ make quality
 
 ## Practical Notes
 
-- The Docker Compose flow does not mount the source tree, so code changes require a rebuild.
-- Reference side results are cached across runs to avoid repeating legacy backend work.
+- The Docker Compose flow does not mount the source tree. Code changes require a rebuild.
+- [Reference side results](../architecture/application-run-flow.md#reference-path) are cached across runs to avoid repeating legacy backend work.
 - With a warm cache, compared and enriched runs can complete without starting a live backend worker for the covered products.
-- Source snapshot ids can come from a `.snapshot.json` sidecar beside the DuckDB file. The runtime writes that sidecar automatically when it has to hash the DuckDB file directly.
+- [Source snapshot](../glossary.md) ids can come from a `.snapshot.json` sidecar beside the DuckDB file. The runtime writes that sidecar automatically when it has to hash the DuckDB file directly.
 
-## Next Reads
+## Next
 
 - [Troubleshooting](../getting-started/troubleshooting.md)
 - [Configuration and Artifacts](../operations/configuration-and-artifacts.md)
