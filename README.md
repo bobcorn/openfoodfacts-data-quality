@@ -2,31 +2,29 @@
 
 Framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
-The repository has three main parts:
+The repository has three parts:
 
-- a reusable Python library that packages migrated checks and regional checks
+- a reusable Python library that packages migrated checks and country specific checks
 - an application layer that runs checks, loads reference data when needed, and renders review artifacts
 - migration tooling that analyzes legacy Perl sources and produces review artifacts
 
 ## Purpose
 
-Open Food Facts already has a large body of trusted data quality logic in the legacy backend. This repository adds:
+Open Food Facts already has trusted data quality logic in the legacy backend. This repository adds:
 
 - a check runtime that remains useful after the migration project
 - a disciplined way to compare migrated behavior against the legacy backend when parity is expected
 - artifacts that help reviewers understand what changed, what still mismatches, and what remains to migrate
 
-## Current Capabilities
+## Capabilities
 
-- run the demo and inspect the generated quality run report
+- run the demo and view the generated quality run report
 - execute the application locally against a DuckDB snapshot
 - use the Python library directly on `raw_products` rows or on stable explicit `enriched_products` snapshots
 - author checks in Python or in the repository DSL
 - generate legacy inventory artifacts to support migration planning
 
-## Repository Layers
-
-The diagram shows the main runtime layers. The table below names the same structure in text.
+## Layers
 
 ```mermaid
 flowchart TB
@@ -78,11 +76,11 @@ flowchart TB
       <td rowspan="4"><code>Shared Runtime Layer</code></td>
       <td rowspan="4">Defines the reusable check runtime used by the public library APIs and by the application run layer.</td>
       <td><code>Python Check Packs</code></td>
-      <td>Packaged Python checks shipped with the shared runtime.</td>
+      <td>Packaged Python checks included in the shared runtime.</td>
     </tr>
     <tr>
       <td><code>DSL Check Packs</code></td>
-      <td>Packaged DSL checks shipped with the shared runtime.</td>
+      <td>Packaged DSL checks included in the shared runtime.</td>
     </tr>
     <tr>
       <td><code>Check Catalog and Metadata</code></td>
@@ -127,31 +125,30 @@ flowchart TB
 
 ## Demo
 
-Run the demo to see the project in action before cloning the repository. Docker is the only requirement.
+Run the demo before cloning the repository. Docker is the only requirement.
 
 ```bash
 docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
 ```
 
-The command pulls the published image and starts the demo locally.
-The first start can take a short while because the image must be pulled and the sample report must be built.
+The first start can take a short while because Docker must pull the image and build the sample report.
 
-Open [http://localhost:8000](http://localhost:8000) to inspect the report.
+Open [http://localhost:8000](http://localhost:8000) to view the report.
 
-The demo image:
+The demo:
 
-- runs the application against the bundled DuckDB sample
-- reuses cached reference results and materializes only cache misses through the legacy backend runtime when required
-- executes the migrated checks
-- compares reference and migrated findings where a legacy baseline exists
+- runs against the included DuckDB sample
+- executes migrated checks
+- compares findings where a legacy baseline exists
 - writes the HTML report plus `run.json` and `snippets.json`
 - serves the generated site locally
+- uses cached reference results and calls the legacy backend only on cache misses
 
 ## Local Workflows
 
 ### Docker Setup
 
-Use this path for local application runs that need reference data, report generation, or other application wiring that spans multiple components.
+Use Docker for local application runs that need reference data, report generation, or other steps that span multiple components.
 
 ```bash
 git clone https://github.com/bobcorn/openfoodfacts-data-quality.git
@@ -162,35 +159,34 @@ docker compose up --build
 
 Then open [http://localhost:8000](http://localhost:8000).
 
-Notes:
+Defaults:
 
-- `.env` controls the local runtime inputs
-- the starter configuration points to the tracked sample DuckDB snapshot
-- the default `full` profile exercises both compared and runtime only shipped checks
-- generated outputs are written under `artifacts/latest/`
+- `.env` points to the tracked sample DuckDB snapshot
+- the default `full` profile runs included compared and runtime only checks
+- outputs are written under `artifacts/latest/`
 - reference results are cached across runs
-- if the reference cache already covers the requested products, the run can skip live legacy backend execution
+- cached products skip live legacy backend execution
 - source code is not mounted into the container, so code changes require a rebuild
 
 ### Python Setup
 
-Use this path for library work, tests, typing, linting, and repository utilities.
+Use Python for library work, tests, typing, linting, and repository utilities.
 
 ```bash
 python3.14 -m venv .venv
 .venv/bin/python -m pip install -e ".[app,dev]"
 ```
 
-Use Docker for compared runs, enriched application runs, report rendering, and preview, because those workflows depend on the supported legacy backend environment.
+Use Docker for compared runs, enriched application runs, report rendering, and preview. Those workflows depend on the supported legacy backend environment.
 
-## Library Usage
+## Library
 
 The public Python API has two input surfaces:
 
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
 
-Minimal raw surface example:
+Minimal raw example:
 
 ```python
 from openfoodfacts_data_quality import raw
@@ -201,11 +197,11 @@ findings = raw.run_checks(
 )
 ```
 
-Use the `raw` surface for checks that can run directly on public product rows. Use the `enriched` surface when a check depends on stable enriched data such as enriched flags, category properties, or richer nutrition structures. In application runs, that data usually comes through the reference path. In direct library usage, callers can provide it explicitly.
+Use the `raw` surface for checks that can run directly on public product rows. Use the `enriched` surface when a check depends on stable enriched data such as enriched flags, category properties, or richer nutrition structures. In application runs, that data usually comes through the reference path. In direct library usage, callers provide it explicitly.
 
-## Current Status
+## Status
 
-The repository is still in a prototype phase.
+The repository is still a prototype.
 
 Stable today:
 
@@ -229,12 +225,12 @@ The public raw and enriched contracts are explicit and owned by the Python runti
 
 Documentation lives under [`docs/`](docs/index.md).
 
-Useful starting points:
+Starting points:
 
-- Project overview: [Project Overview and Scope](docs/project/overview-and-scope.md)
-- Run the project: [Local Development](docs/guides/local-development.md)
-- Understand the system: [System Overview](docs/architecture/system-overview.md)
-- Follow the application flow: [Application Run Flow](docs/architecture/application-run-flow.md)
-- Understand the report and artifacts: [Reading The Report](docs/getting-started/reading-the-report.md)
-- Use the library: [Library Usage](docs/guides/library-usage.md)
-- Work on checks: [Authoring Checks](docs/guides/authoring-checks.md)
+- Overview: [Project Overview and Scope](docs/project/overview-and-scope.md)
+- Local development: [Local Development](docs/guides/local-development.md)
+- System overview: [System Overview](docs/architecture/system-overview.md)
+- Application run flow: [Application Run Flow](docs/architecture/application-run-flow.md)
+- Reading the report: [Reading The Report](docs/getting-started/reading-the-report.md)
+- Library usage: [Library Usage](docs/guides/library-usage.md)
+- Authoring checks: [Authoring Checks](docs/guides/authoring-checks.md)
