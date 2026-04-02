@@ -116,7 +116,7 @@ flowchart TB
       <td><code>External Dependency</code></td>
       <td>Supplies backend generated reference data when the reference path needs live materialization.</td>
       <td><code>Legacy Backend Runtime</code></td>
-      <td>Emits the versioned backend result envelope that carries `ReferenceResult`.</td>
+      <td>Emits the versioned backend result envelope that carries <code>ReferenceResult</code>.</td>
     </tr>
     <tr>
       <td rowspan="3"><code>Optional Reference Path</code></td>
@@ -158,13 +158,13 @@ flowchart TB
     </tr>
     <tr>
       <td><code>Accumulate Run Summary</code></td>
-      <td>Aggregates batch results into one `RunResult`.</td>
+      <td>Aggregates batch results into one <code>RunResult</code>.</td>
     </tr>
     <tr>
       <td><code>Output Artifacts</code></td>
       <td>Writes machine readable outputs for review and downstream use.</td>
       <td><code>Emit Machine Readable Artifacts</code></td>
-      <td>Writes `run.json`, `snippets.json`, and the bundled export archive.</td>
+      <td>Writes <code>run.json</code>, <code>snippets.json</code>, and the bundled export archive.</td>
     </tr>
     <tr>
       <td rowspan="2"><code>Presentation</code></td>
