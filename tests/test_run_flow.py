@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, Protocol, TypeVar
 
 import app.run.execution as execution_module
+import app.run.orchestrator as orchestrator_module
 import app.run.preparation as preparation_module
 import pytest
 from app.reference.materializers import (
@@ -425,6 +426,64 @@ def test_prepare_run_collects_profile_and_definition_counts(
     assert prepared.requires_enriched_snapshots is False
     assert prepared.requires_reference_findings is True
     assert prepared.requires_reference_results is True
+
+
+def test_configured_database_path_requires_explicit_database_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("DATABASE_PATH", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="DATABASE_PATH must be set for local runtime runs",
+    ):
+        orchestrator_module.configured_database_path(tmp_path)
+
+
+def test_build_site_requires_explicit_database_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("DATABASE_PATH", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="DATABASE_PATH must be set for local runtime runs",
+    ):
+        orchestrator_module.build_site(tmp_path)
+
+
+def test_warns_when_legacy_backend_workers_exceed_batch_workers(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger = logging.getLogger("test-run-flow")
+    caplog.set_level(logging.WARNING, logger=logger.name)
+
+    orchestrator_module.warn_if_legacy_backend_workers_exceed_batch_workers(
+        requires_reference_results=True,
+        batch_workers=1,
+        legacy_backend_workers=2,
+        logger=logger,
+    )
+
+    assert "LEGACY_BACKEND_WORKERS=2 exceeds BATCH_WORKERS=1" in caplog.text
+
+
+def test_does_not_warn_about_backend_workers_without_reference_results(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger = logging.getLogger("test-run-flow")
+    caplog.set_level(logging.WARNING, logger=logger.name)
+
+    orchestrator_module.warn_if_legacy_backend_workers_exceed_batch_workers(
+        requires_reference_results=False,
+        batch_workers=1,
+        legacy_backend_workers=2,
+        logger=logger,
+    )
+
+    assert caplog.text == ""
 
 
 def test_with_reference_result_cache_replaces_cache_location(

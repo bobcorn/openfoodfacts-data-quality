@@ -55,13 +55,19 @@ def build_site(
     legacy_backend_workers: int = DEFAULT_LEGACY_BACKEND_WORKERS,
 ) -> Path:
     """Build artifacts and render the static site for the current source snapshot."""
-    db_path = (db_path or project_root / "data" / "products.duckdb").resolve()
+    db_path = (db_path or configured_database_path(project_root)).resolve()
     if not db_path.exists():
         raise FileNotFoundError(
             "Source DuckDB not found. Mount or provide a DuckDB file and set DATABASE_PATH."
         )
     artifacts_dir, site_dir = prepare_artifacts_dir(project_root)
     run = prepare_run(project_root, db_path, logger=LOGGER)
+    warn_if_legacy_backend_workers_exceed_batch_workers(
+        requires_reference_results=run.requires_reference_results,
+        batch_workers=batch_workers,
+        legacy_backend_workers=legacy_backend_workers,
+        logger=LOGGER,
+    )
     cache_identity = None
     if run.requires_reference_results:
         cache_dir = configured_reference_result_cache_dir(project_root)
@@ -195,11 +201,31 @@ def build_site(
     return site_dir
 
 
+def warn_if_legacy_backend_workers_exceed_batch_workers(
+    *,
+    requires_reference_results: bool,
+    batch_workers: int,
+    legacy_backend_workers: int,
+    logger: logging.Logger,
+) -> None:
+    """Log when the backend pool is configured larger than batch concurrency."""
+    if not requires_reference_results or legacy_backend_workers <= batch_workers:
+        return
+    logger.warning(
+        "[Config] LEGACY_BACKEND_WORKERS=%d exceeds BATCH_WORKERS=%d; at most %d backend worker(s) can be used concurrently in this run.",
+        legacy_backend_workers,
+        batch_workers,
+        batch_workers,
+    )
+
+
 def configured_database_path(project_root: Path) -> Path:
     """Return the configured DuckDB source path."""
     configured = os.environ.get("DATABASE_PATH")
-    if not configured:
-        return project_root / "data" / "products.duckdb"
+    if configured is None or not configured.strip():
+        raise ValueError(
+            "DATABASE_PATH must be set for local runtime runs. Use the demo image for the bundled example snapshot."
+        )
     return Path(configured).expanduser().resolve()
 
 
