@@ -47,7 +47,7 @@ It:
 - verifies and smoke tests the built wheel
 - attaches the distributions to the matching GitHub Release
 
-## Next Reads
+## Next
 
 - [Testing and Quality](../reference/testing-and-quality.md)
 - [Local Development](../guides/local-development.md)

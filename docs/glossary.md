@@ -6,7 +6,7 @@ Canonical repository vocabulary.
 
 Use this page as a lookup when you need exact wording. It works best once you already know the broad system shape from the project and architecture pages.
 
-## Quick Orientation
+## Orientation
 
 - `src/openfoodfacts_data_quality/` is the reusable library layer and package root for the public Python APIs.
 - `app/` is the application layer that orchestrates runs, loads reference data when needed, applies strict comparison where relevant, and renders artifacts.
@@ -15,7 +15,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 
 ## Canonical Terms
 
-### Check Definition Terms
+### Check Definitions
 
 - `definition`
   The representation of a migrated check in the repository.
@@ -33,7 +33,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
   Use this for the migrated Python runtime, the DSL evaluator, or the legacy Perl runtime.
   Do not use it for the `python|dsl` classification axis.
 
-### Input And Runtime Terms
+### Input and Runtime
 
 - `raw_products`
   The raw public product input surface consumed directly from the source snapshot.
@@ -51,7 +51,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - `normalized context`
   The Python runtime shape consumed by migrated checks.
 
-### Run Terms
+### Runs
 
 - `run`
   One execution of the application against one source snapshot and one active check profile.
@@ -67,7 +67,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
   A check execution mode with no legacy comparison baseline.
   In contracts, this corresponds to `comparison_status="runtime_only"` and `parity_baseline="none"`.
 
-### Repository Structure Terms
+### Repository Structure
 
 - `layer`
   Use `layer` for the major structural split of the repository, such as the shared runtime layer, the application layer, and the operational or planning layer.
@@ -75,7 +75,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - `surface`
   Use `surface` for runtime and API contracts such as `raw_products`, `enriched_products`, and the raw and enriched library APIs.
 
-### Parity Terms
+### Parity
 
 - `reference`
   The reference side of parity comparison.
@@ -102,7 +102,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
   Strict comparison between reference and migrated findings.
   Use `parity` for baselines, comparison logic, and mismatch semantics. Do not use it as the generic name for the whole application.
 
-### Legacy Backend Terms
+### Legacy Backend
 
 - `legacy backend`
   The Perl runtime boundary used to produce internal reference side payloads.
@@ -124,7 +124,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
   The stable enriched product payload owned by the Python runtime and embedded in `ReferenceResult` and `EnrichedSnapshotResult`.
   In application runs, the reference path projects it from validated `ReferenceResult` values.
 
-### Source Snapshot Terms
+### Source Snapshot
 
 - `source snapshot`
   The versioned dataset used as input for one run.
@@ -134,7 +134,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
   The stable identifier of a source snapshot.
   Do not confuse this with `enriched_snapshot`.
 
-### Report Terms
+### Report
 
 - `origin`
   In snippet artifacts, the provenance axis for code excerpts.
@@ -149,7 +149,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - `loader`
   A component that materializes runtime data from cache or an execution boundary.
 
-### Artifact Terms
+### Artifacts
 
 - `schema_version`
   The root version marker embedded in JSON artifacts such as `run.json` and `snippets.json`.
@@ -157,7 +157,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - `kind`
   The root artifact type marker embedded in JSON artifacts such as `run.json` and `snippets.json`.
 
-### Migration Planning Terms
+### Migration Planning
 
 - `cluster_id`
   The derived legacy inventory grouping key used in `estimation_sheet.csv` to group rows that share the same legacy source span.
@@ -216,7 +216,7 @@ Use this page as a lookup when you need exact wording. It works best once you al
 - If it refers to the Perl execution boundary, call it `legacy backend`.
 - Prefer the package or module name already used in the repository.
 
-## Next Reads
+## Next
 
 - [System Overview](architecture/system-overview.md)
 - [Check System](architecture/check-system.md)

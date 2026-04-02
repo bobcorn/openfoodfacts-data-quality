@@ -4,7 +4,7 @@
 
 The application run layer writes a static report site and companion JSON artifacts under `artifacts/latest/site/`.
 
-## Run Outputs
+## Outputs
 
 Main generated files:
 
@@ -116,7 +116,7 @@ The report renderer supports both compared and runtime only checks.
 
 Strict comparison counts and mismatch examples apply only to checks with a legacy baseline. Runtime only checks still contribute to run composition and to the report payload for each check.
 
-## Next Reads
+## Next
 
 - [Configuration and Artifacts](../operations/configuration-and-artifacts.md)
 - [Application Run Flow](../architecture/application-run-flow.md)

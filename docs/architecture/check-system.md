@@ -4,18 +4,18 @@
 
 Checks are packaged definitions loaded through one catalog and executed through one runtime, whether their logic is written in Python or in the DSL.
 
-## Definition Languages
+## Languages
 
 The check system supports two definition languages:
 
 - `python`
   For checks that need loops, logic driven by helpers, aggregation, dynamic emitted codes, or other imperative behavior.
 - `dsl`
-  For readable boolean predicates over approved normalized context paths.
+  For readable boolean predicates over approved [normalized context](data-contracts.md) paths.
 
 Both languages share the same catalog, selection model, and metadata concepts.
 
-## Check Definition Metadata
+## Metadata
 
 Every check definition has stable metadata:
 
@@ -27,7 +27,7 @@ Every check definition has stable metadata:
 - jurisdictions
 - optional legacy identity
 
-Most execution behavior is selected from this metadata, not from ad hoc application conditionals.
+Most execution behavior comes from this metadata, not from scattered application conditionals.
 
 ## Selection Model
 
@@ -84,7 +84,7 @@ For Python checks, declared `requires=(...)` metadata is validated against infer
 
 The repository enforces this contract.
 
-## Next Reads
+## Next
 
 - [Authoring Checks](../guides/authoring-checks.md)
 - [Data Contracts](data-contracts.md)
