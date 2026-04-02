@@ -118,7 +118,7 @@ flowchart TB
       <td><code>External Dependency</code></td>
       <td>The external Perl runtime used to produce reference results for runs that need backend enrichment or strict comparison.</td>
       <td><code>Legacy Backend Runtime</code></td>
-      <td>Emits a versioned backend result envelope whose stable payload is `ReferenceResult`, including enriched snapshots and legacy finding tags.</td>
+      <td>Emits a versioned backend result envelope whose stable payload is <code>ReferenceResult</code>, including enriched snapshots and legacy finding tags.</td>
     </tr>
   </tbody>
 </table>
@@ -219,7 +219,11 @@ Open areas:
 - the breadth of migrated legacy coverage
 - how the review artifacts should evolve for larger and more varied runs
 
-The public raw and enriched contracts are explicit and owned by the Python runtime. Application runs that need reference results still depend on a versioned legacy backend result envelope validated in Python. Live backend execution happens only on cache misses.
+Notes:
+
+- the public raw and enriched contracts are explicit and owned by the Python runtime
+- application runs that need reference results still depend on a versioned legacy backend result envelope validated in Python
+- live backend execution happens only on cache misses
 
 ## Documentation
 
