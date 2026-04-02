@@ -29,17 +29,11 @@ flowchart TB
     end
 
     subgraph REF["Optional Reference Path"]
-        H["Load Reference Results"]
-        I["Project Cache Misses For Backend"]
-        J["Materialize Missing Reference Results"]
+        H["Resolve Reference Results"]
         K["Project Reference Findings"]
         L["Project Enriched Snapshots"]
-        H --> I
-        I --> J
         H --> K
         H --> L
-        J --> K
-        J --> L
     end
 
     subgraph MIG["Migrated Runtime"]
@@ -60,7 +54,7 @@ flowchart TB
     end
 
     subgraph ART["Output Artifacts"]
-        S["Emit run.json and snippets.json"]
+        S["Emit Machine Readable Artifacts"]
     end
 
     subgraph PRES["Presentation"]
@@ -73,7 +67,7 @@ flowchart TB
     D --> E
     E --> H
     E --> M
-    G -.-> J
+    G -.-> H
     L --> M
     K --> Q
     P --> Q
@@ -82,19 +76,108 @@ flowchart TB
     R --> T
 ```
 
-The table below restates the same flow stage by stage.
-
-| Stage | Nodes In The Diagram | Role In The Flow |
-| --- | --- | --- |
-| Input | DuckDB Source | Provides the source snapshot consumed by the run. |
-| Run preparation | Resolve Snapshot Metadata, Load Active Profile, Configure Run Strategy | Determines the source snapshot id, selected checks, required input surface, and whether reference data is needed. |
-| Batch source | Read Source Batches | Streams ordered source rows from DuckDB. |
-| External dependency | Legacy Backend Runtime | Executes the trusted Perl boundary that materializes enriched reference data and legacy finding tags. |
-| Optional reference path | Load Reference Results, Project Cache Misses For Backend, Materialize Missing Reference Results, Project Reference Findings, Project Enriched Snapshots | Reuses cache when possible, projects only cache misses into the explicit backend input contract, materializes missing results through the legacy backend, and then projects the resulting reference records onto parity findings and enriched snapshots. |
-| Migrated runtime | Build Check Contexts, Run Python Checks, Run DSL Checks, Normalize Migrated Findings | Builds normalized contexts, executes the selected migrated checks, and turns the results into comparable findings. |
-| Run result | Optional Strict Comparison, Accumulate Run Summary | Applies strict multiset comparison where a legacy baseline exists and aggregates all checks into one run result. |
-| Output artifacts | Emit run.json and snippets.json | Writes the JSON outputs used for inspection and downstream review. |
-| Presentation | Render Report Site, Preview Site | Builds the static report site and serves it locally for review. |
+<table>
+  <thead>
+    <tr>
+      <th>Stage</th>
+      <th>Stage Description</th>
+      <th>Node</th>
+      <th>Node Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Input</code></td>
+      <td>Provides the source snapshot consumed by the run.</td>
+      <td><code>DuckDB Source</code></td>
+      <td>Holds the ordered product rows used for the run.</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><code>Run Preparation</code></td>
+      <td rowspan="3">Determines the run inputs, selected checks, and whether reference results are needed.</td>
+      <td><code>Resolve Snapshot Metadata</code></td>
+      <td>Resolves the source snapshot id from an env override, a sidecar file, or a file hash fallback.</td>
+    </tr>
+    <tr>
+      <td><code>Load Active Profile</code></td>
+      <td>Loads the selected check profile and its active metadata filters.</td>
+    </tr>
+    <tr>
+      <td><code>Configure Run Strategy</code></td>
+      <td>Decides the required input surface, reference requirements, and runtime strategy for the run.</td>
+    </tr>
+    <tr>
+      <td><code>Batch Source</code></td>
+      <td>Streams ordered source rows in batches.</td>
+      <td><code>Read Source Batches</code></td>
+      <td>Reads one ordered batch from DuckDB.</td>
+    </tr>
+    <tr>
+      <td><code>External Dependency</code></td>
+      <td>Supplies backend generated reference data when the reference path needs live materialization.</td>
+      <td><code>Legacy Backend Runtime</code></td>
+      <td>Emits the versioned backend result envelope that carries `ReferenceResult`.</td>
+    </tr>
+    <tr>
+      <td rowspan="3"><code>Optional Reference Path</code></td>
+      <td rowspan="3">Builds the ordered reference result list for the batch, then projects it onto the inputs used by parity and enriched runs.</td>
+      <td><code>Resolve Reference Results</code></td>
+      <td>Loads reference results for the batch through cache reuse and backend materialization when needed.</td>
+    </tr>
+    <tr>
+      <td><code>Project Reference Findings</code></td>
+      <td>Builds normalized reference findings for strict comparison.</td>
+    </tr>
+    <tr>
+      <td><code>Project Enriched Snapshots</code></td>
+      <td>Builds stable enriched snapshots for the migrated runtime.</td>
+    </tr>
+    <tr>
+      <td rowspan="4"><code>Migrated Runtime</code></td>
+      <td rowspan="4">Builds normalized contexts, runs the selected checks, and turns their output into comparable migrated findings.</td>
+      <td><code>Build Check Contexts</code></td>
+      <td>Builds normalized contexts from raw rows or enriched snapshots.</td>
+    </tr>
+    <tr>
+      <td><code>Run Python Checks</code></td>
+      <td>Executes the selected Python evaluators.</td>
+    </tr>
+    <tr>
+      <td><code>Run DSL Checks</code></td>
+      <td>Executes the selected DSL evaluators.</td>
+    </tr>
+    <tr>
+      <td><code>Normalize Migrated Findings</code></td>
+      <td>Converts evaluator output into normalized migrated findings.</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><code>Run Result</code></td>
+      <td rowspan="2">Builds the batch level comparison and accumulates the final run summary.</td>
+      <td><code>Optional Strict Comparison</code></td>
+      <td>Applies strict multiset comparison where a legacy baseline exists.</td>
+    </tr>
+    <tr>
+      <td><code>Accumulate Run Summary</code></td>
+      <td>Aggregates batch results into one `RunResult`.</td>
+    </tr>
+    <tr>
+      <td><code>Output Artifacts</code></td>
+      <td>Writes machine readable outputs for review and downstream use.</td>
+      <td><code>Emit Machine Readable Artifacts</code></td>
+      <td>Writes `run.json`, `snippets.json`, and the bundled export archive.</td>
+    </tr>
+    <tr>
+      <td rowspan="2"><code>Presentation</code></td>
+      <td rowspan="2">Builds the report site and serves it locally.</td>
+      <td><code>Render Report Site</code></td>
+      <td>Builds the static review site from the completed run result.</td>
+    </tr>
+    <tr>
+      <td><code>Preview Site</code></td>
+      <td>Serves the generated site for local review.</td>
+    </tr>
+  </tbody>
+</table>
 
 ## Run Preparation
 
