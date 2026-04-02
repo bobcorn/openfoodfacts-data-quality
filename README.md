@@ -1,4 +1,8 @@
-# Open Food Facts Data Quality
+# Open Food Facts - Data Quality
+
+Framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
+
+## Why this exists
 
 Open Food Facts already relies on more than 200 data quality checks in the legacy Perl backend. This prototype explores a Python framework for migrating that logic, validating parity against the legacy backend, supporting Canada specific rules, and running the checks more easily in local DuckDB based workflows.
 
