@@ -1,60 +1,47 @@
 # Roadmap and Open Questions
 
-[Documentation](../index.md) / [Project](index.md) / Roadmap and Open Questions
+[Back to documentation](../index.md)
 
-Project decisions and areas most likely to change.
+Track current work and unresolved design choices here.
 
-## Priorities
+## Near Term Work
 
-- migrate more checks compared against legacy behavior into the shared packaged runtime
-- keep tightening parity behavior where legacy comparison is expected
-- improve the local check authoring workflow
-- keep the explicit raw, enriched, and reference contracts aligned as new checks land
+Current work focuses on migrating more checks with [legacy comparison](../concepts/reference-and-parity.md#strict-comparison) into the [shared runtime](../concepts/runtime-model.md#shared-runtime), tightening parity where comparison is expected, and improving the local authoring loop without weakening the explicit raw, enriched, and reference contracts.
 
-## Open Questions
+## Open questions
 
-### DSL Scope
+### How far should the DSL grow?
 
-The DSL stays narrow by design. Expanding it too far would hide logic that is easier to review in Python. The open question is which additions would keep migrated logic obvious and auditable.
+The DSL stays narrow on purpose. The open question is which additions keep migrated logic obvious and reviewable.
 
-### Enriched Surface Growth
+### Which fields should enter the enriched surface?
 
-The repository already exposes an explicit enriched contract owned by the Python runtime. The open question is which additional fields, if any, deserve to widen that contract as more migrated checks land.
+The repository already exposes an explicit [enriched contract](../reference/data-contracts.md#enriched-snapshot) owned by the Python runtime. The open question is which additional fields deserve to widen that contract as more migrated checks land.
 
-### Full Corpus Execution
+### Where should full corpus runs happen?
 
-The Docker flow is appropriate for local development and modest validation loops. It is still open whether whole snapshot parity runs should remain local, move to CI style automation, or run in a different environment.
+The Docker flow works for local development and modest validation loops. Parity runs over a whole snapshot may need a different home.
 
-### Report Detail
+### How much detail should the report expose?
 
-The report stays at summary level. More debugging detail could help investigations. Too much detail would make the main report harder to review quickly.
+The report stays at summary level today. More debugging detail could help investigations. Too much detail would slow down review.
 
-### Public API Stability
+### When should the APIs become durable?
 
 The raw and enriched APIs are explicit today. The open question is when they should be documented and supported as durable public interfaces.
 
-## Risk Areas
+## Risks to watch
 
-### Full Corpus Performance
+### Corpus performance
 
-A workflow that is lightweight on sample data can behave very differently on millions of products. Batch sizing, cache behavior, legacy backend throughput, and report usability all become more sensitive at that scale.
+A workflow that feels light on sample data can behave very differently on millions of products. Batch sizing, cache behavior, legacy backend throughput, and report usability all get more sensitive at that scale.
 
-### Parity Investigation At Scale
+### Parity at scale
 
-Even low mismatch rates can produce large absolute mismatch volumes on full snapshots. The artifact and report model needs to remain useful when the debugging scope grows.
+Low mismatch rates can still produce large mismatch volumes on full snapshots. The [artifact model](../reference/report-artifacts.md) needs to stay useful when the debugging scope grows.
 
-### Runtime/App Boundary Drift
+### Boundary drift
 
-The repository depends on a clean split between:
+The repository depends on a clean split between reusable runtime contracts, application behavior used only for parity, and support workflows. That split is present in the codebase and still needs discipline as the project grows.
 
-- reusable runtime contracts
-- application behavior used only for parity
-- dedicated migration planning workflows
-
-The split is already present in the codebase. It still needs discipline as the project grows.
-
-## Next
-
-- [Project Overview and Scope](overview-and-scope.md)
-- [Application Run Flow](../architecture/application-run-flow.md)
-- [Configuration and Artifacts](../operations/configuration-and-artifacts.md)
+[Back to documentation](../index.md)
