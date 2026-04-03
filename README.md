@@ -2,6 +2,8 @@
 
 This repository is a framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
+## Use the repository
+
 You can use the repository in two ways:
 
 - Use the shared runtime in `src/openfoodfacts_data_quality/` to run checks
@@ -12,10 +14,6 @@ You can use the repository in two ways:
   the run needs it. It also handles
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
   stored review data, and [report artifacts](docs/reference/report-artifacts.md).
-
-For architecture details, see
-[About the system architecture](docs/explanation/system-architecture.md) and
-[About application runs](docs/explanation/application-runs.md).
 
 ## Run the demo
 
@@ -60,17 +58,8 @@ Use this procedure when you work in the repository.
 4. Open the report at `http://localhost:8000`, unless you changed
    `PORT` in `.env`.
 
-The sample `.env.example` points `SOURCE_SNAPSHOT_PATH` at the tracked DuckDB
-snapshot. `CHECK_PROFILE` selects the active checks. `SOURCE_DATASET_PROFILE`
-selects the source rows that enter the run. Outputs go under
-`artifacts/latest/`. The application records review data in
-`data/parity_store/parity.duckdb`. The Docker flow also reuses the
-[reference result cache](docs/reference/run-configuration-and-artifacts.md#reference-result-cache)
-across runs.
-
-If `SOURCE_SNAPSHOT_PATH` is unset, local runtime startup fails instead of
-using a bundled path. Use the demo image for the bundled sample
-without local configuration.
+For local run details, see
+[Run the project locally](docs/how-to/run-the-project-locally.md).
 
 ## Set up local Python tooling
 
@@ -125,10 +114,4 @@ values explicitly.
 
 ## Documentation
 
-Start with the [documentation index](docs/index.md).
-
-- Use the [how-to guides](docs/index.md#how-to-guides) for tasks.
-- Use the [explanation pages](docs/index.md#explanation) for architecture and
-  design context.
-- Use the [reference pages](docs/index.md#reference) for contracts, artifacts,
-  configuration, and exact field definitions.
+Read the full [documentation](docs/index.md).
