@@ -33,11 +33,15 @@ This command adds `mypy`, `vulture`, `pyright`, and `jscpd`.
   execution behavior
 - [DSL](../explanation/migrated-checks.md#definition-languages) parsing and
   evaluation
-- [check profile](../explanation/migrated-checks.md#check-profiles) selection
+- [check profile](../explanation/migrated-checks.md#check-profiles) and dataset
+  profile selection
+- migration catalog loading and planning filters
+- policy loading for expected differences
 - [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
   loading and caching behavior
 - [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)
   plus run result accumulation
+- parity store persistence and report rendering from stored runs
 - [report rendering](../reference/report-artifacts.md#html-report) and
   serialization
 

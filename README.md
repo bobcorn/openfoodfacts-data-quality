@@ -2,15 +2,16 @@
 
 This repository is a framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
-It gives you two ways to work:
+You can use the repository in two ways:
 
-- Use the shared runtime in `src/openfoodfacts_data_quality/` when you want to
-  run checks directly from Python. See
+- Use the shared runtime in `src/openfoodfacts_data_quality/` to run checks
+  directly from Python. See
   [About the runtime model](docs/explanation/runtime-model.md).
-- Use the application layer in `app/` when you need DuckDB loading,
-  [reference data](docs/explanation/reference-data-and-parity.md),
+- Use the application layer in `app/` for complete runs. It loads DuckDB input and
+  resolves [reference data](docs/explanation/reference-data-and-parity.md) when
+  the run needs it. It also handles
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
-  or [report artifacts](docs/reference/report-artifacts.md).
+  stored review data, and [report artifacts](docs/reference/report-artifacts.md).
 
 For a deeper architectural view, see
 [About the system architecture](docs/explanation/system-architecture.md) and
@@ -18,7 +19,7 @@ For a deeper architectural view, see
 
 ## Run the demo
 
-Use the demo image when you want to inspect the full
+Use the demo image to inspect the full
 [application flow](docs/explanation/application-runs.md) without cloning the
 repository.
 
@@ -28,14 +29,14 @@ repository.
    docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
    ```
 
-2. Open the [local report](http://localhost:8000).
+2. Open the report at `http://localhost:8000`.
 
 The container loads the bundled sample snapshot, runs the shipped checks,
 writes the report artifacts, and serves the generated site on port `8000`.
 
 ## Run the application locally
 
-Use this flow when you want to work on the repository itself.
+Use this procedure when you work in the repository.
 
 1. Clone the repository and enter the working tree:
 
@@ -56,15 +57,20 @@ Use this flow when you want to work on the repository itself.
    docker compose up --build
    ```
 
-4. Open the local report at `http://localhost:8000`, unless you changed
+4. Open the report at `http://localhost:8000`, unless you changed
    `PORT` in `.env`.
 
-By default, `.env` points to the tracked DuckDB sample, the active
-[`full` check profile](docs/explanation/migrated-checks.md#check-profiles)
-runs compared and runtime-only checks together, outputs are written under
-`artifacts/latest/`, and the Docker-backed
-[reference cache](docs/reference/run-configuration-and-artifacts.md#reference-result-cache)
-is reused across runs.
+The sample `.env.example` points `SOURCE_SNAPSHOT_PATH` at the tracked DuckDB
+snapshot. `CHECK_PROFILE` selects the active checks. `SOURCE_DATASET_PROFILE`
+selects the source rows that enter the run. Outputs go under
+`artifacts/latest/`. The application records review data in
+`data/parity_store/parity.duckdb`. The Docker flow also reuses the
+[reference result cache](docs/reference/run-configuration-and-artifacts.md#reference-result-cache)
+across runs.
+
+If `SOURCE_SNAPSHOT_PATH` is unset, local runtime startup fails instead of
+falling back to a bundled path. Use the demo image for the bundled sample
+without local configuration.
 
 ## Set up local Python tooling
 
@@ -89,8 +95,8 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
    make quality
    ```
 
-Keep Docker for compared runs, enriched application runs, report rendering, and
-local preview.
+Use Docker for application runs that need reference results and for local
+preview.
 
 ## Use the Python library
 
@@ -113,7 +119,7 @@ findings = raw.run_checks(
 Use `enriched` when a check depends on stable enriched data. In application
 runs, that data usually comes from the
 [reference path](docs/explanation/reference-data-and-parity.md#why-the-reference-path-exists).
-In direct library usage, callers provide
+When you call the library directly, provide
 [EnrichedSnapshotResult](docs/reference/data-contracts.md#enrichedsnapshotresult)
 values explicitly.
 
@@ -125,4 +131,4 @@ Start with the [documentation index](docs/index.md).
 - Use the [explanation pages](docs/index.md#explanation) for architecture and
   design context.
 - Use the [reference pages](docs/index.md#reference) for contracts, artifacts,
-  and exact field definitions.
+  configuration, and exact field definitions.

@@ -9,12 +9,11 @@ records project status rather than product behavior.
 
 ## Near-term work
 
-Current work focuses on migrating more checks with
+Near-term work centers on migrating more checks with
 [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)
-into the [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split),
-tightening parity where comparison is expected, and improving the local
-authoring loop without weakening the explicit raw, enriched, and
-[reference contracts](../reference/data-contracts.md).
+into the [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split).
+It also improves the local authoring loop while keeping the
+[reference contracts](../reference/data-contracts.md) explicit.
 
 ## Open questions
 
@@ -23,7 +22,7 @@ authoring loop without weakening the explicit raw, enriched, and
 The DSL stays narrow on purpose. The open question is which additions keep
 migrated logic obvious and reviewable.
 
-### Where should full-corpus runs happen?
+### Where should whole snapshot runs happen?
 
 The [Docker flow](../how-to/run-the-project-locally.md) works for local
 development and modest validation loops. Parity runs over a whole snapshot may
@@ -32,21 +31,21 @@ need a different home.
 ### How much detail should the report expose?
 
 The [report](../reference/report-artifacts.md#html-report) stays at summary
-level today. More debugging detail could help investigations. Too much detail
-would slow down review.
+level. More debugging detail could help investigations. Too much detail would
+slow down review.
 
 ### When should the APIs become durable?
 
-The raw and enriched APIs are explicit today. The open question is when they
-should be documented and supported as durable public interfaces.
+The raw and enriched APIs are explicit. The open question is when they should
+be documented and supported as durable public interfaces.
 
 ## Risks to watch
 
 ### Corpus performance
 
 A workflow that feels light on sample data can behave very differently on
-millions of products. Batch sizing, cache behavior, legacy backend throughput,
-and report usability all get more sensitive at that scale.
+millions of products. Batch sizing changes at that scale. Cache behavior and
+legacy backend throughput also become more sensitive.
 
 ### Parity at scale
 
@@ -64,6 +63,7 @@ project grows.
 
 ## Related information
 
+- [Lessons learned from the prototype](lessons-from-the-prototype.md)
 - [About the project scope](../explanation/project-scope.md)
 - [About reference data and parity](../explanation/reference-data-and-parity.md)
 - [Report artifacts](../reference/report-artifacts.md)

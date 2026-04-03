@@ -1,22 +1,27 @@
 from __future__ import annotations
 
 from concurrent.futures import Future
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, Protocol
+
+from app.migration.catalog import ActiveMigrationPlan
+from app.source.datasets import (
+    ActiveDatasetProfile,
+    SourceSelection,
+    default_dataset_profile,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
+    from app.artifacts import ApplicationArtifacts
     from app.legacy_backend.input_projection import LegacyBackendInputProduct
     from app.reference.models import ReferenceResult
     from app.run.context_builders import SupportsCheckContextBuilder
     from app.run.profiles import ActiveCheckProfile
     from openfoodfacts_data_quality.checks.registry import CheckEvaluator
-    from openfoodfacts_data_quality.contracts.checks import (
-        CheckDefinition,
-        CheckParityBaseline,
-    )
+    from openfoodfacts_data_quality.contracts.checks import CheckParityBaseline
     from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
     from openfoodfacts_data_quality.contracts.raw import RawProductRow
@@ -48,6 +53,17 @@ class ResolvedReferenceResults:
     backend_run_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedReferenceBatch:
+    """Reference-side batch inputs after cache/backend loading and projection."""
+
+    reference_results: list[ReferenceResult]
+    enriched_snapshots: list[EnrichedSnapshotResult]
+    reference_findings: tuple[ObservedFinding, ...]
+    cache_hit_count: int
+    backend_run_count: int
+
+
 @dataclass(frozen=True)
 class PreparedRun:
     """Normalized execution inputs derived before batch processing starts."""
@@ -65,6 +81,12 @@ class PreparedRun:
     dsl_count: int
     legacy_parity_count: int
     runtime_only_count: int
+    active_dataset_profile: ActiveDatasetProfile = field(
+        default_factory=default_dataset_profile
+    )
+    active_migration_plan: ActiveMigrationPlan = field(
+        default_factory=ActiveMigrationPlan
+    )
 
     def with_reference_result_cache(
         self,
@@ -87,6 +109,8 @@ class PreparedRun:
             dsl_count=self.dsl_count,
             legacy_parity_count=self.legacy_parity_count,
             runtime_only_count=self.runtime_only_count,
+            active_dataset_profile=self.active_dataset_profile,
+            active_migration_plan=self.active_migration_plan,
         )
 
     @property
@@ -105,6 +129,51 @@ class PreparedRun:
         return self.requires_enriched_snapshots or self.requires_reference_findings
 
 
+@dataclass(frozen=True, slots=True)
+class ExecutedApplicationRun:
+    """Completed application execution plus the prepared artifact workspace."""
+
+    run_result: RunResult
+    artifacts: ApplicationArtifacts
+
+
+@dataclass(frozen=True, slots=True)
+class RunSpec:
+    """Explicit application run specification resolved before orchestration starts."""
+
+    project_root: Path
+    db_path: Path
+    batch_size: int
+    mismatch_examples_limit: int
+    batch_workers: int
+    legacy_backend_workers: int
+    reference_result_cache_dir: Path
+    reference_result_cache_salt: str
+    check_profile_name: str | None = None
+    parity_store_path: Path | None = None
+    expected_differences_path: Path | None = None
+    dataset_profile_name: str | None = None
+    legacy_inventory_artifact_path: Path | None = None
+    legacy_estimation_sheet_path: Path | None = None
+
+    @property
+    def profile_config_path(self) -> Path:
+        """Return the shipped check-profile config path."""
+        return self.project_root / "config" / "check-profiles.toml"
+
+    @property
+    def dataset_profile_config_path(self) -> Path:
+        """Return the shipped dataset-profile config path."""
+        return self.project_root / "config" / "dataset-profiles.toml"
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewSettings:
+    """Settings used by the local static-preview entrypoint."""
+
+    port: int
+
+
 @dataclass(frozen=True)
 class BatchRunPlan:
     """Static batch-loop configuration for one application run."""
@@ -113,20 +182,16 @@ class BatchRunPlan:
     batch_size: int
     batch_workers: int
     legacy_backend_workers: int
+    source_selection: SourceSelection
 
 
 @dataclass(frozen=True)
 class BatchExecutionContext:
     """Shared services and metadata needed by every batch execution."""
 
-    reference_result_loader: SupportsReferenceResultLoader | None
-    enriched_snapshot_materializer: SupportsEnrichedSnapshotMaterializer | None
-    reference_finding_materializer: SupportsReferenceFindingMaterializer | None
-    evaluators: dict[str, CheckEvaluator]
-    active_checks: tuple[CheckDefinition, ...]
-    check_context_builder: SupportsCheckContextBuilder
-    run_id: str
-    source_snapshot_id: str
+    reference_runner: SupportsReferenceRunner
+    migrated_runner: SupportsMigratedRunner
+    parity_runner: SupportsParityRunner
 
 
 @dataclass(frozen=True)
@@ -205,6 +270,38 @@ class SupportsReferenceFindingMaterializer(Protocol):
     ) -> Iterable[ObservedFinding]: ...
 
 
+class SupportsReferenceRunner(Protocol):
+    """Reference-side batch runtime used by the application batch loop."""
+
+    def resolve(
+        self,
+        rows: list[RawProductRow],
+    ) -> ResolvedReferenceBatch: ...
+
+
+class SupportsMigratedRunner(Protocol):
+    """Migrated-runtime batch executor used by the application batch loop."""
+
+    def observe_findings(
+        self,
+        *,
+        rows: list[RawProductRow],
+        enriched_snapshots: list[EnrichedSnapshotResult],
+    ) -> Iterable[ObservedFinding]: ...
+
+
+class SupportsParityRunner(Protocol):
+    """Strict-comparison runner used by the application batch loop."""
+
+    def compare(
+        self,
+        *,
+        product_count: int,
+        reference_findings: Iterable[ObservedFinding],
+        migrated_findings: Iterable[ObservedFinding],
+    ) -> RunResult: ...
+
+
 class SupportsExecutionProgress(Protocol):
     """Minimal progress-reporting surface needed by the batch loop."""
 
@@ -232,3 +329,11 @@ class SupportsRunAccumulator(Protocol):
     """Minimal accumulation surface needed by the batch loop."""
 
     def add_batch(self, batch_result: RunResult) -> None: ...
+
+
+class SupportsRunRecorder(Protocol):
+    """Minimal persistence surface used by the ordered batch merge path."""
+
+    def record_batch(self, batch_result: BatchExecutionResult) -> None: ...
+
+    def record_final_result(self, run_result: RunResult) -> None: ...

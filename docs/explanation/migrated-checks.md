@@ -2,8 +2,8 @@
 
 # About migrated checks
 
-This page explains what a migrated check contains and how packaged
-definitions, metadata, and check profiles fit together.
+A migrated check combines evaluator logic with metadata. The sections below
+show how that definition fits into packaged checks and check profiles.
 
 ## Packaged checks
 
@@ -94,20 +94,31 @@ A check profile is a named application preset from `config/check-profiles.toml`.
 Profiles do not define checks. They select a run from the checks that already
 exist in the packaged catalog.
 
-Profiles apply metadata filters such as
-[input surface](runtime-model.md#input-surfaces) and
-[parity baseline](reference-data-and-parity.md#parity-baselines). A focused
-profile can also narrow execution to one small workset without changing the
-underlying definitions.
+Profiles can narrow the active checks by:
+
+- [input surface](runtime-model.md#input-surfaces)
+- [parity baseline](reference-data-and-parity.md#parity-baselines)
+- jurisdiction
+- explicit check ids in profiles with `mode = "include"`
+- optional migration metadata filters such as target implementation, size, or
+  risk when the application has a migration catalog
+
+Those migration filters live on the profile, not on the check definition. They
+let one application run focus on a planning slice without changing the
+underlying packaged checks.
+
+For example, one profile can keep only checks whose matched migration family is
+planned for `dsl` or marked as low risk. That gives a planning slice without
+forking the check catalog itself.
 
 ## Why this split matters
 
 The check model keeps rule logic, rule metadata, and run selection explicit.
 
-That separation lets the repository support reusable library execution,
+That separation supports reusable library execution,
 [application runs](application-runs.md), [parity comparison](reference-data-and-parity.md#strict-comparison),
-checks that run without comparison, and short local validation loops without
-redefining checks for each environment.
+checks that run without comparison, migration planning slices, and short
+local validation loops without redefining checks for each environment.
 
 ## Related information
 

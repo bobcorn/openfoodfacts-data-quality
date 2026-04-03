@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 
+from app.source.datasets import SourceSelection
 from openfoodfacts_data_quality.contracts.raw import (
     RawProductRow,
     validate_raw_product_row,
@@ -73,12 +74,21 @@ def source_snapshot_id_for(path: Path) -> str:
     return source_snapshot_id
 
 
-def count_source_rows(db_path: Path) -> int:
+def count_source_rows(
+    db_path: Path,
+    *,
+    selection: SourceSelection | None = None,
+) -> int:
     """Return the number of products stored in the source DuckDB."""
     connection = duckdb.connect(str(db_path), read_only=True)
     try:
         _require_source_columns(connection)
-        result = connection.execute("select count(*) from products").fetchone()
+        query, parameters = _source_query(
+            selection=selection,
+            select_list="count(*)",
+            ordered=False,
+        )
+        result = connection.execute(query, parameters).fetchone()
         if result is None:
             raise RuntimeError(
                 "DuckDB did not return a row count for the products table."
@@ -92,6 +102,7 @@ def iter_source_batches(
     db_path: Path,
     *,
     batch_size: int,
+    selection: SourceSelection | None = None,
 ) -> Iterator[list[RawProductRow]]:
     """Yield the products table as batches of validated raw contract rows."""
     if batch_size <= 0:
@@ -103,7 +114,12 @@ def iter_source_batches(
         select_list = ", ".join(
             _quote_identifier(column) for column in RAW_INPUT_COLUMNS
         )
-        cursor = connection.execute(f"select {select_list} from products order by code")
+        query, parameters = _source_query(
+            selection=selection,
+            select_list=select_list,
+            ordered=True,
+        )
+        cursor = connection.execute(query, parameters)
         columns = [column[0] for column in cursor.description]
         while True:
             batch_rows = cursor.fetchmany(batch_size)
@@ -121,6 +137,51 @@ def _quote_identifier(value: str) -> str:
     """Quote a DuckDB identifier that may contain dashes."""
     escaped = value.replace('"', '""')
     return f'"{escaped}"'
+
+
+def _source_query(
+    *,
+    selection: SourceSelection | None,
+    select_list: str,
+    ordered: bool,
+) -> tuple[str, list[object]]:
+    """Return the explicit source query and bound parameters for one selection."""
+    if selection is None or selection.kind == "all_products":
+        query = f"select {select_list} from products"
+        if ordered:
+            query += " order by code"
+        return query, []
+
+    if selection.kind == "stable_sample":
+        if not ordered:
+            return (
+                """
+                select least(count(*), ?)
+                from products
+                where code is not null
+                  and trim(code) != ''
+                """,
+                [selection.sample_size],
+            )
+        query = f"""
+            select {select_list}
+            from products
+            where code is not null
+              and trim(code) != ''
+            order by hash(code || ?), code
+            limit ?
+        """
+        return query, [f"::{selection.seed}", selection.sample_size]
+
+    placeholders = ", ".join("?" for _ in selection.codes)
+    query = f"""
+        select {select_list}
+        from products
+        where code in ({placeholders})
+    """
+    if ordered:
+        query += " order by code"
+    return query, list(selection.codes)
 
 
 def _require_source_columns(connection: duckdb.DuckDBPyConnection) -> None:

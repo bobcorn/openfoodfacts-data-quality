@@ -8,6 +8,7 @@ from app.run.serialization import (
     RUN_ARTIFACT_SCHEMA_VERSION,
     build_run_artifact,
 )
+from app.storage import CheckMismatchGovernanceSummary
 
 from openfoodfacts_data_quality.contracts.run import RunResult
 
@@ -87,4 +88,36 @@ def test_build_report_payload_supports_runtime_only_checks(
     assert (
         report_checks_by_id["en:product-name-to-be-completed"]["legacy_snippet_status"]
         == "unavailable"
+    )
+
+
+def test_build_report_payload_includes_governance_counts(
+    run_result_factory: RunResultFactory,
+) -> None:
+    run_result = run_result_factory()
+
+    report_payload = build_report_payload(
+        run_result,
+        run_artifact=build_run_artifact(run_result),
+        check_governance_by_id={
+            "en:quantity-not-recognized": CheckMismatchGovernanceSummary(
+                expected_missing_count=1,
+            )
+        },
+        expected_differences_rule_count=2,
+    )
+
+    report_checks_by_id = {
+        check["definition"]["id"]: check for check in report_payload["checks"]
+    }
+
+    assert report_payload["expected_differences_rule_count"] == 2
+    assert report_payload["expected_mismatch_total"] == 1
+    assert report_payload["unexpected_mismatch_total"] == 0
+    assert (
+        report_checks_by_id["en:quantity-not-recognized"]["expected_missing_count"] == 1
+    )
+    assert (
+        report_checks_by_id["en:quantity-not-recognized"]["expected_total_mismatches"]
+        == 1
     )

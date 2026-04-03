@@ -20,13 +20,17 @@ tooling.
    cp .env.example .env
    ```
 
-2. Build and start the local application flow:
+2. Review `.env` if you do not want the defaults. `CHECK_PROFILE` chooses which
+   checks run. `SOURCE_DATASET_PROFILE` chooses which rows from the source
+   snapshot enter the run.
+
+3. Build and start the local application flow:
 
    ```bash
    docker compose up --build
    ```
 
-3. Open the local report at `http://localhost:8000`, unless you changed
+4. Open the local report at `http://localhost:8000`, unless you changed
    `PORT` in `.env`.
 
 ## Verify the result
@@ -36,20 +40,37 @@ snapshot, writes
 [artifacts](../reference/report-artifacts.md) under `artifacts/latest/`, and
 serves the generated [report site](../reference/report-artifacts.md#html-report).
 
+The local command also records the run in the default
+[parity store](../reference/run-configuration-and-artifacts.md#parity-store)
+under `data/parity_store/parity.duckdb`, unless you changed
+`PARITY_STORE_PATH`.
+
+That store keeps review history across runs. It also supplies governance data
+such as expected and unexpected mismatch counts when the report renders from a
+recorded run.
+
 ## Adjust run inputs
 
 - `.env` holds local
   [run configuration](../reference/run-configuration-and-artifacts.md).
 - `config/check-profiles.toml` defines named
   [check profiles](../explanation/migrated-checks.md#check-profiles).
-- `DATABASE_PATH` selects the DuckDB
+- `config/dataset-profiles.toml` defines named
+  [dataset profiles](../reference/run-configuration-and-artifacts.md#dataset-profiles).
+- `SOURCE_SNAPSHOT_PATH` selects the DuckDB
   [source snapshot](../reference/glossary.md#source-snapshot). Local runtime
   runs require it explicitly.
-- `PORT` changes the host-side published port for the local preview.
-- `BATCH_WORKERS` controls concurrent source-batch execution.
-- `CHECK_PROFILE` chooses the active profile.
+- `CHECK_PROFILE` chooses the active check profile.
+- `SOURCE_DATASET_PROFILE` chooses the active source dataset profile.
+- `PARITY_EXPECTED_DIFFERENCES_PATH` points to an optional expected differences
+  registry for governed mismatches.
+- `MIGRATION_INVENTORY_PATH` and `MIGRATION_ESTIMATION_SHEET_PATH` point to
+  optional migration planning metadata. The application uses it to filter runs
+  by planning data and to show migration coverage in the report.
+- `BATCH_WORKERS` controls batch concurrency.
 - `LEGACY_BACKEND_WORKERS` controls persistent backend workers for cache
   misses.
+- `PORT` changes the published port on the host for the local preview.
 
 The starter `.env.example` points to the tracked sample DuckDB, so the first
 run succeeds with repository data.
@@ -60,8 +81,8 @@ Compared runs and enriched application runs still depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 and the supported [legacy backend environment](../reference/legacy-backend-image.md).
 
-**Note:** Docker Compose does not mount the source tree into the container.
-Rebuild with `docker compose up --build` after code changes.
+Docker Compose does not mount the source tree into the container. Rebuild with
+`docker compose up --build` after code changes.
 
 ## Set up `.venv`
 
@@ -89,13 +110,17 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 
 ## Use quick local loops
 
-- Narrow the active check set in `config/check-profiles.toml`.
-- Keep the bundled sample snapshot for short compared runs.
+- Start with `CHECK_PROFILE=focused` and `SOURCE_DATASET_PROFILE=smoke` when
+  you want the shortest parity loop.
+- Switch `SOURCE_DATASET_PROFILE` to `validation` when you want a broader
+  deterministic review slice.
+- Edit `config/check-profiles.toml` when you need a different set of checks.
+- Keep the tracked sample snapshot for short compared runs.
 - Switch to a larger local snapshot when you need wider coverage.
 - Use `.venv` for focused Python loops and Docker for compared validation or
   report preview.
 
-## Know what gets cached
+## Know what persists
 
 - [Reference results](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
   are cached across runs to avoid repeated backend work.
@@ -103,6 +128,9 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
   `reference_result_cache` volume.
 - Warm cache coverage can remove live backend execution for the covered
   products.
+- `artifacts/latest/` is reset on every application run.
+- The parity store persists across runs and keeps review history until you
+  delete or replace its DuckDB file.
 - [Source snapshots](../reference/glossary.md#source-snapshot) can carry a
   `.snapshot.json` sidecar. The runtime writes it automatically when it has to
   hash the DuckDB file.

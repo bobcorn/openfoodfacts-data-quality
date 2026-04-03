@@ -17,9 +17,14 @@ from app.report.snippets import (
     legacy_snippet_status_by_check,
     write_snippet_artifact,
 )
-from app.run.serialization import build_run_artifact, write_run_artifact
+from app.run.serialization import (
+    build_run_artifact,
+    write_run_artifact_payload,
+)
+from app.storage import load_recorded_run_snapshot
 
 if TYPE_CHECKING:
+    from app.storage import CheckMismatchGovernanceSummary
     from openfoodfacts_data_quality.contracts.run import RunResult
 
 
@@ -144,9 +149,49 @@ def render_report(
     legacy_source_root: Path | None = None,
 ) -> None:
     """Render the static HTML report and companion artifacts."""
+    _render_report_snapshot(
+        run_result=run_result,
+        run_artifact=build_run_artifact(run_result),
+        output_dir=output_dir,
+        legacy_source_root=legacy_source_root,
+    )
+
+
+def render_report_from_store(
+    *,
+    store_path: Path,
+    run_id: str,
+    output_dir: Path,
+    legacy_source_root: Path | None = None,
+) -> None:
+    """Render the static HTML report from one recorded run snapshot."""
+    snapshot = load_recorded_run_snapshot(store_path, run_id=run_id)
+    _render_report_snapshot(
+        run_result=snapshot.run_result,
+        run_artifact=snapshot.run_artifact,
+        output_dir=output_dir,
+        legacy_source_root=legacy_source_root,
+        expected_differences_rule_count=snapshot.expected_differences_rule_count,
+        expected_mismatch_total=snapshot.expected_mismatch_total,
+        unexpected_mismatch_total=snapshot.unexpected_mismatch_total,
+        check_governance_by_id=snapshot.check_governance_by_id,
+    )
+
+
+def _render_report_snapshot(
+    *,
+    run_result: RunResult,
+    run_artifact: dict[str, Any],
+    output_dir: Path,
+    legacy_source_root: Path | None,
+    expected_differences_rule_count: int = 0,
+    expected_mismatch_total: int | None = None,
+    unexpected_mismatch_total: int | None = None,
+    check_governance_by_id: dict[str, CheckMismatchGovernanceSummary] | None = None,
+) -> None:
+    """Render the static HTML report from one resolved report snapshot."""
     output_dir.mkdir(parents=True, exist_ok=True)
     templates_dir = Path(__file__).resolve().parent / "templates"
-    run_artifact = build_run_artifact(run_result)
     snippet_artifact = build_snippet_artifact(
         {check.definition.id for check in run_result.checks},
         legacy_source_root=legacy_source_root,
@@ -158,6 +203,10 @@ def render_report(
     report_payload = build_report_payload(
         run_result,
         run_artifact=run_artifact,
+        check_governance_by_id=check_governance_by_id,
+        expected_differences_rule_count=expected_differences_rule_count,
+        expected_mismatch_total=expected_mismatch_total,
+        unexpected_mismatch_total=unexpected_mismatch_total,
         code_snippet_panels_by_check=build_code_snippet_panels(snippet_artifact),
         legacy_snippet_status_by_check=legacy_snippet_status_by_check(snippet_artifact),
         snippet_issues=snippet_issues,
@@ -197,7 +246,7 @@ def render_report(
 
     (output_dir / "index.html").write_text(rendered_html, encoding="utf-8")
     (output_dir / "report.html").write_text(rendered_html, encoding="utf-8")
-    run_artifact_path = write_run_artifact(run_result, output_dir)
+    run_artifact_path = write_run_artifact_payload(run_artifact, output_dir)
     snippets_artifact_path = write_snippet_artifact(snippet_artifact, output_dir)
     write_json_export_archive(
         output_dir=output_dir,

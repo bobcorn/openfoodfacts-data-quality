@@ -1,54 +1,44 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 
+from app.artifacts import display_path
+from app.migration import load_migration_catalog
 from app.reference.observers import reference_observer_for
 from app.run.context_builders import check_context_builder_for
-from app.run.models import PreparedRun
-from app.run.profiles import (
-    configured_check_profile_name,
-    load_check_profile,
-)
+from app.run.models import PreparedRun, RunSpec
+from app.run.profiles import load_check_profile
+from app.source.datasets import load_dataset_profile
 from app.source.duckdb_products import count_source_rows, source_snapshot_id_for
 from openfoodfacts_data_quality.checks.catalog import (
     get_default_check_catalog,
 )
 
 
-def prepare_artifacts_dir(project_root: Path) -> tuple[Path, Path]:
-    """Reset and recreate the latest-artifacts directory tree."""
-    artifacts_dir = project_root / "artifacts" / "latest"
-    site_dir = artifacts_dir / "site"
-    if artifacts_dir.exists():
-        shutil.rmtree(artifacts_dir)
-    site_dir.mkdir(parents=True, exist_ok=True)
-    return artifacts_dir, site_dir
-
-
-def display_path(path: Path, project_root: Path) -> str:
-    """Return a stable, user-friendly display path."""
-    try:
-        return str(path.relative_to(project_root))
-    except ValueError:
-        return str(path)
-
-
 def prepare_run(
-    project_root: Path,
-    db_path: Path,
+    run_spec: RunSpec,
     *,
     logger: logging.Logger,
 ) -> PreparedRun:
     """Resolve source metadata, active checks, and evaluator counts."""
     input_started = perf_counter()
-    logger.info("[Input] Loading products from %s", display_path(db_path, project_root))
-    source_snapshot_id = source_snapshot_id_for(db_path)
-    run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    product_count = count_source_rows(db_path)
+    logger.info(
+        "[Input] Loading products from %s",
+        display_path(run_spec.db_path, run_spec.project_root),
+    )
+    source_snapshot_id = source_snapshot_id_for(run_spec.db_path)
+    active_dataset_profile = load_dataset_profile(
+        run_spec.dataset_profile_config_path,
+        run_spec.dataset_profile_name,
+    )
+    run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
+    product_count = count_source_rows(
+        run_spec.db_path,
+        selection=active_dataset_profile.selection,
+    )
     logger.info(
         "[Input] Found %d products in source snapshot %s in %.1fs.",
         product_count,
@@ -56,10 +46,15 @@ def prepare_run(
         perf_counter() - input_started,
     )
     check_catalog = get_default_check_catalog()
+    migration_catalog = load_migration_catalog(
+        artifact_path=run_spec.legacy_inventory_artifact_path,
+        estimation_sheet_path=run_spec.legacy_estimation_sheet_path,
+    )
     active_check_profile = load_check_profile(
-        project_root / "config" / "check-profiles.toml",
-        configured_check_profile_name(),
+        run_spec.profile_config_path,
+        run_spec.check_profile_name,
         catalog=check_catalog,
+        migration_catalog=migration_catalog,
     )
     evaluators = check_catalog.select_evaluators(active_check_profile.check_ids)
     python_count = sum(
@@ -91,6 +86,10 @@ def prepare_run(
             for check in active_check_profile.checks
             if check.parity_baseline == "none"
         ),
+        active_dataset_profile=active_dataset_profile,
+        active_migration_plan=migration_catalog.active_plan_for_check_ids(
+            active_check_profile.check_ids
+        ),
     )
 
 
@@ -101,6 +100,12 @@ def log_run_configuration(
     logger: logging.Logger,
 ) -> None:
     """Log the active profile, loaded definitions, and reference cache path."""
+    logger.info(
+        "[Input] Active dataset profile: %s (%s, selection %s).",
+        run.active_dataset_profile.name,
+        run.active_dataset_profile.description,
+        run.active_dataset_profile.selection.kind,
+    )
     logger.info(
         "[Checks] Active profile: %s (%d checks, check input surface %s).",
         run.active_check_profile.name,
@@ -116,6 +121,12 @@ def log_run_configuration(
         "[Checks] Legacy parity backed checks: %d. Runtime-only checks: %d.",
         run.legacy_parity_count,
         run.runtime_only_count,
+    )
+    logger.info(
+        "[Migration] Active families: %d matched, %d assessed, %d unmatched checks.",
+        run.active_migration_plan.family_count,
+        run.active_migration_plan.assessed_family_count,
+        len(run.active_migration_plan.missing_check_ids),
     )
     logger.info(
         "[Reference Path] Result cache: %s",

@@ -39,12 +39,14 @@ FROM runtime-base AS demo
 
 COPY examples /opt/openfoodfacts-data-quality/examples
 
-ENV DATABASE_PATH="/opt/openfoodfacts-data-quality/examples/data/products.duckdb" \
+ENV SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products.duckdb" \
     PORT="8000" \
     BATCH_SIZE="1000" \
     BATCH_WORKERS="1" \
     LEGACY_BACKEND_WORKERS="1" \
     MISMATCH_EXAMPLES_LIMIT="20" \
-    CHECK_PROFILE="full"
+    CHECK_PROFILE="full" \
+    SOURCE_DATASET_PROFILE="full" \
+    PARITY_STORE_PATH="/opt/openfoodfacts-data-quality/data/parity_store/parity.duckdb"
 
 FROM runtime-base AS runtime

@@ -10,7 +10,7 @@ caching, or report rendering.
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
 
-Both namespaces expose `list_checks(...)` and `run_checks(...)`.
+Each namespace exposes `list_checks(...)` and `run_checks(...)`.
 
 They map to the two
 [input surfaces](../explanation/runtime-model.md#input-surfaces) supported by
