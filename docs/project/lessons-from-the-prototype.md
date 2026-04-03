@@ -11,8 +11,8 @@ This page records lessons learned while building the prototype.
 In a migration project, correctness is defined at behavioral level. A rule can
 appear correct in code and still produce different results. Without an
 explicit comparison model, review depends too much on personal judgment. An
-explicit comparison model makes differences visible during review. It gives
-parity a clear meaning and defines where exceptions belong.
+explicit comparison model makes differences visible during review, gives
+parity a clear meaning, and defines where exceptions belong.
 
 In this repository, relevant references are the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
@@ -50,8 +50,9 @@ data through a defined interface. The runtime contract remains in Python.
 ### Reusable runtime behavior and application behavior need separate boundaries
 
 A reusable library and an application run flow serve different purposes. The
-library needs a compact surface and dependable contracts. The application needs
-orchestration and review support. When these concerns share one layer, it
+library needs a compact surface and dependable contracts, while the
+application needs orchestration and review support. When these concerns share
+one layer, it
 becomes harder to decide where a change belongs and which interface it should
 preserve.
 
@@ -63,9 +64,10 @@ boundary.
 
 ### Tooling affects what the project can maintain
 
-Tooling does not change rule logic directly. It still affects how safely the
-project can change. Validation and typing make regressions easier to find.
-Packaging and release support make results easier to check and reuse.
+Tooling does not change rule logic directly, but it still affects how safely
+the project can change. Validation and typing make regressions easier to
+find, and packaging and release support make results easier to check and
+reuse.
 
 In this repository, relevant references are
 [Validate changes](../how-to/validate-changes.md) and
