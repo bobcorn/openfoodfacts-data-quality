@@ -1,156 +1,105 @@
 # Open Food Facts - Data Quality
 
-Framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
+This repository is a framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
-## Why this exists
+It gives you two ways to work:
 
-Open Food Facts already relies on more than 200 data quality checks in the legacy Perl backend. This prototype explores a Python framework for migrating that logic, validating parity against the legacy backend, supporting Canada specific rules, and running the checks more easily in local DuckDB based workflows.
+- Use the shared runtime in `src/openfoodfacts_data_quality/` when you want to
+  run checks directly from Python. See
+  [About the runtime model](docs/explanation/runtime-model.md).
+- Use the application layer in `app/` when you need DuckDB loading,
+  [reference data](docs/explanation/reference-data-and-parity.md),
+  [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
+  or [report artifacts](docs/reference/report-artifacts.md).
 
-## Understand the layers
-
-```mermaid
-flowchart TB
-    subgraph RUNTIME["Shared Runtime Layer"]
-        A["Python Check Packs"]
-        B["DSL Check Packs"]
-        C["Check Catalog and Metadata"]
-        D["Shared Check Runtime"]
-        A --> C
-        B --> C
-        C --> D
-    end
-
-    subgraph LIB["Public Library APIs"]
-        E["Raw API"]
-        F["Enriched API"]
-    end
-
-    subgraph APP["Run Application Layer"]
-        G["Source and Run Orchestration"]
-        H["Reference Path and Comparison"]
-        J["Artifacts and Report"]
-        G --> H
-        H --> J
-    end
-
-    subgraph EXT["External Dependency"]
-        I["Legacy Backend Runtime"]
-    end
-
-    D --> E
-    D --> F
-    D --> G
-    H ~~~ I
-    I -.-> H
-```
-
-### Shared runtime layer
-
-The shared runtime lives in `src/openfoodfacts_data_quality/`. It packages Python checks, DSL checks, catalog metadata, and the execution engine that builds [normalized contexts](docs/concepts/runtime-model.md#normalized-context) and emits findings.
-
-### Public library APIs
-
-The public library exposes `raw` and `enriched` entry points for Python callers that want findings without the application run layer.
-
-### Application run layer
-
-The application layer lives in `app/`. It loads source data, resolves reference results when a run needs them, applies strict comparison, and writes artifacts plus the static report.
-
-### Legacy backend
-
-Compared runs and enriched application runs still depend on the legacy backend for cache misses on the reference path. The Perl boundary emits a versioned envelope whose stable payload is [`ReferenceResult`](docs/reference/data-contracts.md#referenceresult).
+For a deeper architectural view, see
+[About the system architecture](docs/explanation/system-architecture.md) and
+[About application runs](docs/explanation/application-runs.md).
 
 ## Run the demo
 
-Run the demo to see the project in action immediately without cloning the repository.
+Use the demo image when you want to inspect the full
+[application flow](docs/explanation/application-runs.md) without cloning the
+repository.
 
-### Before you begin
-
-- Docker
-
-### Start the demo
-
-1. Run the demo image:
+1. Run the published image:
 
    ```bash
    docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
    ```
 
-2. Open [http://localhost:8000](http://localhost:8000).
+2. Open the [local report](http://localhost:8000).
 
-### What the demo does
-
-- Docker pulls and starts the published demo image.
-- Inside the container, the application loads the bundled DuckDB [source snapshot](docs/reference/glossary.md#source-snapshot).
-- The demo uses the [`full` check profile](docs/concepts/check-model.md#check-profiles), so it runs the shipped migrated checks for the main application flow.
-- The run prepares [reference data](docs/concepts/reference-and-parity.md#reference-data) where needed, executes the migrated checks, and applies [strict comparison](docs/concepts/reference-and-parity.md#strict-comparison) to checks with `parity_baseline="legacy"`.
-- The application writes the static report plus `run.json` and `snippets.json`, then serves the site on port `8000`.
-- The first start can take longer because Docker has to pull the image and build the demo artifacts.
+The container loads the bundled sample snapshot, runs the shipped checks,
+writes the report artifacts, and serves the generated site on port `8000`.
 
 ## Run the application locally
 
-### Before you begin
+Use this flow when you want to work on the repository itself.
 
-- Docker
-- a local checkout of this repository
-
-### Start a local run
-
-1. Clone the repository and enter the working tree.
+1. Clone the repository and enter the working tree:
 
    ```bash
    git clone https://github.com/bobcorn/openfoodfacts-data-quality.git
    cd openfoodfacts-data-quality
    ```
 
-2. Create the local environment file.
+2. Create `.env` from the tracked sample file:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Build and start the application.
+3. Build and start the application:
 
    ```bash
    docker compose up --build
    ```
 
-4. Open [http://localhost:8000](http://localhost:8000).
+4. Open the local report at `http://localhost:8000`, unless you changed
+   `PORT` in `.env`.
 
-### What this flow uses
+By default, `.env` points to the tracked DuckDB sample, the active
+[`full` check profile](docs/explanation/migrated-checks.md#check-profiles)
+runs compared and runtime-only checks together, outputs are written under
+`artifacts/latest/`, and the Docker-backed
+[reference cache](docs/reference/run-configuration-and-artifacts.md#reference-result-cache)
+is reused across runs.
 
-- `.env` points to the tracked sample DuckDB snapshot by default.
-- The default [`full` check profile](docs/concepts/check-model.md#check-profiles) runs compared checks and runtime only checks in the same run.
-- Outputs are written under [`artifacts/latest/`](docs/reference/run-configuration-and-artifacts.md).
-- The [reference cache](docs/reference/run-configuration-and-artifacts.md#reference-cache) is reused across runs.
-- Docker Compose does not mount the source tree into the container, so code changes require another `docker compose up --build`.
-
-## Set up Python tooling
+## Set up local Python tooling
 
 Use a local `.venv` for tests, linting, typing, and repository utilities.
 
-1. Create the virtual environment.
+1. Create the virtual environment:
 
    ```bash
    python3.14 -m venv .venv
    ```
 
-2. Install the repository with app and dev dependencies.
+2. Install the repository with app and dev dependencies:
 
    ```bash
    .venv/bin/python -m pip install -e ".[app,dev]"
    ```
 
-Keep Docker for compared runs, enriched application runs, report rendering, and local preview.
+3. Run local commands from that environment:
 
-## Use the library
+   ```bash
+   .venv/bin/pytest -q tests/test_some_area.py
+   make quality
+   ```
 
-The public Python API exposes two [input surfaces](docs/reference/data-contracts.md#input-surfaces):
+Keep Docker for compared runs, enriched application runs, report rendering, and
+local preview.
+
+## Use the Python library
+
+The public Python API exposes two input surfaces:
 
 - `openfoodfacts_data_quality.raw`
 - `openfoodfacts_data_quality.enriched`
 
-Run raw checks when the rule depends only on public product rows:
+Use `raw` when the rule depends only on public product rows:
 
 ```python
 from openfoodfacts_data_quality import raw
@@ -161,8 +110,19 @@ findings = raw.run_checks(
 )
 ```
 
-Use `enriched` when a check depends on stable enriched data such as flags, category properties, or richer nutrition structures. In application runs, that data usually comes from the [reference path](docs/concepts/reference-and-parity.md#reference-path). In direct library usage, callers provide it explicitly as [enriched snapshots](docs/reference/data-contracts.md#enriched-snapshot).
+Use `enriched` when a check depends on stable enriched data. In application
+runs, that data usually comes from the
+[reference path](docs/explanation/reference-data-and-parity.md#why-the-reference-path-exists).
+In direct library usage, callers provide
+[EnrichedSnapshotResult](docs/reference/data-contracts.md#enrichedsnapshotresult)
+values explicitly.
 
-## Read the documentation
+## Documentation
 
-For more details, check the [documentation](docs/index.md).
+Start with the [documentation index](docs/index.md).
+
+- Use the [how-to guides](docs/index.md#how-to-guides) for tasks.
+- Use the [explanation pages](docs/index.md#explanation) for architecture and
+  design context.
+- Use the [reference pages](docs/index.md#reference) for contracts, artifacts,
+  and exact field definitions.
