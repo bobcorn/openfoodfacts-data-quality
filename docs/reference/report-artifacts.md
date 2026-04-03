@@ -2,8 +2,7 @@
 
 # Report artifacts
 
-This page describes the files produced under `artifacts/latest/site/` and what
-each one contains.
+This reference describes the files produced under `artifacts/latest/site/`.
 
 ## Generated files
 
@@ -26,6 +25,12 @@ The HTML report is the review summary for one
 It shows which compared checks match, which still have missing or extra
 findings, which checks are runtime only, and which products appear in retained
 mismatch examples.
+
+The page header always shows the run id and source snapshot id. When the report
+is rendered from a snapshot loaded from the
+[parity store](run-configuration-and-artifacts.md#parity-store), the page
+header can also show how many rules from the expected differences registry were
+active for that run.
 
 The report stays at summary level. It does not inline every finding from the
 run.
@@ -53,21 +58,29 @@ Each check card shows:
 - the run outcome bucket
 - matched, missing, and extra counts when comparison applies
 - retained mismatch examples for each side
-- code snippets for the current implementation and, when available, the matched
-  legacy source
+- implementation and legacy snippets when snippet provenance is available
+
+When the report is rendered from a snapshot in the parity store, a mismatching
+check card can also show:
+
+- expected missing and extra counts
+- unexpected missing and extra counts
+
+Those counts split known mismatches covered by the expected differences
+registry from the rest of the mismatches recorded for review. They do not
+change pass or fail state.
 
 If legacy source provenance is unavailable, the card still renders and explains
 that state in the snippet area.
 
-Retained mismatch examples are capped. Use `run.json` when you need the full
-structured run summary.
+Retained mismatch examples are capped by `MISMATCH_EXAMPLES_LIMIT`.
 
-## `run.json`
+## run.json
 
-`run.json` is the canonical JSON output of the
+`run.json` is the canonical structured output of the
 [application run model](data-contracts.md#runresult).
 
-Use it when you want to:
+Use `run.json` for:
 
 - process run results after execution
 - build another viewer or dashboard
@@ -77,7 +90,15 @@ Use it when you want to:
 The root payload includes `kind` and `schema_version` metadata before the run
 body.
 
-## `snippets.json`
+`run.json` contains exact run totals plus the retained mismatch examples that
+fit inside the configured cap. It omits UI fields used only by the report:
+
+- `run_outcome`
+- snippet panel payloads
+- snippet warning messages
+- expected and unexpected mismatch governance counts
+
+## snippets.json
 
 `snippets.json` stores structured code excerpts keyed by check id.
 
@@ -107,6 +128,10 @@ Strict comparison counts and mismatch examples apply only to checks with a
 [legacy baseline](../explanation/reference-data-and-parity.md#parity-baselines).
 Checks that run without comparison still contribute to run composition and per
 check output.
+
+Governance counts for expected differences are available only when the report
+is rendered from a snapshot in the parity store. They are not embedded in
+`run.json` or `snippets.json`.
 
 ## See also
 

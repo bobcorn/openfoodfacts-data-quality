@@ -2,8 +2,8 @@
 
 # Check metadata and selection
 
-This page describes the executable metadata fields that the catalog validates
-and uses for selection.
+Use this reference for the metadata fields that the catalog validates and uses
+for selection.
 
 ## Definition languages
 
@@ -44,8 +44,28 @@ The catalog selects checks by:
 
 Application [check profiles](../explanation/migrated-checks.md#check-profiles)
 use all of these filters. The public library APIs use the same
-[input-surface](../explanation/runtime-model.md#input-surfaces), jurisdiction,
-and explicit-id filters on the selected runtime surface.
+[input surface](../explanation/runtime-model.md#input-surfaces), jurisdiction,
+and explicit id filters on the selected runtime surface.
+
+## Application profile extras
+
+Application check profiles add selection behavior that sits outside the check
+definition itself:
+
+- `mode`: `all` or `include`
+- `check_ids`: explicit ids for profiles with `mode = "include"`
+- `migration_target_impls`
+- `migration_sizes`
+- `migration_risks`
+
+The migration fields filter profiles. They only work when the application
+loads a migration catalog, and they are applied after the base catalog
+selection succeeds.
+
+`migration_target_impls = ["dsl"]` keeps only checks whose active migration
+family is planned for `dsl`.
+
+The reusable library APIs do not use those migration filters.
 
 ## Parity baseline
 
@@ -60,9 +80,15 @@ comparison?
 Checks compared against legacy behavior may need an explicit mapping to the
 legacy emitted code template. That mapping is stored as `legacy_identity`.
 
-This lets the application compare one migrated check against the correct legacy
-tags even when the migrated implementation no longer mirrors the Perl source
-structure.
+This mapping points one migrated check to the correct legacy tags even when the
+migrated implementation no longer mirrors the Perl source structure.
+
+For most checks with `parity_baseline="legacy"`, the catalog derives this
+mapping from the check id. Use `legacy_identity` when the compared legacy code
+template has a
+different canonical name. A check can keep id `en:contract-test` while mapping
+parity to legacy code template
+`en:legacy-contract-test`.
 
 ## Dependency invariant
 

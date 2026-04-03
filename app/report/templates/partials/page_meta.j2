@@ -1,5 +1,8 @@
       <div class="page-meta">
         <span><span class="page-meta__label">Run</span><code>{{ report.run_id }}</code></span>
         <span><span class="page-meta__label">Source Snapshot</span><code>{{ report.source_snapshot_id }}</code></span>
+        {% if report.expected_differences_rule_count %}
+        <span><span class="page-meta__label">Policy Rules</span><code>{{ report.expected_differences_rule_count }}</code></span>
+        {% endif %}
         <span><span class="page-meta__label">Generated</span><code>{{ generated_at }}</code></span>
       </div>

@@ -5,7 +5,6 @@ from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING
 
-from app.parity.comparator import evaluate_parity
 from app.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
@@ -13,15 +12,8 @@ from app.run.models import (
     ScheduledBatch,
 )
 from app.run.scheduler import BatchScheduler
+from app.source.datasets import SourceSelection
 from app.source.duckdb_products import iter_source_batches
-from openfoodfacts_data_quality.checks.engine import (
-    CheckRunOptions,
-    iter_check_findings_with_evaluators,
-)
-from openfoodfacts_data_quality.contracts.observations import (
-    observed_migrated_finding,
-)
-from openfoodfacts_data_quality.contracts.run import RunMetadata
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -31,6 +23,7 @@ if TYPE_CHECKING:
         SupportsBatchExecutor,
         SupportsExecutionProgress,
         SupportsRunAccumulator,
+        SupportsRunRecorder,
     )
 
 
@@ -40,17 +33,20 @@ def run_batches(
     execution: BatchExecutionContext,
     execution_progress: SupportsExecutionProgress,
     accumulator: SupportsRunAccumulator,
+    run_recorder: SupportsRunRecorder | None = None,
 ) -> None:
     """Run the end to end batch loop for one prepared application run."""
     run_scheduled_batches(
         batch_iterator=_iter_scheduled_batches(
             plan.db_path,
             batch_size=plan.batch_size,
+            selection=plan.source_selection,
         ),
         process_batch=lambda batch: execute_batch(batch, execution),
         worker_limit=plan.batch_workers,
         execution_progress=execution_progress,
         accumulator=accumulator,
+        run_recorder=run_recorder,
         executor_factory=lambda max_workers: ThreadPoolExecutor(
             max_workers=max_workers
         ),
@@ -64,6 +60,7 @@ def run_scheduled_batches(
     worker_limit: int,
     execution_progress: SupportsExecutionProgress,
     accumulator: SupportsRunAccumulator,
+    run_recorder: SupportsRunRecorder | None,
     executor_factory: Callable[[int], AbstractContextManager[SupportsBatchExecutor]],
 ) -> None:
     """Run, merge, and log one scheduled batch stream until it is exhausted."""
@@ -90,6 +87,7 @@ def run_scheduled_batches(
                 accumulator=accumulator,
                 execution_progress=execution_progress,
                 processed_products=processed_products,
+                run_recorder=run_recorder,
                 scheduler=scheduler,
             )
 
@@ -98,10 +96,11 @@ def _iter_scheduled_batches(
     db_path: Path,
     *,
     batch_size: int,
+    selection: SourceSelection,
 ) -> Iterator[ScheduledBatch]:
     """Wrap raw source batches with monotonically increasing batch indices."""
     for batch_index, rows in enumerate(
-        iter_source_batches(db_path, batch_size=batch_size),
+        iter_source_batches(db_path, batch_size=batch_size, selection=selection),
         start=1,
     ):
         yield ScheduledBatch(batch_index=batch_index, rows=rows)
@@ -113,62 +112,20 @@ def execute_batch(
 ) -> BatchExecutionResult:
     """Run one batch end to end through the current run model."""
     started = perf_counter()
-    resolved_reference_results = (
-        execution.reference_result_loader.load_many(batch.rows)
-        if execution.reference_result_loader is not None
-        else None
-    )
-    reference_results = (
-        resolved_reference_results.reference_results
-        if resolved_reference_results is not None
-        else []
-    )
-    enriched_snapshots = (
-        execution.enriched_snapshot_materializer.materialize(reference_results)
-        if execution.enriched_snapshot_materializer is not None
-        else []
-    )
-    reference_findings = (
-        execution.reference_finding_materializer.materialize(reference_results)
-        if execution.reference_finding_materializer is not None
-        else ()
-    )
-    batch_run_result = evaluate_parity(
-        reference_findings=reference_findings,
-        migrated_findings=(
-            observed_migrated_finding(finding)
-            for finding in iter_check_findings_with_evaluators(
-                execution.check_context_builder.iter_contexts(
-                    rows=batch.rows,
-                    enriched_snapshots=enriched_snapshots,
-                ),
-                execution.evaluators,
-                options=CheckRunOptions(
-                    log_loaded=False,
-                    log_progress=False,
-                ),
-            )
+    resolved_reference_batch = execution.reference_runner.resolve(batch.rows)
+    batch_run_result = execution.parity_runner.compare(
+        product_count=len(batch.rows),
+        reference_findings=resolved_reference_batch.reference_findings,
+        migrated_findings=execution.migrated_runner.observe_findings(
+            rows=batch.rows,
+            enriched_snapshots=resolved_reference_batch.enriched_snapshots,
         ),
-        run=RunMetadata(
-            run_id=execution.run_id,
-            source_snapshot_id=execution.source_snapshot_id,
-            product_count=len(batch.rows),
-        ),
-        checks=execution.active_checks,
     )
     return BatchExecutionResult(
         batch_index=batch.batch_index,
         row_count=len(batch.rows),
-        cache_hit_count=(
-            resolved_reference_results.cache_hit_count
-            if resolved_reference_results is not None
-            else 0
-        ),
-        backend_run_count=(
-            resolved_reference_results.backend_run_count
-            if resolved_reference_results is not None
-            else 0
-        ),
+        cache_hit_count=resolved_reference_batch.cache_hit_count,
+        backend_run_count=resolved_reference_batch.backend_run_count,
         reference_finding_count=batch_run_result.reference_total,
         migrated_finding_count=(
             batch_run_result.compared_migrated_total
@@ -198,10 +155,13 @@ def _merge_completed_batches(
     accumulator: SupportsRunAccumulator,
     execution_progress: SupportsExecutionProgress,
     processed_products: int,
+    run_recorder: SupportsRunRecorder | None,
     scheduler: BatchScheduler,
 ) -> int:
     """Merge contiguous completed batches and return the new processed count."""
     for batch_result in scheduler.merge_ready_batches():
+        if run_recorder is not None:
+            run_recorder.record_batch(batch_result)
         accumulator.add_batch(batch_result.run_result)
         processed_products += batch_result.row_count
         execution_progress.log_batch_completed(

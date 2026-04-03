@@ -23,13 +23,13 @@ flowchart LR
 
     subgraph APP["app/"]
         C["Application run layer"]
-        D["Reference, parity, and report"]
+        D["Reference, parity, and storage"]
         C --> D
     end
 
     E["Legacy backend"] -.-> C
     A --> C
-    C --> G["Report and JSON artifacts"]
+    D --> F["Report and JSON artifacts"]
 ```
 
 Python callers can use the shared runtime without the application layer.
@@ -44,7 +44,10 @@ Live backend execution happens only on cache misses.
 - Runtime contracts owned by Python for raw rows, enriched snapshots, and
   normalized context.
 - Packaged checks written in Python and `dsl`.
-- Application runs that mix compared checks and runtime-only checks.
+- Application runs that mix compared checks with checks that run without
+  comparison.
+- Runs over whole snapshots or deterministic subsets.
+- Governance for expected differences on recorded parity mismatches.
 - Static HTML output plus JSON artifacts for review.
 
 ## What is stable enough to build on
@@ -54,15 +57,16 @@ Live backend execution happens only on cache misses.
 - the packaged [check catalog](../reference/check-metadata-and-selection.md)
 - [application runs](application-runs.md) as a regular workflow
 - [run and snippet artifacts](../reference/report-artifacts.md)
+- review data from one completed run in the parity store
 
 ## What is still evolving
 
 - how broad the DSL should become
-- where full-corpus runs should live outside short local loops
+- where whole snapshot runs should live outside short local loops
 - how the report should evolve beyond migration review
 - when the raw and enriched APIs should become durable public interfaces
 
-## Current limits
+## Limits
 
 - The repository is not yet a full replacement for every legacy data-quality
   rule.
@@ -72,6 +76,8 @@ Live backend execution happens only on cache misses.
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)
   behind it.
 - The report is optimized for review, not exhaustive debugging detail.
+- Governance metadata for expected differences lives in the parity store and
+  report layer, not in the canonical `run.json` artifact.
 - The public Python APIs are explicit project contracts, but they are not yet
   durable compatibility promises.
 

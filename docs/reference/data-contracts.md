@@ -7,16 +7,16 @@ These contracts define the main data boundaries between runtime layers.
 ## Contract map
 
 ```mermaid
-flowchart LR
-    subgraph INPUTS["Input contracts"]
-        A["RawProductRow"]
-        B["EnrichedSnapshotResult"]
+flowchart TB
+    subgraph REF["Reference contracts"]
+        A["LegacyBackendResultEnvelope"]
+        B["ReferenceResult"]
+        A --> B
     end
 
-    subgraph REF["Reference contracts"]
-        C["LegacyBackendResultEnvelope"]
-        D["ReferenceResult"]
-        C --> D
+    subgraph INPUTS["Input contracts"]
+        C["RawProductRow"]
+        D["EnrichedSnapshotResult"]
     end
 
     subgraph RT["Shared runtime"]
@@ -25,17 +25,18 @@ flowchart LR
         E --> F
     end
 
-    subgraph APP["Application models"]
+    subgraph APP["Application contracts"]
         G["ObservedFinding"]
         H["RunCheckResult"]
         I["RunResult"]
-        G --> H --> I
+        J["RecordedRunSnapshot"]
+        G --> H --> I --> J
     end
 
-    A --> E
-    B --> E
-    D --> B
-    D --> G
+    B --> D
+    C --> E
+    D --> E
+    B --> G
     F --> G
 ```
 
@@ -92,6 +93,11 @@ The chosen surface changes:
   must run
 - which normalized context fields are available
 
+The application also has
+[dataset profiles](run-configuration-and-artifacts.md#dataset-profiles), but
+those profiles change which rows are selected for one run, not the shape of the
+runtime contract.
+
 ## Runtime contracts
 
 ### NormalizedContext
@@ -99,11 +105,11 @@ The chosen surface changes:
 Checks do not consume raw rows or backend payloads directly. They consume
 `NormalizedContext`.
 
-`NormalizedContext` is the central shared runtime contract because it decouples
-checks from input shapes tied to one source, lets raw and enriched runs share
-one execution model, and defines the dotted paths that are valid for
-[DSL](../explanation/migrated-checks.md#definition-languages) use and input
-surface inference.
+`NormalizedContext` is the central shared runtime contract. It separates checks
+from source specific input shapes. It gives raw and enriched runs one execution
+model. It also defines the dotted paths used by
+[DSL](../explanation/migrated-checks.md#definition-languages) and input surface
+inference.
 
 ## Reference contracts
 
@@ -136,7 +142,7 @@ Fields:
 This contract is owned by the Python runtime even when the legacy backend
 produces the payload.
 
-## Output contracts
+## Output and review contracts
 
 ### Finding
 
@@ -152,21 +158,36 @@ Reference and migrated outputs are adapted into this shape before comparison.
 
 `RunCheckResult` is the application result for one check. It records the check
 definition, whether the check is `compared` or `runtime_only`, migrated counts,
-and reference counts plus mismatch details when comparison applies.
+reference counts, exact mismatch totals, and retained mismatch examples.
+
+The retained examples are capped by the configured mismatch example budget.
 
 ### RunResult
 
-`RunResult` is the overall application summary for one run. It drives the
-[HTML report](report-artifacts.md#html-report), `run.json`,
+`RunResult` is the canonical application summary for one run. It drives the
+[HTML report](report-artifacts.md#html-report),
+[`run.json`](report-artifacts.md#runjson),
 [snippet artifacts](report-artifacts.md#snippetsjson), and JSON download
 bundles.
 
 `run.json` and `snippets.json` are versioned JSON artifacts. They carry root
 `kind` and `schema_version` metadata around the serialized payload.
 
-`snippets.json` records snippet provenance with `origin="implementation"` for
-current repository code and `origin="legacy"` for matched legacy source spans.
-Each check entry also records `legacy_snippet_status`.
+### RecordedRunSnapshot
+
+`RecordedRunSnapshot` is the read model the report layer uses when it renders
+from a recorded run in the parity store.
+
+It wraps:
+
+- the persisted `run.json` payload
+- the validated `RunResult`
+- recorded dataset profile metadata
+- governance counts for expected differences
+- active migration family metadata
+
+This model belongs to the application review layer. It is not part of the reusable
+library surface.
 
 ## Stability
 
@@ -177,7 +198,8 @@ Changes to them often affect
 projection, DSL validation,
 [reference loading](../explanation/reference-data-and-parity.md#why-the-reference-path-exists),
 [comparison behavior](../explanation/reference-data-and-parity.md#strict-comparison),
-and [artifact generation](report-artifacts.md).
+[run store persistence](run-configuration-and-artifacts.md#parity-store), and
+[artifact generation](report-artifacts.md).
 
 ## See also
 

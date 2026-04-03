@@ -2,8 +2,9 @@
 
 # About reference data and parity
 
-This page explains why some runs need reference data and how strict comparison
-works.
+Some runs need reference data before they can compare migrated behavior with
+legacy behavior. The sections below cover that path and the review rules around
+it.
 
 ## What `reference` means
 
@@ -29,36 +30,33 @@ It exists because:
 
 The reference path checks the
 [reference result cache](../reference/run-configuration-and-artifacts.md#reference-result-cache)
-first. On a cache hit, the run reuses an existing `ReferenceResult`. On a
-cache miss, the application projects the needed input into the legacy backend
+first. On a cache hit, the run reuses an existing `ReferenceResult`. On a cache
+miss, the application projects the needed input into the legacy backend
 boundary, materializes a backend result, validates it, and stores the
 resulting reference payload in the cache namespace for that run contract.
 
 ### Compared raw runs still use the reference path
 
-Compared raw runs still need the reference path. The migrated side may build
-its context from raw rows, but the comparison still needs reference findings.
-
-**Note:** `raw_products` on the migrated side does not mean that a compared run
-can skip the reference path.
+Compared raw runs still need the reference path. `raw_products` on the
+migrated side only means that the migrated context comes from raw rows. The
+comparison still needs reference findings.
 
 ```mermaid
 flowchart TB
     subgraph COMP["Compared run"]
-        A["Source snapshot"]
-        B["Selected checks"]
+        A["Selected source rows"]
+        B["Reference path"]
         C["Migrated runtime"]
-        D["Reference path"]
+        D["Reference findings"]
         E["Migrated findings"]
-        F["Reference findings"]
-        G["Strict comparison"]
+        F["Strict comparison"]
+        G["Optional mismatch governance"]
+        A --> B
         A --> C
-        A --> D
-        B --> C
         B --> D
         C --> E
         D --> F
-        E --> G
+        E --> F
         F --> G
     end
 
@@ -67,17 +65,14 @@ flowchart TB
         I["Legacy backend"]
     end
 
-    H -.-> D
-    I -.-> D
+    H -.-> B
+    I -.-> B
 
-    subgraph RTO["Runtime-only run"]
-        J["Source snapshot"]
-        K["Selected checks"]
-        L["Migrated runtime"]
-        M["Migrated findings"]
-        J --> L
-        K --> L
-        L --> M
+    subgraph RTO["Runtime only run"]
+        J["Selected source rows"]
+        K["Migrated runtime"]
+        L["Migrated findings"]
+        J --> K --> L
     end
 ```
 
@@ -98,6 +93,58 @@ over:
 Duplicates, dynamic emitted codes, and severity mismatches can still fail
 parity when the underlying rule looks close to the legacy version.
 
+## Expected differences policy
+
+The expected differences registry marks known mismatches so review can focus on
+the rest.
+
+It is useful for runs with parity gaps you already understand and still want to
+track separately from fresh differences.
+
+A concrete mismatch is one recorded missing or extra finding for one check,
+product, observed code, and severity.
+
+Each rule matches one set of concrete mismatches by:
+
+- mismatch kind, `missing` or `extra`
+- one or more check ids
+- optionally one or more observed codes
+- optionally one or more severities
+- optionally one or more product ids
+
+Example:
+
+```toml
+schema_version = 1
+
+[[rules]]
+id = "quantity-known-gap"
+justification = "Known migration gap under review."
+check_id = "en:quantity-not-recognized"
+mismatch_kind = "missing"
+severity = "warning"
+```
+
+This rule says that missing `warning` findings from
+`en:quantity-not-recognized` are already known during review.
+
+When the run records data in the
+[parity store](../reference/run-configuration-and-artifacts.md#parity-store),
+the recorder classifies each persisted mismatch against those rules.
+
+That classification:
+
+- marks mismatches as expected or unexpected for report review
+- is rejected when multiple rules overlap on the same concrete mismatch
+- does not change strict comparison behavior
+- does not rewrite `RunResult` or `run.json`
+
+The HTML report can show governed mismatch totals only when it is rendered from
+a snapshot loaded from the parity store.
+
+For the exact TOML contract, see
+[Expected differences registry](../reference/run-configuration-and-artifacts.md#expected-differences-registry).
+
 ## Parity baselines
 
 `parity_baseline` is the [metadata](migrated-checks.md#metadata) axis that
@@ -117,6 +164,9 @@ Reference data is loaded only when selected checks need it. Checks that run
 without comparison skip that path. Compared runs still preserve fidelity to
 trusted backend behavior because they compare against validated reference
 findings instead of assuming the migrated implementation is already correct.
+
+The governance layer stays separate from parity itself, so review exceptions do
+not blur the underlying comparison contract.
 
 ## Related information
 

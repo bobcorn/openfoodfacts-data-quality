@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import logging
-import os
 from contextlib import ExitStack
-from os import cpu_count
 from pathlib import Path
 from time import perf_counter
 
+from app.artifacts import display_path, prepare_application_artifacts
 from app.legacy_backend.runner import LazyLegacyBackendRunner
+from app.parity.policy import (
+    ExpectedDifferencesRegistry,
+    load_expected_differences_registry,
+)
 from app.reference.cache import (
     ReferenceResultCache,
+    ReferenceResultCacheIdentity,
     ReferenceResultCacheMetadata,
-    configured_reference_result_cache_dir,
-    configured_reference_result_cache_salt,
     reference_result_cache_identity,
     reference_result_cache_path,
 )
@@ -21,14 +23,17 @@ from app.reference.materializers import (
     EnrichedSnapshotMaterializer,
     ReferenceFindingMaterializer,
 )
-from app.report.renderer import render_report
 from app.run.accumulator import RunResultAccumulator
 from app.run.execution import run_batches
-from app.run.models import BatchExecutionContext, BatchRunPlan
+from app.run.models import (
+    BatchExecutionContext,
+    BatchRunPlan,
+    ExecutedApplicationRun,
+    PreparedRun,
+    RunSpec,
+)
 from app.run.preparation import (
-    display_path,
     log_run_configuration,
-    prepare_artifacts_dir,
     prepare_run,
 )
 from app.run.progress import (
@@ -36,169 +41,256 @@ from app.run.progress import (
     ExecutionProgressReporter,
     build_execution_plan,
 )
+from app.run.runners import (
+    LegacyReferenceRunner,
+    MigratedRunner,
+    NoReferenceRunner,
+    ParityRunner,
+)
+from app.storage import DuckDBRunRecorder, NoopRunRecorder
 from openfoodfacts_data_quality.contracts.run import RunMetadata
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_BATCH_SIZE = 5_000
-DEFAULT_MISMATCH_EXAMPLES_LIMIT = 20
-DEFAULT_BATCH_WORKERS = max(1, min(8, cpu_count() or 2))
-DEFAULT_LEGACY_BACKEND_WORKERS = max(1, min(4, (cpu_count() or 2) // 2 or 1))
 
 
-def build_site(
-    project_root: Path,
-    *,
-    db_path: Path | None = None,
-    batch_size: int = DEFAULT_BATCH_SIZE,
-    mismatch_examples_limit: int = DEFAULT_MISMATCH_EXAMPLES_LIMIT,
-    batch_workers: int = DEFAULT_BATCH_WORKERS,
-    legacy_backend_workers: int = DEFAULT_LEGACY_BACKEND_WORKERS,
-) -> Path:
-    """Build artifacts and render the static site for the current source snapshot."""
-    db_path = (db_path or configured_database_path(project_root)).resolve()
-    if not db_path.exists():
-        raise FileNotFoundError(
-            "Source DuckDB not found. Mount or provide a DuckDB file and set DATABASE_PATH."
-        )
-    artifacts_dir, site_dir = prepare_artifacts_dir(project_root)
-    run = prepare_run(project_root, db_path, logger=LOGGER)
-    warn_if_legacy_backend_workers_exceed_batch_workers(
-        requires_reference_results=run.requires_reference_results,
-        batch_workers=batch_workers,
-        legacy_backend_workers=legacy_backend_workers,
-        logger=LOGGER,
-    )
-    cache_identity = None
-    if run.requires_reference_results:
-        cache_dir = configured_reference_result_cache_dir(project_root)
-        cache_identity = reference_result_cache_identity(
-            project_root,
-            extra_salt=configured_reference_result_cache_salt(),
-        )
-        result_cache_key = cache_identity.cache_key
-        result_cache_path = reference_result_cache_path(
-            cache_dir=cache_dir,
-            source_snapshot_id=run.source_snapshot_id,
-            cache_key=result_cache_key,
-        )
-        run = run.with_reference_result_cache(
-            result_cache_key=result_cache_key,
-            result_cache_path=result_cache_path,
-        )
-    log_run_configuration(run, project_root, logger=LOGGER)
+class ApplicationRunner:
+    """Explicit application service for one configured local run."""
 
-    execution_progress = ExecutionProgressReporter(
-        config=ExecutionProgressConfig(
-            plan=build_execution_plan(
-                product_count=run.product_count,
-                batch_size=batch_size,
-                configured_workers=batch_workers,
+    def __init__(
+        self,
+        run_spec: RunSpec,
+        *,
+        logger: logging.Logger = LOGGER,
+    ) -> None:
+        self.run_spec = run_spec
+        self.logger = logger
+
+    def execute(self) -> ExecutedApplicationRun:
+        """Run the application pipeline and return the completed run state."""
+        self._require_source_db()
+        artifacts = prepare_application_artifacts(self.run_spec.project_root)
+        run, cache_identity = self._prepare_run_with_reference_cache()
+        expected_differences = load_expected_differences_registry(
+            self.run_spec.expected_differences_path
+        )
+        warn_if_legacy_backend_workers_exceed_batch_workers(
+            requires_reference_results=run.requires_reference_results,
+            batch_workers=self.run_spec.batch_workers,
+            legacy_backend_workers=self.run_spec.legacy_backend_workers,
+            logger=self.logger,
+        )
+        log_run_configuration(run, self.run_spec.project_root, logger=self.logger)
+        self.logger.info(
+            "[Storage] Parity store: %s",
+            (
+                display_path(
+                    self.run_spec.parity_store_path, self.run_spec.project_root
+                )
+                if self.run_spec.parity_store_path is not None
+                else "disabled for this run"
             ),
-            mismatch_examples_limit=mismatch_examples_limit,
-        ),
-        logger=LOGGER,
-    )
-    batch_accumulator = RunResultAccumulator(
-        max_examples_per_side=mismatch_examples_limit,
-        checks=run.active_check_profile.checks,
-    )
-    backend_stderr_path = artifacts_dir / "legacy-backend-stderr.log"
-    execution_progress.log_plan()
-    with ExitStack() as stack:
-        reference_result_loader: ReferenceResultLoader | None = None
-        enriched_snapshot_materializer: EnrichedSnapshotMaterializer | None = None
-        reference_finding_materializer: ReferenceFindingMaterializer | None = None
-        if run.requires_reference_results:
-            if (
-                run.reference_result_cache_path is None
-                or run.reference_result_cache_key is None
-                or cache_identity is None
-            ):
-                raise RuntimeError(
-                    "Reference-result cache metadata must be configured when the run "
-                    "requires reference results."
+        )
+        self.logger.info(
+            "[Parity Policy] Expected-differences registry: %s (%d rules).",
+            (
+                display_path(
+                    expected_differences.source_path,
+                    self.run_spec.project_root,
                 )
-            reference_result_cache = stack.enter_context(
-                ReferenceResultCache(
-                    path=run.reference_result_cache_path,
-                    metadata=ReferenceResultCacheMetadata.expected(
-                        source_snapshot_id=run.source_snapshot_id,
-                        identity=cache_identity,
+                if expected_differences.source_path is not None
+                else "disabled"
+            ),
+            expected_differences.rule_count,
+        )
+
+        execution_progress = ExecutionProgressReporter(
+            config=ExecutionProgressConfig(
+                plan=build_execution_plan(
+                    product_count=run.product_count,
+                    batch_size=self.run_spec.batch_size,
+                    configured_workers=self.run_spec.batch_workers,
+                ),
+                mismatch_examples_limit=self.run_spec.mismatch_examples_limit,
+            ),
+            logger=self.logger,
+        )
+        batch_accumulator = RunResultAccumulator(
+            max_examples_per_side=self.run_spec.mismatch_examples_limit,
+            checks=run.active_check_profile.checks,
+        )
+        execution_progress.log_plan()
+
+        with ExitStack() as stack:
+            run_recorder = self._run_recorder_for_run(
+                stack=stack,
+                run=run,
+                expected_differences=expected_differences,
+            )
+            run_batches(
+                plan=BatchRunPlan(
+                    db_path=self.run_spec.db_path,
+                    batch_size=self.run_spec.batch_size,
+                    batch_workers=self.run_spec.batch_workers,
+                    legacy_backend_workers=self.run_spec.legacy_backend_workers,
+                    source_selection=run.active_dataset_profile.selection,
+                ),
+                execution=BatchExecutionContext(
+                    reference_runner=self._reference_runner_for_run(
+                        stack=stack,
+                        run=run,
+                        backend_stderr_path=artifacts.legacy_backend_stderr_path,
+                        cache_identity=cache_identity,
                     ),
-                )
+                    migrated_runner=MigratedRunner(
+                        check_context_builder=run.check_context_builder,
+                        evaluators=run.evaluators,
+                    ),
+                    parity_runner=ParityRunner(
+                        run_id=run.run_id,
+                        source_snapshot_id=run.source_snapshot_id,
+                        active_checks=run.active_check_profile.checks,
+                    ),
+                ),
+                execution_progress=execution_progress,
+                accumulator=batch_accumulator,
+                run_recorder=run_recorder,
             )
-            legacy_backend = stack.enter_context(
-                LazyLegacyBackendRunner(
-                    worker_count=legacy_backend_workers,
-                    stderr_path=backend_stderr_path,
-                )
+
+            run_result_started = perf_counter()
+            run_result = batch_accumulator.build_result(
+                run=RunMetadata(
+                    run_id=run.run_id,
+                    source_snapshot_id=run.source_snapshot_id,
+                    product_count=run.product_count,
+                ),
             )
-            reference_result_loader = ReferenceResultLoader(
+            run_recorder.record_final_result(run_result)
+        matching_checks = sum(1 for check in run_result.checks if check.passed is True)
+        mismatching_checks = sum(
+            1 for check in run_result.checks if check.passed is False
+        )
+        runtime_only_checks = sum(
+            1
+            for check in run_result.checks
+            if check.comparison_status == "runtime_only"
+        )
+        self.logger.info(
+            "[Run] Finalized %d checks in %.1fs (%d matching, %d mismatching, %d runtime only).",
+            len(run_result.checks),
+            perf_counter() - run_result_started,
+            matching_checks,
+            mismatching_checks,
+            runtime_only_checks,
+        )
+        return ExecutedApplicationRun(
+            run_result=run_result,
+            artifacts=artifacts,
+        )
+
+    def _require_source_db(self) -> None:
+        """Raise when the configured source snapshot path does not exist."""
+        if self.run_spec.db_path.exists():
+            return
+        raise FileNotFoundError(
+            "Source DuckDB not found. Mount or provide a DuckDB file and set SOURCE_SNAPSHOT_PATH."
+        )
+
+    def _prepare_run_with_reference_cache(
+        self,
+    ) -> tuple[PreparedRun, ReferenceResultCacheIdentity | None]:
+        """Prepare the run and attach the reference-result cache namespace if needed."""
+        run = prepare_run(self.run_spec, logger=self.logger)
+        if not run.requires_reference_results:
+            return run, None
+
+        cache_identity = reference_result_cache_identity(
+            self.run_spec.project_root,
+            extra_salt=self.run_spec.reference_result_cache_salt,
+        )
+        return (
+            run.with_reference_result_cache(
+                result_cache_key=cache_identity.cache_key,
+                result_cache_path=reference_result_cache_path(
+                    cache_dir=self.run_spec.reference_result_cache_dir,
+                    source_snapshot_id=run.source_snapshot_id,
+                    cache_key=cache_identity.cache_key,
+                ),
+            ),
+            cache_identity,
+        )
+
+    def _reference_runner_for_run(
+        self,
+        *,
+        stack: ExitStack,
+        run: PreparedRun,
+        backend_stderr_path: Path,
+        cache_identity: ReferenceResultCacheIdentity | None,
+    ) -> LegacyReferenceRunner | NoReferenceRunner:
+        """Build the reference-side runner selected for the prepared run."""
+        if not run.requires_reference_results:
+            return NoReferenceRunner()
+
+        if (
+            run.reference_result_cache_path is None
+            or run.reference_result_cache_key is None
+            or cache_identity is None
+        ):
+            raise RuntimeError(
+                "Reference-result cache metadata must be configured when the run "
+                "requires reference results."
+            )
+
+        reference_result_cache = stack.enter_context(
+            ReferenceResultCache(
+                path=run.reference_result_cache_path,
+                metadata=ReferenceResultCacheMetadata.expected(
+                    source_snapshot_id=run.source_snapshot_id,
+                    identity=cache_identity,
+                ),
+            )
+        )
+        legacy_backend = stack.enter_context(
+            LazyLegacyBackendRunner(
+                worker_count=self.run_spec.legacy_backend_workers,
+                stderr_path=backend_stderr_path,
+            )
+        )
+        return LegacyReferenceRunner(
+            reference_result_loader=ReferenceResultLoader(
                 legacy_backend_runner=legacy_backend,
                 reference_result_cache=reference_result_cache,
-            )
-            enriched_snapshot_materializer = (
+            ),
+            enriched_snapshot_materializer=(
                 EnrichedSnapshotMaterializer()
                 if run.requires_enriched_snapshots
                 else None
-            )
-            reference_finding_materializer = (
+            ),
+            reference_finding_materializer=(
                 ReferenceFindingMaterializer(run.reference_observer)
                 if run.requires_reference_findings
                 else None
-            )
-        run_batches(
-            plan=BatchRunPlan(
-                db_path=db_path,
-                batch_size=batch_size,
-                batch_workers=batch_workers,
-                legacy_backend_workers=legacy_backend_workers,
             ),
-            execution=BatchExecutionContext(
-                reference_result_loader=reference_result_loader,
-                enriched_snapshot_materializer=enriched_snapshot_materializer,
-                reference_finding_materializer=reference_finding_materializer,
-                evaluators=run.evaluators,
-                active_checks=run.active_check_profile.checks,
-                check_context_builder=run.check_context_builder,
-                run_id=run.run_id,
-                source_snapshot_id=run.source_snapshot_id,
-            ),
-            execution_progress=execution_progress,
-            accumulator=batch_accumulator,
         )
 
-    run_result_started = perf_counter()
-    run_result = batch_accumulator.build_result(
-        run=RunMetadata(
-            run_id=run.run_id,
-            source_snapshot_id=run.source_snapshot_id,
-            product_count=run.product_count,
-        ),
-    )
-    matching_checks = sum(1 for check in run_result.checks if check.passed is True)
-    mismatching_checks = sum(1 for check in run_result.checks if check.passed is False)
-    runtime_only_checks = sum(
-        1 for check in run_result.checks if check.comparison_status == "runtime_only"
-    )
-    LOGGER.info(
-        "[Run] Finalized %d checks in %.1fs (%d matching, %d mismatching, %d runtime only).",
-        len(run_result.checks),
-        perf_counter() - run_result_started,
-        matching_checks,
-        mismatching_checks,
-        runtime_only_checks,
-    )
-
-    presentation_started = perf_counter()
-    LOGGER.info("[Presentation] Rendering static report artifacts...")
-    render_report(run_result, site_dir)
-    LOGGER.info(
-        "[Presentation] Report artifacts written to %s in %.1fs.",
-        display_path(site_dir, project_root),
-        perf_counter() - presentation_started,
-    )
-    return site_dir
+    def _run_recorder_for_run(
+        self,
+        *,
+        stack: ExitStack,
+        run: PreparedRun,
+        expected_differences: ExpectedDifferencesRegistry,
+    ) -> DuckDBRunRecorder | NoopRunRecorder:
+        """Build the run recorder selected for the current application run."""
+        if self.run_spec.parity_store_path is None:
+            return NoopRunRecorder()
+        return stack.enter_context(
+            DuckDBRunRecorder(
+                path=self.run_spec.parity_store_path,
+                run_spec=self.run_spec,
+                prepared_run=run,
+                expected_differences=expected_differences,
+            )
+        )
 
 
 def warn_if_legacy_backend_workers_exceed_batch_workers(
@@ -217,45 +309,3 @@ def warn_if_legacy_backend_workers_exceed_batch_workers(
         batch_workers,
         batch_workers,
     )
-
-
-def configured_database_path(project_root: Path) -> Path:
-    """Return the configured DuckDB source path."""
-    configured = os.environ.get("DATABASE_PATH")
-    if configured is None or not configured.strip():
-        raise ValueError(
-            "DATABASE_PATH must be set for local runtime runs. Use the demo image for the bundled example snapshot."
-        )
-    return Path(configured).expanduser().resolve()
-
-
-def configured_batch_size() -> int:
-    """Return the configured execution batch size."""
-    configured = os.environ.get("BATCH_SIZE")
-    if not configured:
-        return DEFAULT_BATCH_SIZE
-    return int(configured)
-
-
-def configured_mismatch_examples_limit() -> int:
-    """Return the configured mismatch example retention budget for each check."""
-    configured = os.environ.get("MISMATCH_EXAMPLES_LIMIT")
-    if not configured:
-        return DEFAULT_MISMATCH_EXAMPLES_LIMIT
-    return int(configured)
-
-
-def configured_batch_workers() -> int:
-    """Return the configured number of concurrent batch workers."""
-    configured = os.environ.get("BATCH_WORKERS")
-    if not configured:
-        return DEFAULT_BATCH_WORKERS
-    return int(configured)
-
-
-def configured_legacy_backend_workers() -> int:
-    """Return the configured number of persistent backend workers."""
-    configured = os.environ.get("LEGACY_BACKEND_WORKERS")
-    if not configured:
-        return DEFAULT_LEGACY_BACKEND_WORKERS
-    return int(configured)

@@ -2,23 +2,13 @@
 
 # Glossary
 
-Use this page for the canonical repository term for a runtime concept,
-contract, or boundary.
+Use this glossary when you need the canonical repository term for a runtime
+concept, contract, or boundary.
 
 For execution details, see
 [About the runtime model](../explanation/runtime-model.md),
 [About migrated checks](../explanation/migrated-checks.md), and
 [About reference data and parity](../explanation/reference-data-and-parity.md).
-
-## Orientation
-
-- `src/openfoodfacts_data_quality/` is the reusable library layer and package
-  root for the public Python APIs.
-- `app/` is the application layer for source loading, reference loading,
-  strict comparison, and report output.
-- The main runtime flow is `source snapshot -> optional reference path ->
-  normalized context -> migrated checks -> optional strict comparison ->
-  run result -> report`.
 
 ## Canonical terms
 
@@ -54,12 +44,19 @@ For execution details, see
   in a run
 - `normalized context`
   Python runtime shape consumed by migrated checks
+- `dataset profile`
+  named application preset that selects which source rows enter one run
+- `source selection`
+  explicit selection contract resolved from one dataset profile
 
 ### Runs
 
 - `run`
-  one execution of the application against one source snapshot and one active
-  check profile
+  one execution of the application against one source snapshot, one dataset
+  profile, and one active check profile
+- `run spec`
+  explicit application configuration resolved before orchestration starts; in
+  code, the canonical model is `RunSpec`
 - `run result`
   overall application summary for one run; in code, the canonical model is
   `RunResult`
@@ -99,6 +96,21 @@ For execution details, see
   codes; do not use it as the generic name for parity runtime artifacts
 - `parity`
   strict comparison between reference and migrated findings
+- `expected differences registry`
+  optional governance ruleset that classifies recorded mismatches as expected
+  or unexpected for review
+- `expected difference rule`
+  one rule in that registry
+
+### Migration planning
+
+- `migration catalog`
+  application-owned view of legacy families plus optional planning metadata
+- `migration family`
+  one legacy emission family joined with optional assessment fields such as
+  target implementation, size, and risk
+- `active migration plan`
+  migration family coverage for the active checks in one run
 
 ### Legacy backend
 
@@ -124,8 +136,14 @@ For execution details, see
 - `source_snapshot_id`
   stable identifier of a source snapshot
 
-### Report
+### Report and storage
 
+- `parity store`
+  DuckDB store kept by the application for run telemetry, mismatches,
+  governance summaries, dataset metadata, migration metadata, and a serialized
+  run artifact
+- `recorded run snapshot`
+  read model used by the report renderer for data loaded from the parity store
 - `origin`
   provenance axis for snippet artifacts; canonical values are `legacy` and
   `implementation`
@@ -149,61 +167,15 @@ For execution details, see
   generated outputs used to inspect one run, especially the HTML report,
   `run.json`, and `snippets.json`
 
-## Naming rules
+## Naming preferences
 
-- Use `layer` for the high-level repository split.
-- Use `run` for generic application execution and output.
-- Use `reference` for parity runtime concepts.
+- Use `reference` for parity runtime data and support components.
 - Use `legacy backend` for the Perl execution boundary.
-- Use `legacy` for legacy code provenance and raw legacy emitted codes.
-- Use `implementation` for current repository code provenance in snippet
+- Use `legacy` for code provenance or raw legacy emitted codes.
+- Use `migrated` for Python output and mismatch semantics.
+- Use `implementation` for repository code provenance in snippet
   artifacts.
-- Use `migrated` for Python output and mismatch semantics, not for generic
-  snippet provenance.
-- Use `legacy snippet status` for the state of legacy source provenance on one
-  check.
-- Use `parity` only for strict comparison concepts, parity baselines, or
-  mismatch semantics.
-- Use `surface` for runtime and API contracts, not for the repository structure
-  as a whole.
-- Prefer `DSL` in prose and `dsl` in technical names such as modules,
-  resources, paths, scripts, and literal values.
-- Prefer `loader` over `provider` when the object concretely loads or
-  materializes data.
-- Prefer `renderer` over generic names like `report` when the module's
-  responsibility is rendering output artifacts.
-
-## Repository map
-
-- `src/openfoodfacts_data_quality/`
-  reusable library contracts and the public API; the package also contains
-  context building, the check catalog, and the DSL subsystem
-- `app/source/`
-  source snapshot access helpers
-- `app/legacy_backend/`
-  legacy backend boundary, input projection, wrapper script, persistent runner,
-  and worker pool
-- `app/reference/`
-  runtime data for the reference side, loading logic, cache handling, envelope
-  validation, materializers, and finding normalization
-- `app/legacy_source.py`
-  shared legacy source analysis used by report snippets
-- `app/run/`
-  run preparation, orchestration, profiles, context builders, execution,
-  accumulation, serialization, and progress reporting
-- `app/parity/`
-  strict comparison logic between reference and migrated findings
-- `app/report/`
-  renderer, downloads, and snippets
-- `config/check-profiles.toml`
-  named run profiles and check selection policy
-
-## Default choices
-
-- If the code refers to parity runtime state, call it `reference`.
-- If the code refers to generic application execution or its overall output,
-  call it `run`.
-- If the code refers to the Perl execution boundary, call it `legacy backend`.
-- Prefer the package or module name already used in the repository.
+- Use `parity` for strict comparison concepts and mismatch semantics.
+- Prefer `DSL` in prose and `dsl` in technical names or literal values.
 
 [Back to documentation index](../index.md)

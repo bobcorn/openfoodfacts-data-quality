@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from app.report.snippets import LegacySnippetStatus
+    from app.storage import CheckMismatchGovernanceSummary
     from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
 
 OutcomeId = Literal[
@@ -29,14 +30,22 @@ def build_report_payload(
     run_result: RunResult,
     *,
     run_artifact: dict[str, Any],
+    check_governance_by_id: Mapping[str, CheckMismatchGovernanceSummary] | None = None,
+    expected_differences_rule_count: int = 0,
+    expected_mismatch_total: int | None = None,
+    unexpected_mismatch_total: int | None = None,
     code_snippet_panels_by_check: dict[str, list[dict[str, str]]] | None = None,
     legacy_snippet_status_by_check: dict[str, LegacySnippetStatus] | None = None,
     snippet_issues: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Build the report-only payload derived from the run result."""
     report_payload = dict(run_artifact)
+    governance_by_id = (
+        dict(check_governance_by_id) if check_governance_by_id is not None else {}
+    )
     report_payload["checks"] = build_report_check_payloads(
         run_result,
+        check_governance_by_id=governance_by_id,
         code_snippet_panels_by_check=(
             code_snippet_panels_by_check if code_snippet_panels_by_check else {}
         ),
@@ -45,17 +54,34 @@ def build_report_payload(
         ),
         snippet_issues=snippet_issues if snippet_issues else [],
     )
+    report_payload["expected_differences_rule_count"] = expected_differences_rule_count
+    report_payload["expected_mismatch_total"] = (
+        sum(counts.expected_total_mismatches for counts in governance_by_id.values())
+        if expected_mismatch_total is None
+        else expected_mismatch_total
+    )
+    report_payload["unexpected_mismatch_total"] = (
+        sum(counts.unexpected_total_mismatches for counts in governance_by_id.values())
+        if unexpected_mismatch_total is None
+        else unexpected_mismatch_total
+    )
     return report_payload
 
 
 def build_report_check_payloads(
     run_result: RunResult,
     *,
+    check_governance_by_id: Mapping[str, CheckMismatchGovernanceSummary] | None = None,
     code_snippet_panels_by_check: dict[str, list[dict[str, str]]] | None = None,
     legacy_snippet_status_by_check: dict[str, LegacySnippetStatus] | None = None,
     snippet_issues: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build sorted check payloads for the report UI."""
+    resolved_check_governance_by_id = (
+        check_governance_by_id
+        if check_governance_by_id
+        else cast("Mapping[str, CheckMismatchGovernanceSummary]", {})
+    )
     resolved_code_snippet_panels_by_check = (
         code_snippet_panels_by_check if code_snippet_panels_by_check else {}
     )
@@ -68,6 +94,7 @@ def build_report_check_payloads(
     payloads = [
         _build_report_check_payload(
             check,
+            resolved_check_governance_by_id,
             resolved_code_snippet_panels_by_check,
             resolved_legacy_snippet_status_by_check,
             snippet_issue_messages_by_check,
@@ -79,15 +106,37 @@ def build_report_check_payloads(
 
 def _build_report_check_payload(
     check: RunCheckResult,
+    check_governance_by_id: Mapping[str, CheckMismatchGovernanceSummary],
     code_snippet_panels_by_check: dict[str, list[dict[str, str]]],
     legacy_snippet_status_by_check: dict[str, LegacySnippetStatus],
     snippet_issue_messages_by_check: dict[str, list[str]],
 ) -> dict[str, Any]:
     """Serialize one check result with derived UI metrics."""
     payload = check.model_dump(mode="json")
+    governance = check_governance_by_id.get(check.definition.id)
+    expected_missing_count = (
+        governance.expected_missing_count if governance is not None else 0
+    )
+    unexpected_missing_count = (
+        governance.unexpected_missing_count if governance is not None else 0
+    )
+    expected_extra_count = (
+        governance.expected_extra_count if governance is not None else 0
+    )
+    unexpected_extra_count = (
+        governance.unexpected_extra_count if governance is not None else 0
+    )
     payload["run_outcome"] = check_outcome(check)
     payload["card_status"] = check_card_status(check)
     payload["total_mismatches"] = check.missing_count + check.extra_count
+    payload["expected_missing_count"] = expected_missing_count
+    payload["unexpected_missing_count"] = unexpected_missing_count
+    payload["expected_extra_count"] = expected_extra_count
+    payload["unexpected_extra_count"] = unexpected_extra_count
+    payload["expected_total_mismatches"] = expected_missing_count + expected_extra_count
+    payload["unexpected_total_mismatches"] = (
+        unexpected_missing_count + unexpected_extra_count
+    )
     payload["search_text"] = check.definition.id.lower()
     payload["missing_examples_count"] = len(check.missing)
     payload["extra_examples_count"] = len(check.extra)

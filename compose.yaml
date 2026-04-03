@@ -10,18 +10,26 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     environment:
-      DATABASE_PATH: /work/products.duckdb
+      SOURCE_SNAPSHOT_PATH: /work/products.duckdb
       BATCH_SIZE: "${BATCH_SIZE:-5000}"
       BATCH_WORKERS: "${BATCH_WORKERS:-}"
       LEGACY_BACKEND_WORKERS: "${LEGACY_BACKEND_WORKERS:-4}"
       REFERENCE_RESULT_CACHE_DIR: /cache
       MISMATCH_EXAMPLES_LIMIT: "${MISMATCH_EXAMPLES_LIMIT:-20}"
       CHECK_PROFILE: "${CHECK_PROFILE:-full}"
+      SOURCE_DATASET_PROFILE: "${SOURCE_DATASET_PROFILE:-full}"
+      PARITY_STORE_PATH: "${PARITY_STORE_PATH:-}"
+      PARITY_EXPECTED_DIFFERENCES_PATH: "${PARITY_EXPECTED_DIFFERENCES_PATH:-}"
+      MIGRATION_INVENTORY_PATH: "${MIGRATION_INVENTORY_PATH:-}"
+      MIGRATION_ESTIMATION_SHEET_PATH: "${MIGRATION_ESTIMATION_SHEET_PATH:-}"
     volumes:
       - type: bind
-        source: ${DATABASE_PATH:?Set DATABASE_PATH in .env}
+        source: ${SOURCE_SNAPSHOT_PATH:?Set SOURCE_SNAPSHOT_PATH in .env}
         target: /work/products.duckdb
         read_only: true
+      - type: bind
+        source: ./data
+        target: /opt/openfoodfacts-data-quality/data
       - type: bind
         source: ./artifacts
         target: /opt/openfoodfacts-data-quality/artifacts

@@ -3,7 +3,7 @@
 # Troubleshoot local runs
 
 Use this guide to fix common problems in Docker runs, report generation, and
-local Python tooling.
+local tooling.
 
 ## Rebuild after code changes
 
@@ -15,9 +15,9 @@ If you changed code and still see old behavior, rebuild:
 docker compose up --build
 ```
 
-## Fix `DATABASE_PATH`
+## Fix SOURCE_SNAPSHOT_PATH
 
-Check `DATABASE_PATH` in `.env`.
+Check `SOURCE_SNAPSHOT_PATH` in `.env`.
 
 That path must exist on the host so Docker can mount it into the container. The
 starter `.env.example` points at the tracked
@@ -25,10 +25,55 @@ starter `.env.example` points at the tracked
 `examples/data/products.duckdb`.
 
 Local runtime runs do not fall back to a bundled DuckDB path. If
-`DATABASE_PATH` is unset or blank, startup fails and asks you to set it
+`SOURCE_SNAPSHOT_PATH` is unset or blank, startup fails and asks you to set it
 explicitly. Use the
 [demo image](../../README.md#run-the-demo) when you want the bundled sample
 without local configuration.
+
+## Fix unknown profile names
+
+Check these settings in `.env`:
+
+- `CHECK_PROFILE`
+- `SOURCE_DATASET_PROFILE`
+
+Each one must match a profile defined in `config/check-profiles.toml` or
+`config/dataset-profiles.toml`.
+
+If a check profile uses migration filters, make sure the run also has valid
+`MIGRATION_INVENTORY_PATH` and, when needed,
+`MIGRATION_ESTIMATION_SHEET_PATH` inputs.
+
+## Fix expected differences registry errors
+
+If startup fails while loading the expected differences registry:
+
+- check that `PARITY_EXPECTED_DIFFERENCES_PATH` points to an existing file
+- keep `schema_version = 1`
+- use unique rule ids
+- make sure rules do not overlap on the same concrete mismatch
+
+Set `PARITY_EXPECTED_DIFFERENCES_PATH` to a blank value if you want to disable
+automatic registry lookup for one run.
+
+For the exact TOML contract, see
+[Expected differences registry](../reference/run-configuration-and-artifacts.md#expected-differences-registry).
+
+## Fix migration metadata input errors
+
+If startup fails while loading migration metadata:
+
+- check that `MIGRATION_INVENTORY_PATH` points to an existing JSON artifact
+- keep the legacy inventory artifact on version `2`
+- check that the estimation sheet has the required columns
+- make sure every estimation-sheet `check_id` exists in the inventory artifact
+
+Local commands look for the default artifact paths when those files
+exist. Set the corresponding environment variable to a blank value if you want
+to disable that lookup for one run.
+
+For the exact JSON and CSV contracts, see
+[Migration metadata inputs](../reference/run-configuration-and-artifacts.md#migration-metadata-inputs).
 
 ## Fix DuckDB schema mismatches
 
@@ -36,16 +81,16 @@ The source reader validates the `products` table against the explicit
 [RawProductRow](../reference/data-contracts.md#rawproductrow) contract.
 
 If you see errors about missing columns, your snapshot does not match
-`openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the bundled
+`openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the tracked
 sample, regenerate a compatible sample, or align the snapshot schema before you
 run the application.
 
-## Fix a missing report at `http://localhost:8000`
+## Fix a missing report at the preview URL
 
 `http://localhost:8000` is only the default preview URL.
 
 If the report does not open there, check `PORT` in `.env`. In the shipped
-Docker flow, that setting controls the host-side published port, so the preview
+Docker flow, that setting controls the published port on the host, so the preview
 URL is `http://localhost:<PORT>`.
 
 If you changed `PORT`, open the report on that port instead of forcing `8000`.
@@ -120,9 +165,20 @@ Each cache database also writes a `.meta.json` sidecar. If the
 [runtime contracts](../reference/data-contracts.md) change, startup fails with
 detailed field mismatch information instead of reusing stale data.
 
-## Set up Python tooling
+## Understand artifacts and parity store files
 
-Use a local virtual environment for linting, typing, and focused tests.
+`artifacts/latest/` is rebuilt on every run. If you are looking for persistent
+review history, check the configured
+[parity store](../reference/run-configuration-and-artifacts.md#parity-store)
+instead.
+
+If you want to clear recorded run history, remove or replace the parity store
+DuckDB file, which defaults to `data/parity_store/parity.duckdb`.
+
+## Fix local Python tooling
+
+If `.venv` commands fail or use the wrong interpreter, recreate the virtual
+environment with Python 3.14 and reinstall the repository:
 
 1. Create the virtual environment:
 
@@ -136,17 +192,8 @@ Use a local virtual environment for linting, typing, and focused tests.
    .venv/bin/python -m pip install -e ".[app,dev]"
    ```
 
-Use this environment for `pytest`, `ruff`, `mypy`, and `pyright`.
-
-Compared runs are still easiest to exercise through Docker.
-
-## Check the Python version
-
-The repository targets Python 3.14.3 in local automation, `.python-version`,
-Docker, and GitHub Actions.
-
-Create local virtual environments with Python 3.14. Expect local automation and
-containerized runs to use 3.14.3.
+Use that environment for `pytest`, `ruff`, `mypy`, and `pyright`. For the
+normal setup flow, see [Run the project locally](run-the-project-locally.md).
 
 ## Related information
 
