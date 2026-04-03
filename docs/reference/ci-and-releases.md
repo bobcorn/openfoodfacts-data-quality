@@ -6,15 +6,15 @@ These GitHub Actions workflows validate, publish, and release the repository.
 
 ## CI validation workflow
 
-`.github/workflows/ci.yml` runs on pushes and pull requests. You can also start
-it manually.
+`.github/workflows/validate-project.yml` runs on pushes and pull requests. You
+can also start it manually.
 
 It:
 
 - installs the project with app and dev dependencies
 - runs `make check`
 - builds the source and wheel distributions
-- verifies and smoke-tests the built wheel
+- verifies the built wheel and runs a smoke test
 
 This workflow is the repository CI gate. See
 [Validate changes](../how-to/validate-changes.md#run-the-ci-gate).
@@ -39,19 +39,20 @@ The repository pins that base image through the root `Dockerfile`. See
 
 ## Python release workflow
 
-`.github/workflows/release-library.yml` also runs on version tags.
+`.github/workflows/publish-python-release.yml` also runs on version tags.
 
 It:
 
 - reruns the validation gate
 - checks that the git tag matches the project version
 - builds the source and wheel distributions
-- verifies and smoke-tests the built wheel
+- verifies the built wheel and runs a smoke test
 - attaches the distributions to the matching GitHub Release
 
 ## Pull request title workflow
 
-`.github/workflows/semantic-pr.yml` runs on pull request events.
+`.github/workflows/validate-pull-request-title.yml` runs on pull request
+events.
 
 It validates the pull request title against the repository's allowed
 Conventional Commit types.

@@ -1,0 +1,17 @@
+default_profile = "full"
+
+[profiles.full]
+description = "Runs the full configured source snapshot."
+kind = "all_products"
+
+[profiles.smoke]
+description = "Runs a small deterministic sample for fast iteration."
+kind = "stable_sample"
+sample_size = 50
+seed = 7
+
+[profiles.validation]
+description = "Runs a broader deterministic sample for parity validation."
+kind = "stable_sample"
+sample_size = 1000
+seed = 42

@@ -4,6 +4,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from openfoodfacts_data_quality.contracts.run import RunResult
@@ -22,12 +23,35 @@ def build_run_artifact(run_result: RunResult) -> dict[str, Any]:
     }
 
 
-def write_run_artifact(run_result: RunResult, output_dir: Path) -> Path:
-    """Write the canonical run artifact to disk."""
+def parse_run_artifact(run_artifact: Mapping[str, Any]) -> RunResult:
+    """Validate one run artifact payload and return the embedded run result."""
+    from openfoodfacts_data_quality.contracts.run import RunResult
+
+    kind = run_artifact.get("kind")
+    if kind != RUN_ARTIFACT_KIND:
+        raise ValueError(f"Unsupported run artifact kind {kind!r}.")
+    schema_version = run_artifact.get("schema_version")
+    if schema_version != RUN_ARTIFACT_SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported run artifact schema_version "
+            f"{schema_version!r}; expected {RUN_ARTIFACT_SCHEMA_VERSION}."
+        )
+    payload = {
+        key: value
+        for key, value in run_artifact.items()
+        if key not in {"kind", "schema_version"}
+    }
+    return RunResult.model_validate(payload)
+
+
+def write_run_artifact_payload(
+    run_artifact: Mapping[str, Any], output_dir: Path
+) -> Path:
+    """Write one prebuilt run artifact payload to disk."""
     output_path = output_dir / RUN_ARTIFACT_FILENAME
     output_path.write_text(
         json.dumps(
-            build_run_artifact(run_result),
+            dict(run_artifact),
             ensure_ascii=False,
             indent=2,
         ),

@@ -87,8 +87,8 @@ That includes:
 The reference loader checks the
 [reference result cache](run-configuration-and-artifacts.md#reference-result-cache)
 before it starts backend work. A warm cache can satisfy a compared or enriched
-run without starting a live backend worker for covered products. Cold-cache
-materialization still uses this image.
+run without starting a live backend worker for covered products. With a cold
+cache, materialization still uses this image.
 
 The run can skip live backend execution when it needs no comparison, no
 reference findings, and no enriched snapshots.
@@ -112,8 +112,8 @@ The backend image affects the
 [reference result cache](run-configuration-and-artifacts.md#reference-result-cache).
 
 In Docker runs, `LEGACY_BACKEND_FINGERPRINT` is set from `SERVER_BASE_IMAGE`.
-Changing the pinned backend image changes the reference cache fingerprint and
-therefore the cache key.
+Changing the pinned backend image changes the reference result cache
+fingerprint and therefore the cache key.
 
 ## Update workflow
 
@@ -125,7 +125,7 @@ To refresh the backend dependency:
    fork
    workflow.
 3. Update `SERVER_BASE_IMAGE` in this repository.
-4. Rebuild the data-quality image and let the reference cache compute an
+4. Rebuild the data-quality image and let the reference result cache compute an
    updated fingerprint.
 
 ## See also

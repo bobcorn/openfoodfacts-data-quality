@@ -5,10 +5,19 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, Protocol, TypeVar
 
+import app.application as application_module
 import app.run.execution as execution_module
 import app.run.orchestrator as orchestrator_module
 import app.run.preparation as preparation_module
+import app.run.runners as runners_module
+import app.run.settings as settings_module
 import pytest
+from app.artifacts import (
+    ApplicationArtifacts,
+    display_path,
+    prepare_application_artifacts,
+)
+from app.migration.catalog import MigrationCatalog
 from app.reference.materializers import (
     EnrichedSnapshotMaterializer,
     ReferenceFindingMaterializer,
@@ -21,17 +30,26 @@ from app.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
     BatchRunPlan,
+    ExecutedApplicationRun,
     PreparedRun,
     ResolvedReferenceResults,
+    RunSpec,
     ScheduledBatch,
 )
-from app.run.preparation import (
-    display_path,
-    prepare_artifacts_dir,
-    prepare_run,
-)
+from app.run.preparation import prepare_run
 from app.run.profiles import ActiveCheckProfile
+from app.run.runners import (
+    LegacyReferenceRunner,
+    MigratedRunner,
+    NoReferenceRunner,
+    ParityRunner,
+)
 from app.run.scheduler import BatchScheduler
+from app.source.datasets import (
+    ActiveDatasetProfile,
+    SourceSelection,
+    default_dataset_profile,
+)
 
 from openfoodfacts_data_quality.contracts.checks import LEGACY_PARITY_BASELINES
 from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
@@ -120,6 +138,18 @@ class _RecordingAccumulator:
 
     def add_batch(self, batch_result: RunResult) -> None:
         self.run_results.append(batch_result)
+
+
+class _RecordingRunRecorder:
+    def __init__(self) -> None:
+        self.batch_indices: list[int] = []
+        self.final_run_results: list[RunResult] = []
+
+    def record_batch(self, batch_result: BatchExecutionResult) -> None:
+        self.batch_indices.append(batch_result.batch_index)
+
+    def record_final_result(self, run_result: RunResult) -> None:
+        self.final_run_results.append(run_result)
 
 
 class _UnusedCheckContextBuilder:
@@ -237,12 +267,12 @@ def _execute_batch_with_stubbed_runtime(
         return iter(())
 
     monkeypatch.setattr(
-        execution_module,
+        runners_module,
         "iter_check_findings_with_evaluators",
         fake_iter_check_findings_with_evaluators,
     )
     monkeypatch.setattr(
-        execution_module,
+        runners_module,
         "evaluate_parity",
         _run_result_stub(expected_run_result),
     )
@@ -251,14 +281,16 @@ def _execute_batch_with_stubbed_runtime(
 
 def _dummy_execution_context() -> BatchExecutionContext:
     return BatchExecutionContext(
-        reference_result_loader=None,
-        enriched_snapshot_materializer=None,
-        reference_finding_materializer=None,
-        evaluators={},
-        active_checks=(),
-        check_context_builder=_UnusedCheckContextBuilder(),
-        run_id="run",
-        source_snapshot_id="source-snapshot",
+        reference_runner=NoReferenceRunner(),
+        migrated_runner=MigratedRunner(
+            check_context_builder=_UnusedCheckContextBuilder(),
+            evaluators={},
+        ),
+        parity_runner=ParityRunner(
+            run_id="run",
+            source_snapshot_id="source-snapshot",
+            active_checks=(),
+        ),
     )
 
 
@@ -270,20 +302,32 @@ def _execution_context(
     include_enriched_snapshots: bool,
 ) -> BatchExecutionContext:
     return BatchExecutionContext(
-        reference_result_loader=reference_result_loader,
-        enriched_snapshot_materializer=(
-            EnrichedSnapshotMaterializer() if include_enriched_snapshots else None
+        reference_runner=(
+            LegacyReferenceRunner(
+                reference_result_loader=reference_result_loader,
+                enriched_snapshot_materializer=(
+                    EnrichedSnapshotMaterializer()
+                    if include_enriched_snapshots
+                    else None
+                ),
+                reference_finding_materializer=(
+                    ReferenceFindingMaterializer(reference_observer)
+                    if reference_observer.requires_reference_results
+                    else None
+                ),
+            )
+            if reference_result_loader is not None
+            else NoReferenceRunner()
         ),
-        reference_finding_materializer=(
-            ReferenceFindingMaterializer(reference_observer)
-            if reference_observer.requires_reference_results
-            else None
+        migrated_runner=MigratedRunner(
+            check_context_builder=check_context_builder_for(input_surface),
+            evaluators={},
         ),
-        evaluators={},
-        active_checks=(),
-        check_context_builder=check_context_builder_for(input_surface),
-        run_id="run",
-        source_snapshot_id="source-snapshot",
+        parity_runner=ParityRunner(
+            run_id="run",
+            source_snapshot_id="source-snapshot",
+            active_checks=(),
+        ),
     )
 
 
@@ -303,16 +347,19 @@ def _batch_execution_result(
     )
 
 
-def test_prepare_artifacts_dir_recreates_latest_tree(tmp_path: Path) -> None:
+def test_prepare_application_artifacts_recreates_latest_tree(tmp_path: Path) -> None:
     stale_file = tmp_path / "artifacts" / "latest" / "stale.txt"
     stale_file.parent.mkdir(parents=True)
     stale_file.write_text("stale", encoding="utf-8")
 
-    artifacts_dir, site_dir = prepare_artifacts_dir(tmp_path)
+    artifacts = prepare_application_artifacts(tmp_path)
 
-    assert artifacts_dir == tmp_path / "artifacts" / "latest"
-    assert site_dir == artifacts_dir / "site"
-    assert site_dir.is_dir()
+    assert artifacts.artifacts_dir == tmp_path / "artifacts" / "latest"
+    assert artifacts.site_dir == artifacts.artifacts_dir / "site"
+    assert artifacts.legacy_backend_stderr_path == (
+        artifacts.artifacts_dir / "legacy-backend-stderr.log"
+    )
+    assert artifacts.site_dir.is_dir()
     assert not stale_file.exists()
 
 
@@ -353,28 +400,49 @@ def test_prepare_run_collects_profile_and_definition_counts(
         check_ids=(python_check.id, dsl_check.id),
         checks=(python_check, dsl_check),
     )
+    active_dataset_profile = ActiveDatasetProfile(
+        name="smoke",
+        description="Fast deterministic sample",
+        selection=SourceSelection(
+            kind="stable_sample",
+            sample_size=10,
+            seed=99,
+        ),
+    )
 
     def fake_source_snapshot_id_for(_: Path) -> str:
         return "snapshot-123"
 
-    def fake_count_source_rows(_: Path) -> int:
+    def fake_count_source_rows(
+        _: Path, *, selection: SourceSelection | None = None
+    ) -> int:
+        assert selection == active_dataset_profile.selection
         return 42
-
-    def fake_configured_check_profile_name() -> str:
-        return "ignored"
 
     def fake_get_default_check_catalog() -> CheckCatalog:
         return default_check_catalog
+
+    def fake_load_dataset_profile(
+        config_path: Path,
+        profile_name: str | None = None,
+    ) -> ActiveDatasetProfile:
+        assert config_path == tmp_path / "config" / "dataset-profiles.toml"
+        assert profile_name == "smoke"
+        return active_dataset_profile
+
+    loaded_migration_catalog = MigrationCatalog()
 
     def fake_load_check_profile(
         config_path: Path,
         profile_name: str | None = None,
         *,
         catalog: CheckCatalog | None = None,
+        migration_catalog: MigrationCatalog | None = None,
     ) -> ActiveCheckProfile:
         assert config_path == tmp_path / "config" / "check-profiles.toml"
         assert profile_name == "ignored"
         assert catalog is default_check_catalog
+        assert migration_catalog is loaded_migration_catalog
         return active_profile
 
     monkeypatch.setattr(
@@ -389,8 +457,8 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     monkeypatch.setattr(
         preparation_module,
-        "configured_check_profile_name",
-        fake_configured_check_profile_name,
+        "load_dataset_profile",
+        fake_load_dataset_profile,
     )
     monkeypatch.setattr(
         preparation_module,
@@ -403,9 +471,28 @@ def test_prepare_run_collects_profile_and_definition_counts(
         fake_load_check_profile,
     )
 
+    def fake_load_migration_catalog(**_: object) -> MigrationCatalog:
+        return loaded_migration_catalog
+
+    monkeypatch.setattr(
+        preparation_module,
+        "load_migration_catalog",
+        fake_load_migration_catalog,
+    )
+
     prepared = prepare_run(
-        tmp_path,
-        tmp_path / "data" / "products.duckdb",
+        RunSpec(
+            project_root=tmp_path,
+            db_path=tmp_path / "data" / "products.duckdb",
+            batch_size=100,
+            mismatch_examples_limit=5,
+            batch_workers=2,
+            legacy_backend_workers=1,
+            reference_result_cache_dir=tmp_path / "cache",
+            reference_result_cache_salt="salt",
+            check_profile_name="ignored",
+            dataset_profile_name="smoke",
+        ),
         logger=logging.getLogger("test-run-flow"),
     )
 
@@ -423,35 +510,273 @@ def test_prepare_run_collects_profile_and_definition_counts(
     assert prepared.runtime_only_count == sum(
         1 for check in active_profile.checks if check.parity_baseline == "none"
     )
+    assert prepared.active_dataset_profile == active_dataset_profile
+    assert prepared.active_migration_plan.family_count == 0
     assert prepared.requires_enriched_snapshots is False
     assert prepared.requires_reference_findings is True
     assert prepared.requires_reference_results is True
 
 
-def test_configured_database_path_requires_explicit_database_path(
+def test_configured_source_snapshot_path_requires_explicit_source_snapshot_path(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.delenv("DATABASE_PATH", raising=False)
+    monkeypatch.delenv("SOURCE_SNAPSHOT_PATH", raising=False)
 
     with pytest.raises(
         ValueError,
-        match="DATABASE_PATH must be set for local runtime runs",
+        match="SOURCE_SNAPSHOT_PATH must be set for local runtime runs",
     ):
-        orchestrator_module.configured_database_path(tmp_path)
+        settings_module.configured_source_snapshot_path(tmp_path)
 
 
-def test_build_site_requires_explicit_database_path(
+def test_configured_run_spec_requires_explicit_source_snapshot_path(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.delenv("DATABASE_PATH", raising=False)
+    monkeypatch.delenv("SOURCE_SNAPSHOT_PATH", raising=False)
 
     with pytest.raises(
         ValueError,
-        match="DATABASE_PATH must be set for local runtime runs",
+        match="SOURCE_SNAPSHOT_PATH must be set for local runtime runs",
     ):
-        orchestrator_module.build_site(tmp_path)
+        settings_module.configured_run_spec(tmp_path)
+
+
+def test_configured_run_spec_collects_runtime_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "data" / "products.duckdb"
+    parity_store_path = tmp_path / "stores" / "parity.duckdb"
+    expected_differences_path = tmp_path / "config" / "expected-differences.toml"
+    monkeypatch.setenv("SOURCE_SNAPSHOT_PATH", str(db_path))
+    monkeypatch.setenv("BATCH_SIZE", "17")
+    monkeypatch.setenv("MISMATCH_EXAMPLES_LIMIT", "9")
+    monkeypatch.setenv("BATCH_WORKERS", "3")
+    monkeypatch.setenv("LEGACY_BACKEND_WORKERS", "2")
+    monkeypatch.setenv("CHECK_PROFILE", "focused")
+    monkeypatch.setenv("SOURCE_DATASET_PROFILE", "smoke")
+    monkeypatch.setenv("PARITY_STORE_PATH", str(parity_store_path))
+    monkeypatch.setenv(
+        "PARITY_EXPECTED_DIFFERENCES_PATH",
+        str(expected_differences_path),
+    )
+    monkeypatch.setenv(
+        "MIGRATION_INVENTORY_PATH",
+        str(tmp_path / "legacy" / "legacy_families.json"),
+    )
+    monkeypatch.setenv(
+        "MIGRATION_ESTIMATION_SHEET_PATH",
+        str(tmp_path / "legacy" / "estimation_sheet.csv"),
+    )
+
+    run_spec = settings_module.configured_run_spec(tmp_path)
+
+    assert run_spec.project_root == tmp_path.resolve()
+    assert run_spec.db_path == db_path.resolve()
+    assert run_spec.batch_size == 17
+    assert run_spec.mismatch_examples_limit == 9
+    assert run_spec.batch_workers == 3
+    assert run_spec.legacy_backend_workers == 2
+    assert run_spec.check_profile_name == "focused"
+    assert run_spec.dataset_profile_name == "smoke"
+    assert run_spec.parity_store_path == parity_store_path.resolve()
+    assert run_spec.expected_differences_path == expected_differences_path.resolve()
+    assert (
+        run_spec.legacy_inventory_artifact_path
+        == (tmp_path / "legacy" / "legacy_families.json").resolve()
+    )
+    assert (
+        run_spec.legacy_estimation_sheet_path
+        == (tmp_path / "legacy" / "estimation_sheet.csv").resolve()
+    )
+    assert (
+        run_spec.reference_result_cache_dir
+        == (tmp_path / "data" / "reference_result_cache").resolve()
+    )
+
+
+def test_configured_parity_expected_differences_path_supports_explicit_disable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("PARITY_EXPECTED_DIFFERENCES_PATH", "   ")
+
+    assert settings_module.configured_parity_expected_differences_path(tmp_path) is None
+
+
+def test_configured_check_profile_name_normalizes_blank_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CHECK_PROFILE", raising=False)
+    assert settings_module.configured_check_profile_name() is None
+
+    monkeypatch.setenv("CHECK_PROFILE", "   ")
+    assert settings_module.configured_check_profile_name() is None
+
+    monkeypatch.setenv("CHECK_PROFILE", " focused ")
+    assert settings_module.configured_check_profile_name() == "focused"
+
+
+def test_configured_source_dataset_profile_name_normalizes_blank_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SOURCE_DATASET_PROFILE", raising=False)
+    assert settings_module.configured_source_dataset_profile_name() is None
+
+    monkeypatch.setenv("SOURCE_DATASET_PROFILE", "   ")
+    assert settings_module.configured_source_dataset_profile_name() is None
+
+    monkeypatch.setenv("SOURCE_DATASET_PROFILE", " smoke ")
+    assert settings_module.configured_source_dataset_profile_name() == "smoke"
+
+
+def test_build_site_requires_existing_source_snapshot_path(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="Source DuckDB not found"):
+        application_module.build_site(
+            RunSpec(
+                project_root=tmp_path,
+                db_path=tmp_path / "data" / "missing.duckdb",
+                batch_size=100,
+                mismatch_examples_limit=5,
+                batch_workers=2,
+                legacy_backend_workers=1,
+                reference_result_cache_dir=tmp_path / "cache",
+                reference_result_cache_salt="salt",
+            )
+        )
+
+
+def test_application_site_builder_prefers_store_backed_rendering(
+    monkeypatch: pytest.MonkeyPatch,
+    run_result_factory: RunResultFactory,
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "artifacts" / "latest" / "site"
+    render_calls: list[tuple[str, Path]] = []
+
+    def fake_execute(
+        _: orchestrator_module.ApplicationRunner,
+    ) -> ExecutedApplicationRun:
+        return ExecutedApplicationRun(
+            run_result=run_result_factory(),
+            artifacts=ApplicationArtifacts(
+                artifacts_dir=tmp_path / "artifacts" / "latest",
+                site_dir=site_dir,
+                legacy_backend_stderr_path=(
+                    tmp_path / "artifacts" / "latest" / "legacy-backend-stderr.log"
+                ),
+            ),
+        )
+
+    def fake_render_report_from_store(
+        *,
+        store_path: Path,
+        run_id: str,
+        output_dir: Path,
+        legacy_source_root: Path | None = None,
+    ) -> None:
+        del store_path, run_id, legacy_source_root
+        render_calls.append(("store", output_dir))
+
+    def unexpected_render_report(*_: object, **__: object) -> None:
+        raise AssertionError(
+            "in-memory renderer should not be used when a store exists"
+        )
+
+    monkeypatch.setattr(orchestrator_module.ApplicationRunner, "execute", fake_execute)
+    monkeypatch.setattr(
+        application_module,
+        "render_report_from_store",
+        fake_render_report_from_store,
+    )
+    monkeypatch.setattr(
+        application_module,
+        "render_report",
+        unexpected_render_report,
+    )
+
+    site_path = application_module.ApplicationSiteBuilder(
+        RunSpec(
+            project_root=tmp_path,
+            db_path=tmp_path / "data" / "products.duckdb",
+            batch_size=100,
+            mismatch_examples_limit=5,
+            batch_workers=2,
+            legacy_backend_workers=1,
+            reference_result_cache_dir=tmp_path / "cache",
+            reference_result_cache_salt="salt",
+            parity_store_path=tmp_path / "parity-store.duckdb",
+        )
+    ).build()
+
+    assert site_path == site_dir
+    assert render_calls == [("store", site_dir)]
+
+
+def test_application_site_builder_uses_in_memory_rendering_without_store(
+    monkeypatch: pytest.MonkeyPatch,
+    run_result_factory: RunResultFactory,
+    tmp_path: Path,
+) -> None:
+    site_dir = tmp_path / "artifacts" / "latest" / "site"
+    run_result = run_result_factory()
+    render_calls: list[tuple[object, Path]] = []
+
+    def fake_execute(
+        _: orchestrator_module.ApplicationRunner,
+    ) -> ExecutedApplicationRun:
+        return ExecutedApplicationRun(
+            run_result=run_result,
+            artifacts=ApplicationArtifacts(
+                artifacts_dir=tmp_path / "artifacts" / "latest",
+                site_dir=site_dir,
+                legacy_backend_stderr_path=(
+                    tmp_path / "artifacts" / "latest" / "legacy-backend-stderr.log"
+                ),
+            ),
+        )
+
+    def fake_render_report(
+        resolved_run_result: object,
+        output_dir: Path,
+        *,
+        legacy_source_root: Path | None = None,
+    ) -> None:
+        del legacy_source_root
+        render_calls.append((resolved_run_result, output_dir))
+
+    def unexpected_render_report_from_store(*_: object, **__: object) -> None:
+        raise AssertionError("store-backed renderer should not be used without a store")
+
+    monkeypatch.setattr(orchestrator_module.ApplicationRunner, "execute", fake_execute)
+    monkeypatch.setattr(
+        application_module,
+        "render_report",
+        fake_render_report,
+    )
+    monkeypatch.setattr(
+        application_module,
+        "render_report_from_store",
+        unexpected_render_report_from_store,
+    )
+
+    site_path = application_module.ApplicationSiteBuilder(
+        RunSpec(
+            project_root=tmp_path,
+            db_path=tmp_path / "data" / "products.duckdb",
+            batch_size=100,
+            mismatch_examples_limit=5,
+            batch_workers=2,
+            legacy_backend_workers=1,
+            reference_result_cache_dir=tmp_path / "cache",
+            reference_result_cache_salt="salt",
+        )
+    ).build()
+
+    assert site_path == site_dir
+    assert render_calls == [(run_result, site_dir)]
 
 
 def test_warns_when_legacy_backend_workers_exceed_batch_workers(
@@ -569,9 +894,10 @@ def test_run_batches_processes_all_batches(
     tmp_path: Path,
 ) -> None:
     def fake_iter_source_batches(
-        _: Path, *, batch_size: int
+        _: Path, *, batch_size: int, selection: SourceSelection
     ) -> list[list[RawProductRow]]:
         assert batch_size == 2
+        assert selection == default_dataset_profile().selection
         return [
             [_raw_row(code="1")],
             [_raw_row(code="2"), _raw_row(code="3")],
@@ -596,6 +922,7 @@ def test_run_batches_processes_all_batches(
     monkeypatch.setattr(execution_module, "execute_batch", fake_execute_batch)
     progress = _RecordingProgressReporter()
     accumulator = _RecordingAccumulator()
+    recorder = _RecordingRunRecorder()
 
     run_batches(
         plan=BatchRunPlan(
@@ -603,15 +930,18 @@ def test_run_batches_processes_all_batches(
             batch_size=2,
             batch_workers=2,
             legacy_backend_workers=2,
+            source_selection=default_dataset_profile().selection,
         ),
         execution=_dummy_execution_context(),
         execution_progress=progress,
         accumulator=accumulator,
+        run_recorder=recorder,
     )
 
     assert progress.completed_batches == [(1, 1), (2, 3)]
     assert progress.heartbeats == []
     assert len(accumulator.run_results) == 2
+    assert recorder.batch_indices == [1, 2]
 
 
 @pytest.mark.parametrize(
