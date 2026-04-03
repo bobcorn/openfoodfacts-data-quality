@@ -4,35 +4,35 @@
 
 This page tracks repository direction and unresolved design questions.
 
-It sits outside the main how-to, explanation, and reference split because it
-records project status rather than product behavior.
+It is separate from the main how-to, explanation, and reference split because
+it records project status rather than product behavior.
 
-## Near-term work
+## Current work
 
-Near-term work centers on migrating more checks with
+Current work focuses on migrating more checks with
 [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)
 into the [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split).
-It also improves the local authoring loop while keeping the
+It also improves the local authoring workflow while keeping the
 [reference contracts](../reference/data-contracts.md) explicit.
 
 ## Open questions
 
 ### How far should the DSL grow?
 
-The DSL stays narrow on purpose. The open question is which additions keep
+The DSL is intentionally narrow. The open question is which additions keep
 migrated logic obvious and reviewable.
 
 ### Where should whole snapshot runs happen?
 
-The [Docker flow](../how-to/run-the-project-locally.md) works for local
-development and modest validation loops. Parity runs over a whole snapshot may
-need a different home.
+The [Docker flow](../how-to/run-the-project-locally.md) supports local
+development and moderate validation. Parity runs over a whole snapshot may
+need a different execution environment.
 
 ### How much detail should the report expose?
 
-The [report](../reference/report-artifacts.md#html-report) stays at summary
-level. More debugging detail could help investigations. Too much detail would
-slow down review.
+The [report](../reference/report-artifacts.md#html-report) is a summary view.
+More debugging detail could help investigations. Too much detail could slow
+review.
 
 ### When should the APIs become durable?
 
@@ -43,23 +43,23 @@ be documented and supported as durable public interfaces.
 
 ### Corpus performance
 
-A workflow that feels light on sample data can behave very differently on
+A workflow that is fast on sample data can behave very differently on
 millions of products. Batch sizing changes at that scale. Cache behavior and
 legacy backend throughput also become more sensitive.
 
 ### Parity at scale
 
 Low mismatch rates can still produce large mismatch volumes on full snapshots.
-The [artifact model](../reference/report-artifacts.md) needs to stay useful
+The [artifact model](../reference/report-artifacts.md) needs to remain useful
 when the debugging scope grows.
 
-### Boundary drift
+### Boundary maintenance
 
 The repository depends on a clean
 [split](../explanation/system-architecture.md) between reusable runtime
 contracts, application behavior used only for parity, and support workflows.
-That split is present in the codebase and still needs discipline as the
-project grows.
+That split is present in the codebase and still needs careful maintenance as
+the project grows.
 
 ## Related information
 

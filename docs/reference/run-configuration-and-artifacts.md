@@ -10,13 +10,13 @@ the parity store and the cache.
 - `SOURCE_SNAPSHOT_PATH`: DuckDB [source snapshot](glossary.md#source-snapshot).
   This is required for local runtime runs.
 - `SOURCE_SNAPSHOT_ID`: Optional explicit source snapshot id. When unset, the
-  runtime uses a sidecar manifest or falls back to hashing the DuckDB file.
-- `PORT`: Preview port when you run `app.main` directly. In the shipped Docker
+  runtime uses a sidecar manifest or hashes the DuckDB file.
+- `PORT`: Preview port when you run `app.main` directly. In the default Docker
   flow, this value controls the published port on the host.
 - `BATCH_SIZE`: Source batch size.
 - `BATCH_WORKERS`: Concurrent batch workers used by the application run loop.
 - `LEGACY_BACKEND_WORKERS`: Persistent backend workers used when cache misses
-  need live materialization.
+  need backend materialization.
 - `MISMATCH_EXAMPLES_LIMIT`: Retained
   [mismatch examples](report-artifacts.md#check-cards) for each side of each
   check.
@@ -59,7 +59,7 @@ selection preset for one run. It sets the active checks,
 [input surface](../explanation/runtime-model.md#input-surfaces), and
 [parity baselines](../explanation/reference-data-and-parity.md#parity-baselines).
 
-The shipped profiles are:
+The default profiles are:
 
 - `full`
 - `raw_products`
@@ -68,8 +68,8 @@ The shipped profiles are:
 Profiles can also apply migration filters such as target implementation, size,
 or risk when a migration catalog is configured.
 
-In the shipped config, `CHECK_PROFILE=focused` uses the explicit include list
-from `config/check-profiles.toml`. None of the shipped profiles use migration
+In the default config, `CHECK_PROFILE=focused` uses the explicit include list
+from `config/check-profiles.toml`. None of the default profiles use migration
 filters yet.
 
 ## Dataset profiles
@@ -80,7 +80,7 @@ A dataset profile controls which rows from the DuckDB source snapshot enter one
 application run. It does not change the
 [check input surface](../explanation/runtime-model.md#input-surface-and-dataset-profile-are-different).
 
-The shipped profiles are:
+The default profiles are:
 
 - `full`: Run the full source snapshot.
 - `smoke`: Run a small deterministic sample.
@@ -95,7 +95,7 @@ The supported selection kinds are:
 `stable_sample` uses a deterministic seed and sample size. `code_list` can load
 codes inline from the profile or from a referenced file path.
 
-In the shipped config, `SOURCE_DATASET_PROFILE=smoke` uses the 50-row
+In the default config, `SOURCE_DATASET_PROFILE=smoke` uses the 50-row
 deterministic sample. `validation` uses the 1000-row sample.
 
 When a run records data in the parity store, it also stores the resolved
@@ -199,7 +199,7 @@ does not decide whether the assessment is complete.
 
 ## Compose wiring
 
-The shipped `compose.yaml` wires these settings into the local Docker flow:
+The repository `compose.yaml` wires these settings into the local Docker flow:
 
 - `SOURCE_SNAPSHOT_PATH`: selects the DuckDB file on the host that Compose mounts
   at `/work/products.duckdb` inside the container
@@ -217,8 +217,8 @@ The shipped `compose.yaml` wires these settings into the local Docker flow:
 - `MIGRATION_ESTIMATION_SHEET_PATH`
 
 The local Docker flow requires `SOURCE_SNAPSHOT_PATH` through `.env` because
-the mounted source path is explicit and the runtime no longer falls back to a
-bundled DuckDB path.
+the mounted source path is explicit and the runtime no longer uses a bundled
+DuckDB path.
 
 `compose.yaml` mounts:
 
@@ -228,7 +228,7 @@ bundled DuckDB path.
 - `./config`
 - a named `reference_result_cache` volume at `/cache`
 
-The shipped Compose flow does not mount the source tree into the container.
+The repository Compose flow does not mount the source tree into the container.
 Rebuild after code changes.
 
 If a run needs reference results, values of `LEGACY_BACKEND_WORKERS` above
@@ -242,7 +242,7 @@ The application writes run outputs under `artifacts/latest/`.
 `artifacts/latest/` is recreated on every run. Treat it as ephemeral output,
 not as persistent review history.
 
-[Source snapshots](glossary.md#source-snapshot) can also carry a sidecar
+[Source snapshots](glossary.md#source-snapshot) can also include a sidecar
 `<name>.duckdb.snapshot.json` manifest with an explicit `source_snapshot_id`.
 Refresh scripts write that manifest for generated sample DuckDB files, and the
 runtime writes it when it has to hash a DuckDB file directly.
@@ -264,7 +264,7 @@ metadata.
 The parity store is a DuckDB review store for completed
 application runs.
 
-It keeps review history across runs and stores report data that is not embedded
+It stores review history across runs and report data that is not embedded
 in `run.json`, such as governed mismatch counts.
 
 For local commands, the default store path is
@@ -284,9 +284,9 @@ When the store is enabled, the application persists:
 If execution aborts before finalization, the store records the run as `failed`
 or `incomplete`.
 
-The report renderer prefers the recorded store snapshot when a parity store is
-enabled. That path is what makes governance for expected differences visible in
-the HTML report.
+When a parity store is enabled, the report renderer reads the recorded store
+snapshot first. This is how the HTML report receives governance data for
+expected differences.
 
 ## Reference result cache
 
@@ -296,7 +296,7 @@ database also writes a readable `.meta.json` sidecar with the
 and backend fingerprints used for that cache namespace.
 
 By default, `app.main` stores that cache under `data/reference_result_cache/`.
-The shipped Docker flow overrides the cache directory to `/cache`, which is
+The default Docker flow overrides the cache directory to `/cache`, which is
 backed by the named `reference_result_cache` volume in `compose.yaml`.
 
 Deleting the cache forces fresh reference materialization on the next run. If

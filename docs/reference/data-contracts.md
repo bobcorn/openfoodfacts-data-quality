@@ -95,8 +95,8 @@ The chosen surface changes:
 
 The application also has
 [dataset profiles](run-configuration-and-artifacts.md#dataset-profiles), but
-those profiles change which rows are selected for one run, not the shape of the
-runtime contract.
+those profiles change which rows are selected for one run, not the runtime
+contract itself.
 
 ## Runtime contracts
 
@@ -106,8 +106,8 @@ Checks do not consume raw rows or backend payloads directly. They consume
 `NormalizedContext`.
 
 `NormalizedContext` is the central shared runtime contract. It separates checks
-from source specific input shapes. It gives raw and enriched runs one execution
-model. It also defines the dotted paths used by
+from source specific input structures. It gives raw and enriched runs one
+execution model. It also defines the dotted paths used by
 [DSL](../explanation/migrated-checks.md#definition-languages) and input surface
 inference.
 
@@ -118,7 +118,7 @@ inference.
 `LegacyBackendResultEnvelope` is the versioned result contract emitted across
 the language boundary by the Perl wrapper.
 
-It carries:
+It includes:
 
 - `contract_kind`
 - `contract_version`
@@ -152,7 +152,8 @@ produces the payload.
 
 `ObservedFinding` is the comparison model used by
 [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison).
-Reference and migrated outputs are adapted into this shape before comparison.
+Reference and migrated outputs are converted to this contract before
+comparison.
 
 ### RunCheckResult
 
@@ -170,7 +171,7 @@ The retained examples are capped by the configured mismatch example budget.
 [snippet artifacts](report-artifacts.md#snippetsjson), and JSON download
 bundles.
 
-`run.json` and `snippets.json` are versioned JSON artifacts. They carry root
+`run.json` and `snippets.json` are versioned JSON artifacts. They include root
 `kind` and `schema_version` metadata around the serialized payload.
 
 ### RecordedRunSnapshot
