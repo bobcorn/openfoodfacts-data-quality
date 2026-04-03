@@ -4,7 +4,7 @@
 
 Compared runs and enriched application runs rely on this image when the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
-needs live materialization.
+needs backend materialization.
 
 ## Source repository
 
@@ -14,7 +14,7 @@ branch of the
 [`bobcorn/openfoodfacts-server`](https://github.com/bobcorn/openfoodfacts-server)
 fork.
 
-That branch keeps the legacy backend runnable on `linux/amd64` and
+That branch makes the legacy backend runnable on `linux/amd64` and
 `linux/arm64` for this repository's workflows and publishes deterministic tags
 to GHCR.
 
@@ -37,7 +37,7 @@ the root `Dockerfile`.
 
 ## Included data
 
-The data-quality image includes the backend runtime plus prebaked artifacts
+The data-quality image includes the backend runtime plus generated artifacts
 such as:
 
 - taxonomy build results
@@ -65,7 +65,7 @@ dependencies such as:
 - `Image::OCR::Tesseract`
 - `Imager::*`
 
-That keeps the backend image buildable on ARM for the data-quality flows used
+This allows the backend image to build on ARM for the data-quality flows used
 here.
 
 ## When the image is required
@@ -86,11 +86,11 @@ That includes:
 
 The reference loader checks the
 [reference result cache](run-configuration-and-artifacts.md#reference-result-cache)
-before it starts backend work. A warm cache can satisfy a compared or enriched
-run without starting a live backend worker for covered products. With a cold
-cache, materialization still uses this image.
+before it starts backend work. With a warm cache, a compared or enriched run
+can reuse cached data instead of starting a backend worker for covered
+products. With a cold cache, materialization still uses this image.
 
-The run can skip live backend execution when it needs no comparison, no
+The run can skip backend execution when it needs no comparison, no
 reference findings, and no enriched snapshots.
 
 ## Local checkout

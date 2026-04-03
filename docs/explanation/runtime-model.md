@@ -97,7 +97,7 @@ The application uses two independent selection axes:
 - the dataset profile, which decides which source rows enter one run
 
 Example: one run can use `SOURCE_DATASET_PROFILE=smoke` to read a small sample
-of products while `CHECK_PROFILE=raw_products` still keeps the run on checks
+of products while `CHECK_PROFILE=raw_products` still limits the run to checks
 that support the raw surface.
 
 Changing the dataset profile changes run coverage. It does not make a raw check
@@ -110,10 +110,10 @@ Checks do not read raw DuckDB rows or backend payloads directly. They read
 `NormalizedContext`.
 
 `NormalizedContext` is the shared runtime contract consumed by migrated checks.
-The runtime converts different input shapes into one structure owned by Python
+The runtime converts different input structures into one structure owned by Python
 with stable field names and stable dotted paths.
 
-This keeps check logic independent from source specific shapes. Raw and
+This makes check logic independent from source specific structures. Raw and
 enriched runs still share one execution model.
 
 ## Why this boundary matters
@@ -126,7 +126,7 @@ reaches
 and tests.
 
 Treat `NormalizedContext` as a stable boundary, not as an incidental helper
-shape.
+structure.
 
 ## Related information
 

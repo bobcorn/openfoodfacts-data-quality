@@ -26,14 +26,14 @@ It exists because:
 - enriched application runs need
   [enriched snapshots](../reference/data-contracts.md#enrichedsnapshotresult)
 
-### Cache reuse and live materialization
+### Cache reuse and backend materialization
 
 The reference path checks the
 [reference result cache](../reference/run-configuration-and-artifacts.md#reference-result-cache)
 first. On a cache hit, the run reuses an existing `ReferenceResult`. On a cache
 miss, the application projects the needed input into the legacy backend
-boundary, materializes a backend result, validates it, and stores the
-resulting reference payload in the cache namespace for that run contract.
+boundary, gets a backend result, validates it, and stores the resulting
+reference payload in the cache namespace for that run contract.
 
 ### Compared raw runs still use the reference path
 
@@ -91,7 +91,7 @@ over:
 - severity
 
 Duplicates, dynamic emitted codes, and severity mismatches can still fail
-parity when the underlying rule looks close to the legacy version.
+parity even when the underlying rule appears close to the legacy version.
 
 ## Expected differences policy
 
@@ -165,7 +165,7 @@ without comparison skip that path. Compared runs still preserve fidelity to
 trusted backend behavior because they compare against validated reference
 findings instead of assuming the migrated implementation is already correct.
 
-The governance layer stays separate from parity itself, so review exceptions do
+The governance layer is separate from parity itself, so review exceptions do
 not blur the underlying comparison contract.
 
 ## Related information

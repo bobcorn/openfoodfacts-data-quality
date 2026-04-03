@@ -13,7 +13,7 @@ You can use the repository in two ways:
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
   stored review data, and [report artifacts](docs/reference/report-artifacts.md).
 
-For a deeper architectural view, see
+For architecture details, see
 [About the system architecture](docs/explanation/system-architecture.md) and
 [About application runs](docs/explanation/application-runs.md).
 
@@ -69,7 +69,7 @@ selects the source rows that enter the run. Outputs go under
 across runs.
 
 If `SOURCE_SNAPSHOT_PATH` is unset, local runtime startup fails instead of
-falling back to a bundled path. Use the demo image for the bundled sample
+using a bundled path. Use the demo image for the bundled sample
 without local configuration.
 
 ## Set up local Python tooling

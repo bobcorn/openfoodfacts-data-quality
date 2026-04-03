@@ -43,7 +43,7 @@ For execution details, see
   application or config selection axis used to choose which checks are active
   in a run
 - `normalized context`
-  Python runtime shape consumed by migrated checks
+  Python runtime contract used by migrated checks
 - `dataset profile`
   named application preset that selects which source rows enter one run
 - `source selection`

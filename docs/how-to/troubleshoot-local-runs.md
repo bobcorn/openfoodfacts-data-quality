@@ -20,11 +20,11 @@ docker compose up --build
 Check `SOURCE_SNAPSHOT_PATH` in `.env`.
 
 That path must exist on the host so Docker can mount it into the container. The
-starter `.env.example` points at the tracked
+sample `.env.example` points at the tracked
 [source snapshot](../reference/glossary.md#source-snapshot) under
 `examples/data/products.duckdb`.
 
-Local runtime runs do not fall back to a bundled DuckDB path. If
+Local runtime runs do not use a bundled DuckDB path. If
 `SOURCE_SNAPSHOT_PATH` is unset or blank, startup fails and asks you to set it
 explicitly. Use the
 [demo image](../../README.md#run-the-demo) when you want the bundled sample
@@ -89,7 +89,7 @@ run the application.
 
 `http://localhost:8000` is only the default preview URL.
 
-If the report does not open there, check `PORT` in `.env`. In the shipped
+If the report does not open there, check `PORT` in `.env`. In the default
 Docker flow, that setting controls the published port on the host, so the preview
 URL is `http://localhost:<PORT>`.
 
