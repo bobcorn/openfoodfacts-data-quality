@@ -1,23 +1,25 @@
-# CI and Releases
+[Back to documentation index](../index.md)
 
-[Back to documentation](../index.md)
+# CI and releases
 
 These GitHub Actions workflows validate, publish, and release the repository.
 
-## Run validation in CI
+## CI validation workflow
 
-`.github/workflows/ci.yml` runs on pushes and pull requests. You can also start it manually.
+`.github/workflows/ci.yml` runs on pushes and pull requests. You can also start
+it manually.
 
 It:
 
 - installs the project with app and dev dependencies
 - runs `make check`
 - builds the source and wheel distributions
-- verifies and smoke tests the built wheel
+- verifies and smoke-tests the built wheel
 
-This workflow is the repository CI gate.
+This workflow is the repository CI gate. See
+[Validate changes](../how-to/validate-changes.md#run-the-ci-gate).
 
-## Publish the demo image
+## Demo image workflow
 
 `.github/workflows/publish-demo-image.yml` runs on version tags.
 
@@ -27,11 +29,15 @@ It:
 - builds the Docker `demo` target
 - publishes an image for multiple architectures to GHCR
 
-The demo image runs the application against the bundled [sample snapshot](glossary.md#source-snapshot) on top of the Open Food Facts server base image used for legacy backend execution.
+The demo image runs the
+[application flow](../explanation/application-runs.md) against the bundled
+[sample snapshot](glossary.md#source-snapshot) on top of the backend image used
+for legacy execution.
 
-The repository pins that base image through the root `Dockerfile`. See [Legacy Backend Image](legacy-backend-image.md).
+The repository pins that base image through the root `Dockerfile`. See
+[Legacy backend image](legacy-backend-image.md).
 
-## Publish the Python release
+## Python release workflow
 
 `.github/workflows/release-library.yml` also runs on version tags.
 
@@ -40,7 +46,20 @@ It:
 - reruns the validation gate
 - checks that the git tag matches the project version
 - builds the source and wheel distributions
-- verifies and smoke tests the built wheel
+- verifies and smoke-tests the built wheel
 - attaches the distributions to the matching GitHub Release
 
-[Back to documentation](../index.md)
+## Pull request title workflow
+
+`.github/workflows/semantic-pr.yml` runs on pull request events.
+
+It validates the pull request title against the repository's allowed
+Conventional Commit types.
+
+## See also
+
+- [Validate changes](../how-to/validate-changes.md)
+- [Legacy backend image](legacy-backend-image.md)
+- [Run configuration and artifacts](run-configuration-and-artifacts.md)
+
+[Back to documentation index](../index.md)

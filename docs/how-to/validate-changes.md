@@ -1,8 +1,8 @@
-# Validate Changes
+[Back to documentation index](../index.md)
 
-[Back to documentation](../index.md)
+# Validate changes
 
-Choose the right validation command for repository work.
+Use this guide to choose the right validation command for repository work.
 
 Run repository Python commands from the local `.venv` when it exists.
 
@@ -29,17 +29,31 @@ This command adds `mypy`, `vulture`, `pyright`, and `jscpd`.
 ## Know what the test suite covers
 
 - context construction
-- [check catalog](../concepts/check-model.md#packaged-checks) and execution behavior
-- DSL parsing and evaluation
-- [check profile](../concepts/check-model.md#check-profiles) selection
-- [reference path](../concepts/reference-and-parity.md#reference-path) loading and caching behavior
-- [strict comparison](../concepts/reference-and-parity.md#strict-comparison) plus run result accumulation
-- [report rendering](../reference/report-artifacts.md#html-report) and serialization
+- [check catalog](../explanation/migrated-checks.md#packaged-checks) and
+  execution behavior
+- [DSL](../explanation/migrated-checks.md#definition-languages) parsing and
+  evaluation
+- [check profile](../explanation/migrated-checks.md#check-profiles) selection
+- [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
+  loading and caching behavior
+- [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)
+  plus run result accumulation
+- [report rendering](../reference/report-artifacts.md#html-report) and
+  serialization
 
 ## Match validation to change risk
 
 - `make check` is the CI gate and the minimum local pass.
 - `make quality` is the default finish line for substantive changes.
-- Changes that touch reference loading, strict comparison, report generation, or other full [application flow](../concepts/how-an-application-run-works.md) may still need a Docker run in addition to the Python toolchain.
+- Changes that touch reference loading, strict comparison, report generation,
+  or other full
+  [application flow](../explanation/application-runs.md#run-overview) may still
+  need a Docker run in addition to the Python toolchain.
 
-[Back to documentation](../index.md)
+## Related information
+
+- [Author checks](author-checks.md)
+- [Run the project locally](run-the-project-locally.md)
+- [About application runs](../explanation/application-runs.md)
+
+[Back to documentation index](../index.md)
