@@ -49,8 +49,8 @@ and explicit id filters on the selected runtime surface.
 
 ## Application profile extras
 
-Application check profiles add selection behavior that sits outside the check
-definition itself:
+Application check profiles add selection behavior that is separate from the
+check definition itself:
 
 - `mode`: `all` or `include`
 - `check_ids`: explicit ids for profiles with `mode = "include"`
@@ -62,7 +62,7 @@ The migration fields filter profiles. They only work when the application
 loads a migration catalog, and they are applied after the base catalog
 selection succeeds.
 
-`migration_target_impls = ["dsl"]` keeps only checks whose active migration
+`migration_target_impls = ["dsl"]` selects only checks whose active migration
 family is planned for `dsl`.
 
 The reusable library APIs do not use those migration filters.

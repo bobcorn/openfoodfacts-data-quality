@@ -139,7 +139,7 @@ The active dataset profile decides which rows the run sees:
 
 The dataset profile changes run coverage. It does not change the
 [runtime surface](runtime-model.md#input-surfaces) or the
-[`NormalizedContext`](runtime-model.md#normalizedcontext) shape.
+[`NormalizedContext`](runtime-model.md#normalizedcontext) contract.
 
 ## Reference path
 
@@ -171,12 +171,12 @@ The migrated runtime builds
 The shared engine then loads the selected evaluators and runs them on those
 normalized contexts. Python and DSL checks use one execution path.
 
-The batch loop keeps reference loading separate from migrated checks. A parity
+The batch loop separates reference loading from migrated checks. A parity
 runner compares the two outputs. Batches can execute concurrently, but merged
 results stay ordered by batch index.
 
-Inside the batch loop, `BatchExecutionContext` keeps three application-owned
-services separate:
+Inside the batch loop, `BatchExecutionContext` uses three separate
+application-owned services:
 
 ```mermaid
 flowchart TB

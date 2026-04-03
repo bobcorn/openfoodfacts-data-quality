@@ -14,7 +14,7 @@ Use this guide to add a migrated check and keep the logic inside the
   of `legacy` or `none`.
 - Choose the
   [definition language](../explanation/migrated-checks.md#definition-languages)
-  that keeps the rule readable.
+  that makes the rule readable.
 
 ## Follow the workflow
 

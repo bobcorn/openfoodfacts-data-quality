@@ -3,7 +3,7 @@
 # About migrated checks
 
 A migrated check combines evaluator logic with metadata. The sections below
-show how that definition fits into packaged checks and check profiles.
+show how that definition is used in packaged checks and check profiles.
 
 ## Packaged checks
 
@@ -14,9 +14,9 @@ A packaged check includes evaluator logic plus the metadata that tells the
 runtime where the rule can run and how it should be selected.
 
 The catalog loads packaged checks for library calls and application runs. A
-check hidden inside `app/` would bypass the
-[shared runtime](runtime-model.md#why-the-runtime-is-split) and exist only for
-one orchestration path.
+check hidden inside `app/` would not use the
+[shared runtime](runtime-model.md#why-the-runtime-is-split) and would exist
+only for one orchestration path.
 
 ```mermaid
 flowchart LR
@@ -42,7 +42,7 @@ Each check uses one definition language: Python or the repository DSL.
 ### DSL checks
 
 The repository DSL is a small declarative language written in YAML for rules
-that fit cleanly on approved
+that work as direct predicates on approved
 [NormalizedContext](runtime-model.md#normalizedcontext) fields.
 
 A DSL check describes a condition and the finding that condition should emit.
@@ -74,7 +74,7 @@ The evaluator says what finding to emit. The metadata says where the check can
 run, how the runtime selects it, and whether it participates in
 [parity](reference-data-and-parity.md#parity-baselines).
 
-These fields carry most of that behavior:
+These fields define most of that behavior:
 
 - `supported_input_surfaces`
 - `required_context_paths`
@@ -104,12 +104,12 @@ Profiles can narrow the active checks by:
   risk when the application has a migration catalog
 
 Those migration filters live on the profile, not on the check definition. They
-let one application run focus on a planning slice without changing the
+let one application run focus on a planning subset without changing the
 underlying packaged checks.
 
-For example, one profile can keep only checks whose matched migration family is
-planned for `dsl` or marked as low risk. That gives a planning slice without
-forking the check catalog itself.
+For example, one profile can select only checks whose matched migration family
+is planned for `dsl` or marked as low risk. This creates a planning subset
+without forking the check catalog itself.
 
 ## Why this split matters
 
@@ -117,7 +117,7 @@ The check model keeps rule logic, rule metadata, and run selection explicit.
 
 That separation supports reusable library execution,
 [application runs](application-runs.md), [parity comparison](reference-data-and-parity.md#strict-comparison),
-checks that run without comparison, migration planning slices, and short
+checks that run without comparison, migration planning subsets, and short
 local validation loops without redefining checks for each environment.
 
 ## Related information

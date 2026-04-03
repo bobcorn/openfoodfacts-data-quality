@@ -45,7 +45,7 @@ The local command also records the run in the default
 under `data/parity_store/parity.duckdb`, unless you changed
 `PARITY_STORE_PATH`.
 
-That store keeps review history across runs. It also supplies governance data
+The store records review history across runs. It also supplies governance data
 such as expected and unexpected mismatch counts when the report renders from a
 recorded run.
 
@@ -72,7 +72,7 @@ recorded run.
   misses.
 - `PORT` changes the published port on the host for the local preview.
 
-The starter `.env.example` points to the tracked sample DuckDB, so the first
+The sample `.env.example` points to the tracked sample DuckDB, so the first
 run succeeds with repository data.
 
 ## Know when Docker is required
@@ -113,7 +113,7 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 - Start with `CHECK_PROFILE=focused` and `SOURCE_DATASET_PROFILE=smoke` when
   you want the shortest parity loop.
 - Switch `SOURCE_DATASET_PROFILE` to `validation` when you want a broader
-  deterministic review slice.
+  deterministic review sample.
 - Edit `config/check-profiles.toml` when you need a different set of checks.
 - Keep the tracked sample snapshot for short compared runs.
 - Switch to a larger local snapshot when you need wider coverage.
@@ -124,14 +124,13 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 
 - [Reference results](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
   are cached across runs to avoid repeated backend work.
-- In the shipped Docker flow, that cache lives in the named
+- In the default Docker flow, that cache lives in the named
   `reference_result_cache` volume.
-- Warm cache coverage can remove live backend execution for the covered
-  products.
+- A warm cache can avoid backend execution for covered products.
 - `artifacts/latest/` is reset on every application run.
-- The parity store persists across runs and keeps review history until you
+- The parity store persists across runs and stores review history until you
   delete or replace its DuckDB file.
-- [Source snapshots](../reference/glossary.md#source-snapshot) can carry a
+- [Source snapshots](../reference/glossary.md#source-snapshot) can include a
   `.snapshot.json` sidecar. The runtime writes it automatically when it has to
   hash the DuckDB file.
 

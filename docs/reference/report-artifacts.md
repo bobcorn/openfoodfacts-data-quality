@@ -22,17 +22,17 @@ outputs for download.
 The HTML report is the review summary for one
 [application run](../explanation/application-runs.md).
 
-It shows which compared checks match, which still have missing or extra
-findings, which checks are runtime only, and which products appear in retained
+It lists compared checks that match. It also lists compared checks with
+missing or extra findings, runtime only checks, and product codes in retained
 mismatch examples.
 
-The page header always shows the run id and source snapshot id. When the report
+The page header always includes the run id and source snapshot id. When the report
 is rendered from a snapshot loaded from the
 [parity store](run-configuration-and-artifacts.md#parity-store), the page
-header can also show how many rules from the expected differences registry were
+header can also include how many rules from the expected differences registry were
 active for that run.
 
-The report stays at summary level. It does not inline every finding from the
+The report is a summary view. It does not inline every finding from the
 run.
 
 ## Summary counters
@@ -50,7 +50,7 @@ run.
 
 ## Check cards
 
-Each check card shows:
+Each check card includes:
 
 - the canonical check id
 - the [definition language](../explanation/migrated-checks.md#definition-languages),
@@ -61,7 +61,7 @@ Each check card shows:
 - implementation and legacy snippets when snippet provenance is available
 
 When the report is rendered from a snapshot in the parity store, a mismatching
-check card can also show:
+check card can also include:
 
 - expected missing and extra counts
 - unexpected missing and extra counts
