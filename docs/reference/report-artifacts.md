@@ -26,11 +26,7 @@ It lists compared checks that match. It also lists compared checks with
 missing or extra findings, runtime only checks, and product codes in retained
 mismatch examples.
 
-The page header always includes the run id and source snapshot id. When the report
-is rendered from a snapshot loaded from the
-[parity store](run-configuration-and-artifacts.md#parity-store), the page
-header can also include how many rules from the expected differences registry were
-active for that run.
+The page header always includes the run id and source snapshot id.
 
 The report is a summary view. It does not inline every finding from the
 run.
@@ -60,16 +56,6 @@ Each check card includes:
 - retained mismatch examples for each side
 - implementation and legacy snippets when snippet provenance is available
 
-When the report is rendered from a snapshot in the parity store, a mismatching
-check card can also include:
-
-- expected missing and extra counts
-- unexpected missing and extra counts
-
-Those counts split known mismatches covered by the expected differences
-registry from the rest of the mismatches recorded for review. They do not
-change pass or fail state.
-
 If legacy source provenance is unavailable, the card still renders and explains
 that state in the snippet area.
 
@@ -96,7 +82,6 @@ fit inside the configured cap. It omits UI fields used only by the report:
 - `run_outcome`
 - snippet panel payloads
 - snippet warning messages
-- expected and unexpected mismatch governance counts
 
 ## snippets.json
 
@@ -128,10 +113,6 @@ Strict comparison counts and mismatch examples apply only to checks with a
 [legacy baseline](../explanation/reference-data-and-parity.md#parity-baselines).
 Checks that run without comparison still contribute to run composition and per
 check output.
-
-Governance counts for expected differences are available only when the report
-is rendered from a snapshot in the parity store. They are not embedded in
-`run.json` or `snippets.json`.
 
 ## See also
 

@@ -7,10 +7,6 @@ from time import perf_counter
 
 from app.artifacts import display_path, prepare_application_artifacts
 from app.legacy_backend.runner import LazyLegacyBackendRunner
-from app.parity.policy import (
-    ExpectedDifferencesRegistry,
-    load_expected_differences_registry,
-)
 from app.reference.cache import (
     ReferenceResultCache,
     ReferenceResultCacheIdentity,
@@ -70,9 +66,6 @@ class ApplicationRunner:
         self._require_source_db()
         artifacts = prepare_application_artifacts(self.run_spec.project_root)
         run, cache_identity = self._prepare_run_with_reference_cache()
-        expected_differences = load_expected_differences_registry(
-            self.run_spec.expected_differences_path
-        )
         warn_if_legacy_backend_workers_exceed_batch_workers(
             requires_reference_results=run.requires_reference_results,
             batch_workers=self.run_spec.batch_workers,
@@ -89,18 +82,6 @@ class ApplicationRunner:
                 if self.run_spec.parity_store_path is not None
                 else "disabled for this run"
             ),
-        )
-        self.logger.info(
-            "[Parity Policy] Expected-differences registry: %s (%d rules).",
-            (
-                display_path(
-                    expected_differences.source_path,
-                    self.run_spec.project_root,
-                )
-                if expected_differences.source_path is not None
-                else "disabled"
-            ),
-            expected_differences.rule_count,
         )
 
         execution_progress = ExecutionProgressReporter(
@@ -124,7 +105,6 @@ class ApplicationRunner:
             run_recorder = self._run_recorder_for_run(
                 stack=stack,
                 run=run,
-                expected_differences=expected_differences,
             )
             run_batches(
                 plan=BatchRunPlan(
@@ -278,7 +258,6 @@ class ApplicationRunner:
         *,
         stack: ExitStack,
         run: PreparedRun,
-        expected_differences: ExpectedDifferencesRegistry,
     ) -> DuckDBRunRecorder | NoopRunRecorder:
         """Build the run recorder selected for the current application run."""
         if self.run_spec.parity_store_path is None:
@@ -288,7 +267,6 @@ class ApplicationRunner:
                 path=self.run_spec.parity_store_path,
                 run_spec=self.run_spec,
                 prepared_run=run,
-                expected_differences=expected_differences,
             )
         )
 

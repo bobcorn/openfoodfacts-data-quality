@@ -96,11 +96,6 @@ For execution details, see
   codes; do not use it as the generic name for parity runtime artifacts
 - `parity`
   strict comparison between reference and migrated findings
-- `expected differences registry`
-  optional governance ruleset that classifies recorded mismatches as expected
-  or unexpected for review
-- `expected difference rule`
-  one rule in that registry
 
 ### Migration planning
 

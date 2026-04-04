@@ -34,10 +34,6 @@ the parity store and the cache.
 - `PARITY_STORE_PATH`: Path to the
   [parity store](#parity-store). When this environment variable is unset or
   blank, local commands use `data/parity_store/parity.duckdb`.
-- `PARITY_EXPECTED_DIFFERENCES_PATH`: Optional registry of expected
-  differences. When unset, local commands look for
-  `config/expected-differences.toml` if that file exists. Set the environment
-  variable to a blank value to disable that lookup.
 - `MIGRATION_INVENTORY_PATH`: Optional migration inventory artifact used to
   attach legacy family metadata to runs. When unset, local commands look for
   `artifacts/legacy_inventory/legacy_families.json` if it exists.
@@ -103,37 +99,6 @@ deterministic sample. `validation` uses the 1000-row sample.
 
 When a run records data in the parity store, it also stores the resolved
 selection fingerprint for that run.
-
-## Expected differences registry
-
-`PARITY_EXPECTED_DIFFERENCES_PATH` points to one TOML file.
-
-Root fields:
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `schema_version` | integer | Keep `1`. |
-| `rules` | array of tables | Each table defines one governance rule. |
-
-Rule fields:
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | string | Required. Use a unique rule id. It must not be blank. |
-| `justification` | string | Required. Short explanation attached to the rule. |
-| `check_id` or `check_ids` | string or string array | Required. Target one or more check ids. Use one form. |
-| `mismatch_kind` or `mismatch_kinds` | string or string array | Required. Allowed values: `missing`, `extra`. Use one form. |
-| `observed_code` or `observed_codes` | string or string array | Optional. Narrow the rule to one or more observed codes. |
-| `severity` or `severities` | string or string array | Optional. Allowed values: `bug`, `info`, `completeness`, `warning`, `error`. |
-| `product_id` or `product_ids` | string or string array | Optional. Narrow the rule to one or more product ids. |
-
-The registry classifies concrete mismatches after strict comparison. Startup
-fails if rule ids repeat or if more than one rule matches the same concrete
-mismatch.
-
-The registry does not change `RunResult`, `run.json`, or the parity outcome. It
-only adds review metadata on the
-[parity store](#parity-store) path.
 
 ## Migration metadata inputs
 
@@ -215,7 +180,6 @@ The repository `compose.yaml` wires these settings into the local Docker flow:
 - `SOURCE_DATASET_PROFILE`
 - `REFERENCE_RESULT_CACHE_DIR`
 - `PARITY_STORE_PATH`
-- `PARITY_EXPECTED_DIFFERENCES_PATH`
 - `MIGRATION_INVENTORY_PATH`
 - `MIGRATION_ESTIMATION_SHEET_PATH`
 
@@ -268,7 +232,7 @@ The parity store is a DuckDB review store for completed
 application runs.
 
 It stores review history across runs and report data that is not embedded
-in `run.json`, such as governed mismatch counts.
+in `run.json`, such as batch telemetry and migration metadata.
 
 For local commands, the default store path is
 `data/parity_store/parity.duckdb`.
@@ -278,8 +242,6 @@ When the store is enabled, the application persists:
 - run configuration and status
 - batch telemetry
 - concrete mismatches
-- rule ids for governed mismatches
-- governance summaries for each check
 - dataset profile metadata
 - active migration family metadata
 - a serialized copy of `run.json`
@@ -288,8 +250,8 @@ If execution aborts before finalization, the store records the run as `failed`
 or `incomplete`.
 
 When a parity store is enabled, the report renderer reads the recorded store
-snapshot first. This is how the HTML report receives governance data for
-expected differences.
+snapshot first. This is how the HTML report receives store backed dataset and
+migration metadata.
 
 ## Reference result cache
 

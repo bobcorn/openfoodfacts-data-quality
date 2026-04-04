@@ -50,14 +50,12 @@ flowchart TB
         D["Reference findings"]
         E["Migrated findings"]
         F["Strict comparison"]
-        G["Optional mismatch governance"]
         A --> B
         A --> C
         B --> D
         C --> E
         D --> F
         E --> F
-        F --> G
     end
 
     subgraph REF["Reference sources"]
@@ -93,58 +91,6 @@ over:
 Duplicates, dynamic emitted codes, and severity mismatches can still fail
 parity even when the underlying rule appears close to the legacy version.
 
-## Expected differences policy
-
-The expected differences registry marks known mismatches so review can focus on
-the rest.
-
-It is useful for runs with parity gaps you already understand and still want to
-track separately from fresh differences.
-
-A concrete mismatch is one recorded missing or extra finding for one check,
-product, observed code, and severity.
-
-Each rule matches one set of concrete mismatches by:
-
-- mismatch kind, `missing` or `extra`
-- one or more check ids
-- optionally one or more observed codes
-- optionally one or more severities
-- optionally one or more product ids
-
-Example:
-
-```toml
-schema_version = 1
-
-[[rules]]
-id = "quantity-known-gap"
-justification = "Known migration gap under review."
-check_id = "en:quantity-not-recognized"
-mismatch_kind = "missing"
-severity = "warning"
-```
-
-This rule says that missing `warning` findings from
-`en:quantity-not-recognized` are already known during review.
-
-When the run records data in the
-[parity store](../reference/run-configuration-and-artifacts.md#parity-store),
-the recorder classifies each persisted mismatch against those rules.
-
-That classification:
-
-- marks mismatches as expected or unexpected for report review
-- is rejected when multiple rules overlap on the same concrete mismatch
-- does not change strict comparison behavior
-- does not rewrite `RunResult` or `run.json`
-
-The HTML report can show governed mismatch totals only when it is rendered from
-a snapshot loaded from the parity store.
-
-For the exact TOML contract, see
-[Expected differences registry](../reference/run-configuration-and-artifacts.md#expected-differences-registry).
-
 ## Parity baselines
 
 `parity_baseline` is the [metadata](migrated-checks.md#metadata) axis that
@@ -164,9 +110,6 @@ Reference data is loaded only when selected checks need it. Checks that run
 without comparison skip that path. Compared runs still preserve fidelity to
 trusted backend behavior because they compare against validated reference
 findings instead of assuming the migrated implementation is already correct.
-
-The governance layer is separate from parity itself, so review exceptions do
-not blur the underlying comparison contract.
 
 ## Related information
 

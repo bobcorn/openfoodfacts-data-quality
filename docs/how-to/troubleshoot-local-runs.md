@@ -44,21 +44,6 @@ If a check profile uses migration filters, make sure the run also has valid
 `MIGRATION_INVENTORY_PATH` and, when needed,
 `MIGRATION_ESTIMATION_SHEET_PATH` inputs.
 
-## Fix expected differences registry errors
-
-If startup fails while loading the expected differences registry:
-
-- check that `PARITY_EXPECTED_DIFFERENCES_PATH` points to an existing file
-- keep `schema_version = 1`
-- use unique rule ids
-- make sure rules do not overlap on the same concrete mismatch
-
-Set `PARITY_EXPECTED_DIFFERENCES_PATH` to a blank value if you want to disable
-automatic registry lookup for one run.
-
-For the exact TOML contract, see
-[Expected differences registry](../reference/run-configuration-and-artifacts.md#expected-differences-registry).
-
 ## Fix migration metadata input errors
 
 If startup fails while loading migration metadata:

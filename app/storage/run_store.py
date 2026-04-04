@@ -2,17 +2,12 @@ from __future__ import annotations
 
 import json
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 
-from app.parity.policy import (
-    ExpectedDifferenceMismatchKind,
-    ExpectedDifferencesRegistry,
-)
 from app.run.serialization import build_run_artifact
 
 if TYPE_CHECKING:
@@ -22,17 +17,7 @@ if TYPE_CHECKING:
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
     from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
 
-PARITY_STORE_SCHEMA_VERSION = 2
-
-
-@dataclass(slots=True)
-class _ExpectedMismatchCounts:
-    """Per-check mismatch governance counts accumulated across all batches."""
-
-    expected_missing_count: int = 0
-    unexpected_missing_count: int = 0
-    expected_extra_count: int = 0
-    unexpected_extra_count: int = 0
+PARITY_STORE_SCHEMA_VERSION = 3
 
 
 class NoopRunRecorder(AbstractContextManager["NoopRunRecorder"]):
@@ -67,15 +52,12 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         path: Path,
         run_spec: RunSpec,
         prepared_run: PreparedRun,
-        expected_differences: ExpectedDifferencesRegistry,
     ) -> None:
         self.path = path
         self.run_spec = run_spec
         self.prepared_run = prepared_run
-        self.expected_differences = expected_differences
         self._connection: duckdb.DuckDBPyConnection | None = None
         self._finalized = False
-        self._mismatch_counts_by_check: dict[str, _ExpectedMismatchCounts] = {}
 
     def __enter__(self) -> DuckDBRunRecorder:
         self.start()
@@ -116,7 +98,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         self._ensure_store_schema()
         self._register_run()
         self._snapshot_dataset_profile()
-        self._snapshot_expected_difference_rules()
         self._snapshot_migration_families()
 
     def record_batch(self, batch_result: BatchExecutionResult) -> None:
@@ -161,10 +142,9 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                         observation_side,
                         product_id,
                         observed_code,
-                        severity,
-                        expected_rule_id
+                        severity
                     )
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    values (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     mismatch_rows,
                 )
@@ -200,13 +180,9 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                         matched_count,
                         missing_count,
                         extra_count,
-                        expected_missing_count,
-                        unexpected_missing_count,
-                        expected_extra_count,
-                        unexpected_extra_count,
                         legacy_identity_code_template
                     )
-                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     check_summary_rows,
                 )
@@ -258,6 +234,33 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
             )
             """
         )
+        rows = connection.execute(
+            "select schema_version from parity_store_meta"
+        ).fetchall()
+        if not rows:
+            self._create_current_store_schema()
+            connection.execute(
+                "insert into parity_store_meta values (?, ?)",
+                [PARITY_STORE_SCHEMA_VERSION, _utc_now()],
+            )
+            return
+        if len(rows) != 1:
+            raise RuntimeError(
+                "Run store metadata schema is incompatible with the current runtime. "
+                f"Expected schema version {PARITY_STORE_SCHEMA_VERSION}."
+            )
+        schema_version = int(rows[0][0])
+        if schema_version != PARITY_STORE_SCHEMA_VERSION:
+            raise RuntimeError(
+                f"Parity store {self.path} uses schema version {schema_version}, "
+                f"but the current runtime expects {PARITY_STORE_SCHEMA_VERSION}. "
+                "Delete the parity store file and rerun to create a fresh local store."
+            )
+        self._create_current_store_schema()
+
+    def _create_current_store_schema(self) -> None:
+        """Ensure that every current store table and index exists."""
+        connection = self._require_connection()
         connection.execute(
             """
             create table if not exists runs (
@@ -293,8 +296,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 unmatched_migration_check_count integer,
                 legacy_inventory_artifact_path varchar,
                 legacy_estimation_sheet_path varchar,
-                expected_differences_path varchar,
-                expected_differences_rule_count integer not null,
                 compared_check_count integer,
                 reference_total integer,
                 compared_migrated_total integer,
@@ -323,21 +324,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         )
         connection.execute(
             """
-            create table if not exists run_expected_difference_rules (
-                run_id varchar not null,
-                rule_id varchar not null,
-                justification text not null,
-                check_ids_json text not null,
-                mismatch_kinds_json text not null,
-                observed_codes_json text,
-                severities_json text,
-                product_ids_json text,
-                primary key (run_id, rule_id)
-            )
-            """
-        )
-        connection.execute(
-            """
             create table if not exists run_mismatches (
                 run_id varchar not null,
                 batch_index integer not null,
@@ -346,8 +332,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 observation_side varchar not null,
                 product_id varchar not null,
                 observed_code varchar not null,
-                severity varchar not null,
-                expected_rule_id varchar
+                severity varchar not null
             )
             """
         )
@@ -365,10 +350,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 matched_count integer not null,
                 missing_count integer not null,
                 extra_count integer not null,
-                expected_missing_count integer not null,
-                unexpected_missing_count integer not null,
-                expected_extra_count integer not null,
-                unexpected_extra_count integer not null,
                 legacy_identity_code_template varchar,
                 primary key (run_id, check_id)
             )
@@ -422,56 +403,10 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         )
         connection.execute(
             """
-            create index if not exists run_mismatches_by_rule
-            on run_mismatches (run_id, expected_rule_id)
-            """
-        )
-        connection.execute(
-            """
             create index if not exists run_active_migration_families_by_run
             on run_active_migration_families (run_id, check_id)
             """
         )
-        for column_name, column_definition in (
-            ("requested_dataset_profile_name", "varchar"),
-            ("active_dataset_profile_name", "varchar"),
-            ("active_dataset_selection_kind", "varchar"),
-            ("active_dataset_selection_fingerprint", "varchar"),
-            ("active_migration_family_count", "integer"),
-            ("assessed_migration_family_count", "integer"),
-            ("unmatched_migration_check_count", "integer"),
-            ("legacy_inventory_artifact_path", "varchar"),
-            ("legacy_estimation_sheet_path", "varchar"),
-        ):
-            connection.execute(
-                f"alter table runs add column if not exists {column_name} {column_definition}"
-            )
-
-        rows = connection.execute(
-            "select schema_version from parity_store_meta"
-        ).fetchall()
-        if not rows:
-            connection.execute(
-                "insert into parity_store_meta values (?, ?)",
-                [PARITY_STORE_SCHEMA_VERSION, _utc_now()],
-            )
-            return
-        if len(rows) != 1:
-            raise RuntimeError(
-                "Run store metadata schema is incompatible with the current runtime. "
-                f"Expected schema version {PARITY_STORE_SCHEMA_VERSION}."
-            )
-        schema_version = int(rows[0][0])
-        if schema_version not in {1, PARITY_STORE_SCHEMA_VERSION}:
-            raise RuntimeError(
-                "Run store metadata schema is incompatible with the current runtime. "
-                f"Expected schema version {PARITY_STORE_SCHEMA_VERSION}."
-            )
-        if schema_version != PARITY_STORE_SCHEMA_VERSION:
-            connection.execute(
-                "update parity_store_meta set schema_version = ?",
-                [PARITY_STORE_SCHEMA_VERSION],
-            )
 
     def _register_run(self) -> None:
         """Insert the current run metadata before batch processing starts."""
@@ -511,8 +446,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 unmatched_migration_check_count,
                 legacy_inventory_artifact_path,
                 legacy_estimation_sheet_path,
-                expected_differences_path,
-                expected_differences_rule_count,
                 compared_check_count,
                 reference_total,
                 compared_migrated_total,
@@ -522,7 +455,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 failure_type,
                 failure_message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 self.prepared_run.run_id,
@@ -569,12 +502,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     if self.run_spec.legacy_estimation_sheet_path is not None
                     else None
                 ),
-                (
-                    str(self.expected_differences.source_path)
-                    if self.expected_differences.source_path is not None
-                    else None
-                ),
-                self.expected_differences.rule_count,
                 None,
                 None,
                 None,
@@ -612,52 +539,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     dataset_profile.selection.as_payload(),
                     ensure_ascii=False,
                 ),
-            ],
-        )
-
-    def _snapshot_expected_difference_rules(self) -> None:
-        """Persist the exact governance rules active for this run."""
-        connection = self._require_connection()
-        if not self.expected_differences.rules:
-            return
-        connection.executemany(
-            """
-            insert into run_expected_difference_rules (
-                run_id,
-                rule_id,
-                justification,
-                check_ids_json,
-                mismatch_kinds_json,
-                observed_codes_json,
-                severities_json,
-                product_ids_json
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                [
-                    self.prepared_run.run_id,
-                    rule.id,
-                    rule.justification,
-                    json.dumps(list(rule.check_ids), ensure_ascii=False),
-                    json.dumps(list(rule.mismatch_kinds), ensure_ascii=False),
-                    (
-                        json.dumps(list(rule.observed_codes), ensure_ascii=False)
-                        if rule.observed_codes is not None
-                        else None
-                    ),
-                    (
-                        json.dumps(list(rule.severities), ensure_ascii=False)
-                        if rule.severities is not None
-                        else None
-                    ),
-                    (
-                        json.dumps(list(rule.product_ids), ensure_ascii=False)
-                        if rule.product_ids is not None
-                        else None
-                    ),
-                ]
-                for rule in self.expected_differences.rules
             ],
         )
 
@@ -751,67 +632,26 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         *,
         batch_index: int,
         check_result: RunCheckResult,
-        mismatch_kind: ExpectedDifferenceMismatchKind,
+        mismatch_kind: str,
         findings: list[ObservedFinding],
     ) -> list[list[object]]:
         """Return store rows for one mismatch side of one batch check."""
-        rows: list[list[object]] = []
-        for finding in findings:
-            expected_rule = self.expected_differences.classify(
-                kind=mismatch_kind,
-                finding=finding,
-            )
-            self._record_expected_mismatch(
-                check_id=check_result.definition.id,
-                mismatch_kind=mismatch_kind,
-                expected_rule_id=expected_rule.id
-                if expected_rule is not None
-                else None,
-            )
-            rows.append(
-                [
-                    self.prepared_run.run_id,
-                    batch_index,
-                    check_result.definition.id,
-                    mismatch_kind,
-                    finding.side,
-                    finding.product_id,
-                    finding.observed_code,
-                    finding.severity,
-                    expected_rule.id if expected_rule is not None else None,
-                ]
-            )
-        return rows
-
-    def _record_expected_mismatch(
-        self,
-        *,
-        check_id: str,
-        mismatch_kind: ExpectedDifferenceMismatchKind,
-        expected_rule_id: str | None,
-    ) -> None:
-        """Update per-check governance counts from one classified mismatch."""
-        counts = self._mismatch_counts_by_check.setdefault(
-            check_id,
-            _ExpectedMismatchCounts(),
-        )
-        if mismatch_kind == "missing":
-            if expected_rule_id is None:
-                counts.unexpected_missing_count += 1
-            else:
-                counts.expected_missing_count += 1
-            return
-        if expected_rule_id is None:
-            counts.unexpected_extra_count += 1
-        else:
-            counts.expected_extra_count += 1
+        return [
+            [
+                self.prepared_run.run_id,
+                batch_index,
+                check_result.definition.id,
+                mismatch_kind,
+                finding.side,
+                finding.product_id,
+                finding.observed_code,
+                finding.severity,
+            ]
+            for finding in findings
+        ]
 
     def _check_summary_row(self, check_result: RunCheckResult) -> list[object]:
         """Return the persisted final summary row for one active check."""
-        counts = self._mismatch_counts_by_check.get(
-            check_result.definition.id,
-            _ExpectedMismatchCounts(),
-        )
         return [
             self.prepared_run.run_id,
             check_result.definition.id,
@@ -824,10 +664,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
             check_result.matched_count,
             check_result.missing_count,
             check_result.extra_count,
-            counts.expected_missing_count,
-            counts.unexpected_missing_count,
-            counts.expected_extra_count,
-            counts.unexpected_extra_count,
             (
                 check_result.definition.legacy_identity.code_template
                 if check_result.definition.legacy_identity is not None

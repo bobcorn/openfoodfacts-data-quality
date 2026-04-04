@@ -19,7 +19,6 @@ CHECK_PROFILE_ENV_VAR = "CHECK_PROFILE"
 SOURCE_DATASET_PROFILE_ENV_VAR = "SOURCE_DATASET_PROFILE"
 PORT_ENV_VAR = "PORT"
 PARITY_STORE_PATH_ENV_VAR = "PARITY_STORE_PATH"
-PARITY_EXPECTED_DIFFERENCES_PATH_ENV_VAR = "PARITY_EXPECTED_DIFFERENCES_PATH"
 MIGRATION_INVENTORY_PATH_ENV_VAR = "MIGRATION_INVENTORY_PATH"
 MIGRATION_ESTIMATION_SHEET_PATH_ENV_VAR = "MIGRATION_ESTIMATION_SHEET_PATH"
 
@@ -40,7 +39,6 @@ def configured_run_spec(
     legacy_backend_workers: int | None = None,
     check_profile_name: str | None = None,
     parity_store_path: Path | None = None,
-    expected_differences_path: Path | None = None,
     dataset_profile_name: str | None = None,
     legacy_inventory_artifact_path: Path | None = None,
     legacy_estimation_sheet_path: Path | None = None,
@@ -83,11 +81,6 @@ def configured_run_spec(
             configured_parity_store_path(project_root)
             if parity_store_path is None
             else parity_store_path.expanduser().resolve()
-        ),
-        expected_differences_path=(
-            configured_parity_expected_differences_path(project_root)
-            if expected_differences_path is None
-            else expected_differences_path.expanduser().resolve()
         ),
         legacy_inventory_artifact_path=(
             configured_migration_inventory_path(project_root)
@@ -177,21 +170,6 @@ def configured_parity_store_path(project_root: Path) -> Path:
     if configured is not None and configured.strip():
         return Path(configured).expanduser().resolve()
     return (project_root / "data" / "parity_store" / "parity.duckdb").resolve()
-
-
-def configured_parity_expected_differences_path(project_root: Path) -> Path | None:
-    """Return the optional parity expected-differences registry path."""
-    configured = os.environ.get(PARITY_EXPECTED_DIFFERENCES_PATH_ENV_VAR)
-    if configured is not None:
-        normalized = configured.strip()
-        if not normalized:
-            return None
-        return Path(normalized).expanduser().resolve()
-
-    default_path = (project_root / "config" / "expected-differences.toml").resolve()
-    if default_path.exists():
-        return default_path
-    return None
 
 
 def configured_batch_size() -> int:

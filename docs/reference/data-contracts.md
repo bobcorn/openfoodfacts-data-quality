@@ -197,7 +197,6 @@ It wraps:
 - the persisted `run.json` payload
 - the validated `RunResult`
 - recorded dataset profile metadata
-- governance counts for expected differences
 - active migration family metadata
 
 This model belongs to the application review layer. It is not part of the reusable

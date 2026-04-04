@@ -53,14 +53,6 @@ def main() -> None:
         else "disabled",
     )
     LOGGER.info(
-        "[Config] Expected-differences registry: %s",
-        (
-            run_spec.expected_differences_path
-            if run_spec.expected_differences_path is not None
-            else "disabled"
-        ),
-    )
-    LOGGER.info(
         "[Config] Legacy inventory artifact: %s",
         (
             run_spec.legacy_inventory_artifact_path
