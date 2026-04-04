@@ -12,29 +12,27 @@ from openfoodfacts_data_quality.context.projection import (
 )
 from openfoodfacts_data_quality.contracts.context import NormalizedContext
 from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
-from openfoodfacts_data_quality.contracts.raw import (
-    RawProductRow,
-    validate_raw_product_row,
-)
+from openfoodfacts_data_quality.contracts.raw import RawProductRow
+from openfoodfacts_data_quality.source_rows import normalize_raw_input_row
 
 
 def build_raw_contexts(
     rows: Iterable[RawProductRow | Mapping[str, object]],
 ) -> list[NormalizedContext]:
-    """Build normalized contexts directly from raw OFF product rows."""
+    """Build normalized contexts from public Open Food Facts product rows."""
     return list(iter_raw_contexts(rows))
 
 
 def iter_raw_contexts(
     rows: Iterable[RawProductRow | Mapping[str, object]],
 ) -> Iterator[NormalizedContext]:
-    """Yield normalized contexts directly from raw OFF product rows."""
+    """Yield normalized contexts from public Open Food Facts product rows."""
     for row in rows:
-        yield _build_raw_context(validate_raw_product_row(row))
+        yield _build_raw_context(normalize_raw_input_row(row))
 
 
 def _build_raw_context(row: RawProductRow) -> NormalizedContext:
-    """Assemble the normalized context from one raw OFF row."""
+    """Assemble the normalized context from one normalized raw row."""
     return NormalizedContext(
         code=row.code,
         product=build_raw_product_projection(row),

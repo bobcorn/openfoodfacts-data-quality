@@ -1,4 +1,4 @@
-"""Show that the raw surface works with rows loaded from Parquet or DuckDB."""
+"""Show that the raw surface works with public rows loaded from Parquet or DuckDB."""
 
 import duckdb
 

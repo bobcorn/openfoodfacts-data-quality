@@ -126,9 +126,13 @@ path and the optional expected differences registry from
 ## Source batches
 
 Source rows are streamed from DuckDB in ordered batches. The batch reader
-always validates the explicit
-[`RawProductRow`](../reference/data-contracts.md#rawproductrow) source
+validates one supported source snapshot contract and projects each row into the
+normalized [`RawProductRow`](../reference/data-contracts.md#rawproductrow)
 contract.
+
+That source snapshot can use either the structured Parquet-style schema or the
+flat public CSV export subset, as long as the `products` table exposes one of
+those supported contracts.
 
 The active dataset profile decides which rows the run sees:
 

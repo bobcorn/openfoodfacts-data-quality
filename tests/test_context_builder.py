@@ -140,6 +140,40 @@ def test_build_raw_contexts_uses_raw_product_rows() -> None:
     }
 
 
+def test_build_raw_contexts_normalizes_public_source_rows() -> None:
+    context = build_raw_contexts(
+        [
+            {
+                "code": "123",
+                "created_t": 123,
+                "product_name": [{"lang": "main", "text": "Example"}],
+                "quantity": "500 g",
+                "product_quantity": "500",
+                "serving_size": "50 g",
+                "serving_quantity": "50",
+                "ingredients_text": [{"lang": "main", "text": "Sugar, salt"}],
+                "ingredients_tags": ["en:sugar", "en:salt"],
+                "labels_tags": ["en:vegan", "en:nutriscore-grade-a"],
+                "categories_tags": ["en:supplements", "en:dietary-supplements"],
+                "countries_tags": ["en:france", "en:canada"],
+                "nutriments": [
+                    {"name": "energy-kcal", "100g": 123.0},
+                    {"name": "fat", "100g": 3.5},
+                ],
+            }
+        ]
+    )[0]
+
+    assert context.code == "123"
+    assert context.product.product_name == "Example"
+    assert context.product.ingredients_tags == ["en:sugar", "en:salt"]
+    assert context.product.labels_tags == ["en:vegan", "en:nutriscore-grade-a"]
+    assert context.nutrition.as_sold.as_mapping() == {
+        "energy_kcal": 123.0,
+        "fat": 3.5,
+    }
+
+
 def test_build_enriched_contexts_uses_backend_enriched_snapshot(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:

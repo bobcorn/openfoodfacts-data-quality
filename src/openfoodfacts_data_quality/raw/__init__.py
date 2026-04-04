@@ -20,9 +20,6 @@ if TYPE_CHECKING:
         CheckJurisdiction,
     )
     from openfoodfacts_data_quality.contracts.findings import Finding
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
-
-from openfoodfacts_data_quality.contracts.raw import RawProductRow
 
 INPUT_SURFACE: CheckInputSurface = "raw_products"
 
@@ -43,7 +40,7 @@ def list_checks(
 
 
 def run_checks(
-    rows: Iterable[RawProductRow | Mapping[str, Any]],
+    rows: Iterable[Mapping[str, Any]],
     *,
     check_ids: Collection[str] | None = None,
     jurisdictions: Collection[CheckJurisdiction] | None = None,
@@ -62,7 +59,6 @@ def run_checks(
 
 __all__ = [
     "INPUT_SURFACE",
-    "RawProductRow",
     "list_checks",
     "run_checks",
 ]
