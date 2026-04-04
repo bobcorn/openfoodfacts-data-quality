@@ -69,18 +69,6 @@
                 <strong>{{ check.extra_count }}</strong>
               </div>
             </div>
-
-            {% if check.expected_total_mismatches or check.unexpected_total_mismatches %}
-            <div class="snippet-notes" role="note" aria-label="Mismatch governance summary">
-              {% if check.expected_total_mismatches %}
-              <p class="snippet-note">Expected differences: {{ check.expected_missing_count }} missing, {{ check.expected_extra_count }} extra.</p>
-              {% endif %}
-              {% if check.unexpected_total_mismatches %}
-              <p class="snippet-note">Unexpected differences: {{ check.unexpected_missing_count }} missing, {{ check.unexpected_extra_count }} extra.</p>
-              {% endif %}
-            </div>
-            {% endif %}
-
             {% if check.missing_count or check.extra_count %}
             <details class="disclosure">
               <summary class="disclosure-summary">

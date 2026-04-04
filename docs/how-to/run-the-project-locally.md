@@ -62,8 +62,6 @@ recorded run.
   runs require it explicitly.
 - `CHECK_PROFILE` chooses the active check profile.
 - `SOURCE_DATASET_PROFILE` chooses the active source dataset profile.
-- `PARITY_EXPECTED_DIFFERENCES_PATH` points to an optional expected differences
-  registry for governed mismatches.
 - `MIGRATION_INVENTORY_PATH` and `MIGRATION_ESTIMATION_SHEET_PATH` point to
   optional migration planning metadata. The application uses it to filter runs
   by planning data and to show migration coverage in the report.

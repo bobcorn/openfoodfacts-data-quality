@@ -27,19 +27,13 @@ Use this guide when you need to understand the outcome of one
    [legacy baseline](../explanation/reference-data-and-parity.md#parity-baselines).
 3. Check `Affected Products` to estimate how wide the retained mismatch sample
    is.
-4. If the page includes `Policy Rules`, note that governance for expected
-   differences
-   was active for this run.
 
 ## Investigate one check
 
 1. Open a mismatching check card.
 2. Compare missing findings and extra findings.
-3. If the card includes expected or unexpected differences, treat those as review
-   annotations from the parity store. Expected means the mismatch is already
-   known and tracked. It does not change pass or fail state.
-4. Review retained mismatch examples for representative product codes.
-5. Read implementation and legacy snippets when
+3. Review retained mismatch examples for representative product codes.
+4. Read implementation and legacy snippets when
    [snippet provenance](../reference/report-artifacts.md#snippetsjson) is
    available.
 

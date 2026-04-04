@@ -151,7 +151,6 @@ class RunSpec:
     reference_result_cache_salt: str
     check_profile_name: str | None = None
     parity_store_path: Path | None = None
-    expected_differences_path: Path | None = None
     dataset_profile_name: str | None = None
     legacy_inventory_artifact_path: Path | None = None
     legacy_estimation_sheet_path: Path | None = None

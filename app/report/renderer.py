@@ -24,7 +24,6 @@ from app.run.serialization import (
 from app.storage import load_recorded_run_snapshot
 
 if TYPE_CHECKING:
-    from app.storage import CheckMismatchGovernanceSummary
     from openfoodfacts_data_quality.contracts.run import RunResult
 
 
@@ -171,10 +170,6 @@ def render_report_from_store(
         run_artifact=snapshot.run_artifact,
         output_dir=output_dir,
         legacy_source_root=legacy_source_root,
-        expected_differences_rule_count=snapshot.expected_differences_rule_count,
-        expected_mismatch_total=snapshot.expected_mismatch_total,
-        unexpected_mismatch_total=snapshot.unexpected_mismatch_total,
-        check_governance_by_id=snapshot.check_governance_by_id,
     )
 
 
@@ -184,10 +179,6 @@ def _render_report_snapshot(
     run_artifact: dict[str, Any],
     output_dir: Path,
     legacy_source_root: Path | None,
-    expected_differences_rule_count: int = 0,
-    expected_mismatch_total: int | None = None,
-    unexpected_mismatch_total: int | None = None,
-    check_governance_by_id: dict[str, CheckMismatchGovernanceSummary] | None = None,
 ) -> None:
     """Render the static HTML report from one resolved report snapshot."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -203,10 +194,6 @@ def _render_report_snapshot(
     report_payload = build_report_payload(
         run_result,
         run_artifact=run_artifact,
-        check_governance_by_id=check_governance_by_id,
-        expected_differences_rule_count=expected_differences_rule_count,
-        expected_mismatch_total=expected_mismatch_total,
-        unexpected_mismatch_total=unexpected_mismatch_total,
         code_snippet_panels_by_check=build_code_snippet_panels(snippet_artifact),
         legacy_snippet_status_by_check=legacy_snippet_status_by_check(snippet_artifact),
         snippet_issues=snippet_issues,

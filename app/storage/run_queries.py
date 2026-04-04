@@ -24,54 +24,16 @@ class RecordedDatasetProfile:
 
 
 @dataclass(frozen=True, slots=True)
-class CheckMismatchGovernanceSummary:
-    """Per-check governance counts loaded from the run store."""
-
-    expected_missing_count: int = 0
-    unexpected_missing_count: int = 0
-    expected_extra_count: int = 0
-    unexpected_extra_count: int = 0
-
-    @property
-    def expected_total_mismatches(self) -> int:
-        """Return the number of governed mismatches for this check."""
-        return self.expected_missing_count + self.expected_extra_count
-
-    @property
-    def unexpected_total_mismatches(self) -> int:
-        """Return the number of still-unexpected mismatches for this check."""
-        return self.unexpected_missing_count + self.unexpected_extra_count
-
-
-@dataclass(frozen=True, slots=True)
 class RecordedRunSnapshot:
     """Store-backed read model used by report and review rendering."""
 
     run_artifact: dict[str, Any]
     run_result: RunResult
     dataset_profile: RecordedDatasetProfile | None
-    expected_differences_rule_count: int
-    check_governance_by_id: dict[str, CheckMismatchGovernanceSummary]
     migration_families_by_check_id: dict[str, MigrationFamily]
     active_migration_family_count: int
     assessed_migration_family_count: int
     unmatched_migration_check_count: int
-
-    @property
-    def expected_mismatch_total(self) -> int:
-        """Return the run-wide number of governed mismatches."""
-        return sum(
-            counts.expected_total_mismatches
-            for counts in self.check_governance_by_id.values()
-        )
-
-    @property
-    def unexpected_mismatch_total(self) -> int:
-        """Return the run-wide number of still-unexpected mismatches."""
-        return sum(
-            counts.unexpected_total_mismatches
-            for counts in self.check_governance_by_id.values()
-        )
 
 
 def load_recorded_run_snapshot(
@@ -86,8 +48,7 @@ def load_recorded_run_snapshot(
             """
             select
                 status,
-                run_artifact_json,
-                expected_differences_rule_count
+                run_artifact_json
             from runs
             where run_id = ?
             """,
@@ -98,7 +59,7 @@ def load_recorded_run_snapshot(
                 f"Run {run_id!r} not found in parity store {store_path}."
             )
 
-        status, run_artifact_json, rule_count = run_row
+        status, run_artifact_json = run_row
         if status != "completed":
             raise RuntimeError(
                 f"Run {run_id!r} in parity store {store_path} is not completed: {status!r}."
@@ -114,7 +75,6 @@ def load_recorded_run_snapshot(
                 f"Run {run_id!r} in parity store {store_path} has an invalid run artifact payload."
             )
 
-        check_governance_by_id = _load_check_governance_by_id(connection, run_id=run_id)
         dataset_profile = _load_dataset_profile(connection, run_id=run_id)
         (
             migration_families_by_check_id,
@@ -127,8 +87,6 @@ def load_recorded_run_snapshot(
             run_artifact=run_artifact,
             run_result=parse_run_artifact(run_artifact),
             dataset_profile=dataset_profile,
-            expected_differences_rule_count=int(rule_count),
-            check_governance_by_id=check_governance_by_id,
             migration_families_by_check_id=migration_families_by_check_id,
             active_migration_family_count=active_migration_family_count,
             assessed_migration_family_count=assessed_migration_family_count,
@@ -136,42 +94,6 @@ def load_recorded_run_snapshot(
         )
     finally:
         connection.close()
-
-
-def _load_check_governance_by_id(
-    connection: duckdb.DuckDBPyConnection,
-    *,
-    run_id: str,
-) -> dict[str, CheckMismatchGovernanceSummary]:
-    """Return the per-check governance counts stored for one run."""
-    rows = connection.execute(
-        """
-        select
-            check_id,
-            expected_missing_count,
-            unexpected_missing_count,
-            expected_extra_count,
-            unexpected_extra_count
-        from run_check_summaries
-        where run_id = ?
-        """,
-        [run_id],
-    ).fetchall()
-    return {
-        str(check_id): CheckMismatchGovernanceSummary(
-            expected_missing_count=int(expected_missing_count),
-            unexpected_missing_count=int(unexpected_missing_count),
-            expected_extra_count=int(expected_extra_count),
-            unexpected_extra_count=int(unexpected_extra_count),
-        )
-        for (
-            check_id,
-            expected_missing_count,
-            unexpected_missing_count,
-            expected_extra_count,
-            unexpected_extra_count,
-        ) in rows
-    }
 
 
 def _load_dataset_profile(
