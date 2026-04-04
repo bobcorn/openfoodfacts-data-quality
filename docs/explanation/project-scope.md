@@ -47,7 +47,6 @@ Live backend execution happens only on cache misses.
 - Application runs that mix compared checks with checks that run without
   comparison.
 - Runs over whole snapshots or deterministic subsets.
-- Governance for expected differences on recorded parity mismatches.
 - Static HTML output plus JSON artifacts for review.
 
 ## What is stable enough to build on
@@ -76,8 +75,6 @@ Live backend execution happens only on cache misses.
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)
   behind it.
 - The report is optimized for review, not exhaustive debugging detail.
-- Governance metadata for expected differences lives in the parity store and
-  report layer, not in the canonical `run.json` artifact.
 - The public Python APIs are explicit project contracts, but they are not yet
   durable compatibility promises.
 

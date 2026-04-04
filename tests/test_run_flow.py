@@ -549,7 +549,6 @@ def test_configured_run_spec_collects_runtime_configuration(
 ) -> None:
     db_path = tmp_path / "data" / "products.duckdb"
     parity_store_path = tmp_path / "stores" / "parity.duckdb"
-    expected_differences_path = tmp_path / "config" / "expected-differences.toml"
     monkeypatch.setenv("SOURCE_SNAPSHOT_PATH", str(db_path))
     monkeypatch.setenv("BATCH_SIZE", "17")
     monkeypatch.setenv("MISMATCH_EXAMPLES_LIMIT", "9")
@@ -558,10 +557,6 @@ def test_configured_run_spec_collects_runtime_configuration(
     monkeypatch.setenv("CHECK_PROFILE", "focused")
     monkeypatch.setenv("SOURCE_DATASET_PROFILE", "smoke")
     monkeypatch.setenv("PARITY_STORE_PATH", str(parity_store_path))
-    monkeypatch.setenv(
-        "PARITY_EXPECTED_DIFFERENCES_PATH",
-        str(expected_differences_path),
-    )
     monkeypatch.setenv(
         "MIGRATION_INVENTORY_PATH",
         str(tmp_path / "legacy" / "legacy_families.json"),
@@ -582,7 +577,6 @@ def test_configured_run_spec_collects_runtime_configuration(
     assert run_spec.check_profile_name == "focused"
     assert run_spec.dataset_profile_name == "smoke"
     assert run_spec.parity_store_path == parity_store_path.resolve()
-    assert run_spec.expected_differences_path == expected_differences_path.resolve()
     assert (
         run_spec.legacy_inventory_artifact_path
         == (tmp_path / "legacy" / "legacy_families.json").resolve()
@@ -595,15 +589,6 @@ def test_configured_run_spec_collects_runtime_configuration(
         run_spec.reference_result_cache_dir
         == (tmp_path / "data" / "reference_result_cache").resolve()
     )
-
-
-def test_configured_parity_expected_differences_path_supports_explicit_disable(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    monkeypatch.setenv("PARITY_EXPECTED_DIFFERENCES_PATH", "   ")
-
-    assert settings_module.configured_parity_expected_differences_path(tmp_path) is None
 
 
 def test_configured_check_profile_name_normalizes_blank_values(

@@ -11,10 +11,6 @@ from app.migration.catalog import (
     MigrationAssessment,
     MigrationFamily,
 )
-from app.parity.policy import (
-    ExpectedDifferenceRule,
-    ExpectedDifferencesRegistry,
-)
 from app.reference.observers import NoReferenceObserver
 from app.report.renderer import render_report_from_store
 from app.run.context_builders import check_context_builder_for
@@ -32,24 +28,7 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
     run_result_factory: Callable[[], RunResult],
 ) -> None:
     run_result = run_result_factory()
-    registry_path = tmp_path / "expected-differences.toml"
-    registry_path.write_text("# stub", encoding="utf-8")
-    registry = ExpectedDifferencesRegistry(
-        rules=(
-            ExpectedDifferenceRule(
-                id="quantity-known-gap",
-                justification="Known mismatch under review.",
-                check_ids=("en:quantity-not-recognized",),
-                mismatch_kinds=("missing",),
-            ),
-        ),
-        source_path=registry_path,
-    )
-    parity_store_path = _record_completed_run(
-        tmp_path,
-        run_result=run_result,
-        expected_differences=registry,
-    )
+    parity_store_path = _record_completed_run(tmp_path, run_result=run_result)
 
     connection = duckdb.connect(str(parity_store_path), read_only=True)
     try:
@@ -58,7 +37,6 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
             select
                 status,
                 active_check_profile_name,
-                expected_differences_rule_count,
                 run_artifact_json
             from runs
             where run_id = ?
@@ -66,9 +44,9 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
             [run_result.run_id],
         ).fetchone()
         assert run_row is not None
-        assert run_row[:3] == ("completed", "focused", 1)
+        assert run_row[:2] == ("completed", "focused")
 
-        run_artifact = json.loads(str(run_row[3]))
+        run_artifact = json.loads(str(run_row[2]))
         assert run_artifact["run_id"] == run_result.run_id
         assert run_artifact["source_snapshot_id"] == run_result.source_snapshot_id
 
@@ -118,8 +96,7 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
                 observation_side,
                 product_id,
                 observed_code,
-                severity,
-                expected_rule_id
+                severity
             from run_mismatches
             where run_id = ?
             order by check_id, observed_code
@@ -134,7 +111,6 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
                 "123",
                 "en:quantity-not-recognized",
                 "warning",
-                "quantity-known-gap",
             )
         ]
 
@@ -143,11 +119,7 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
             select
                 check_id,
                 missing_count,
-                extra_count,
-                expected_missing_count,
-                unexpected_missing_count,
-                expected_extra_count,
-                unexpected_extra_count
+                extra_count
             from run_check_summaries
             where run_id = ?
             order by check_id
@@ -155,8 +127,8 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
             [run_result.run_id],
         ).fetchall()
         assert summary_rows == [
-            ("en:product-name-to-be-completed", 0, 0, 0, 0, 0, 0),
-            ("en:quantity-not-recognized", 1, 0, 1, 0, 0, 0),
+            ("en:product-name-to-be-completed", 0, 0),
+            ("en:quantity-not-recognized", 1, 0),
         ]
     finally:
         connection.close()
@@ -176,7 +148,6 @@ def test_duckdb_run_recorder_marks_failed_runs_when_execution_aborts(
             path=parity_store_path,
             run_spec=run_spec,
             prepared_run=prepared_run,
-            expected_differences=ExpectedDifferencesRegistry(),
         ):
             raise RuntimeError("boom")
 
@@ -191,17 +162,12 @@ def test_duckdb_run_recorder_marks_failed_runs_when_execution_aborts(
         connection.close()
 
 
-def test_load_recorded_run_snapshot_reads_store_backed_governance(
+def test_load_recorded_run_snapshot_reads_store_backed_metadata(
     tmp_path: Path,
     run_result_factory: Callable[[], RunResult],
 ) -> None:
     run_result = run_result_factory()
-    registry = _expected_gap_registry()
-    parity_store_path = _record_completed_run(
-        tmp_path,
-        run_result=run_result,
-        expected_differences=registry,
-    )
+    parity_store_path = _record_completed_run(tmp_path, run_result=run_result)
 
     snapshot = load_recorded_run_snapshot(parity_store_path, run_id=run_result.run_id)
 
@@ -209,9 +175,6 @@ def test_load_recorded_run_snapshot_reads_store_backed_governance(
     assert snapshot.dataset_profile is not None
     assert snapshot.dataset_profile.name == "validation"
     assert snapshot.dataset_profile.selection_kind == "stable_sample"
-    assert snapshot.expected_differences_rule_count == 1
-    assert snapshot.expected_mismatch_total == 1
-    assert snapshot.unexpected_mismatch_total == 0
     assert snapshot.active_migration_family_count == 1
     assert snapshot.assessed_migration_family_count == 1
     assert snapshot.unmatched_migration_check_count == 1
@@ -221,12 +184,6 @@ def test_load_recorded_run_snapshot_reads_store_backed_governance(
         ].target_impl
         == "dsl"
     )
-    assert (
-        snapshot.check_governance_by_id[
-            "en:quantity-not-recognized"
-        ].expected_missing_count
-        == 1
-    )
 
 
 def test_render_report_from_store_uses_store_backed_snapshot(
@@ -235,12 +192,7 @@ def test_render_report_from_store_uses_store_backed_snapshot(
     legacy_source_root_factory: Callable[[Path], Path],
 ) -> None:
     run_result = run_result_factory()
-    registry = _expected_gap_registry()
-    parity_store_path = _record_completed_run(
-        tmp_path,
-        run_result=run_result,
-        expected_differences=registry,
-    )
+    parity_store_path = _record_completed_run(tmp_path, run_result=run_result)
     output_dir = tmp_path / "site"
 
     render_report_from_store(
@@ -253,10 +205,45 @@ def test_render_report_from_store_uses_store_backed_snapshot(
     html = (output_dir / "index.html").read_text(encoding="utf-8")
     run_artifact = json.loads((output_dir / "run.json").read_text(encoding="utf-8"))
 
-    assert "Policy Rules" in html
-    assert "Expected differences: 1 missing, 0 extra." in html
+    assert "Policy Rules" not in html
+    assert "Expected differences:" not in html
+    assert "Unexpected differences:" not in html
     assert run_artifact["run_id"] == run_result.run_id
     assert run_artifact["source_snapshot_id"] == run_result.source_snapshot_id
+
+
+def test_duckdb_run_recorder_rejects_legacy_store_schema(
+    tmp_path: Path,
+    run_result_factory: Callable[[], RunResult],
+) -> None:
+    parity_store_path = tmp_path / "parity-store.duckdb"
+    connection = duckdb.connect(str(parity_store_path))
+    try:
+        connection.execute(
+            """
+            create table parity_store_meta (
+                schema_version integer not null,
+                created_at_utc varchar not null
+            )
+            """
+        )
+        connection.execute(
+            "insert into parity_store_meta values (2, '2026-01-01T00:00:00Z')"
+        )
+    finally:
+        connection.close()
+
+    run_result = run_result_factory()
+    with pytest.raises(
+        RuntimeError,
+        match="Delete the parity store file and rerun",
+    ):
+        with DuckDBRunRecorder(
+            path=parity_store_path,
+            run_spec=_run_spec_for_store(tmp_path, parity_store_path=parity_store_path),
+            prepared_run=_prepared_run_for_result(run_result, tmp_path),
+        ):
+            pass
 
 
 def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedRun:
@@ -334,7 +321,6 @@ def _run_spec_for_store(
     tmp_path: Path,
     *,
     parity_store_path: Path,
-    expected_differences_path: Path | None = None,
 ) -> RunSpec:
     """Return a stable run spec for store-level tests."""
     return RunSpec(
@@ -347,7 +333,6 @@ def _run_spec_for_store(
         reference_result_cache_dir=tmp_path / "reference-cache",
         reference_result_cache_salt="salt",
         parity_store_path=parity_store_path,
-        expected_differences_path=expected_differences_path,
     )
 
 
@@ -355,20 +340,14 @@ def _record_completed_run(
     tmp_path: Path,
     *,
     run_result: RunResult,
-    expected_differences: ExpectedDifferencesRegistry,
 ) -> Path:
     """Record one completed run in the store and return the store path."""
     parity_store_path = tmp_path / "parity-store.duckdb"
-    run_spec = _run_spec_for_store(
-        tmp_path,
-        parity_store_path=parity_store_path,
-        expected_differences_path=expected_differences.source_path,
-    )
+    run_spec = _run_spec_for_store(tmp_path, parity_store_path=parity_store_path)
     with DuckDBRunRecorder(
         path=parity_store_path,
         run_spec=run_spec,
         prepared_run=_prepared_run_for_result(run_result, tmp_path),
-        expected_differences=expected_differences,
     ) as recorder:
         recorder.record_batch(
             BatchExecutionResult(
@@ -384,17 +363,3 @@ def _record_completed_run(
         )
         recorder.record_final_result(run_result)
     return parity_store_path
-
-
-def _expected_gap_registry() -> ExpectedDifferencesRegistry:
-    """Return one registry that marks the quantity gap as expected."""
-    return ExpectedDifferencesRegistry(
-        rules=(
-            ExpectedDifferenceRule(
-                id="quantity-known-gap",
-                justification="Known mismatch under review.",
-                check_ids=("en:quantity-not-recognized",),
-                mismatch_kinds=("missing",),
-            ),
-        )
-    )

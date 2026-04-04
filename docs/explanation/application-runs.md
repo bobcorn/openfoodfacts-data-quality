@@ -12,7 +12,6 @@ flowchart TB
     subgraph INPUT["Input"]
         A["DuckDB source snapshot"]
         B["Optional migration metadata"]
-        C["Optional expected differences registry"]
     end
 
     subgraph PREP["Run preparation"]
@@ -62,7 +61,6 @@ flowchart TB
 
     A --> D
     B --> F
-    C --> Q
     F --> H
     H --> I
     H --> L
@@ -108,8 +106,7 @@ The run layer resolves:
   namespace when selected checks need reference data
 - the optional migration catalog and the active migration family coverage for
   the selected checks
-- the optional registry of expected differences and
-  [parity store](../reference/run-configuration-and-artifacts.md#parity-store)
+- [parity store](../reference/run-configuration-and-artifacts.md#parity-store)
   settings
 
 The
@@ -120,8 +117,7 @@ runs.
 
 Optional migration metadata comes from `MIGRATION_INVENTORY_PATH` and
 `MIGRATION_ESTIMATION_SHEET_PATH`. Review settings here means the parity store
-path and the optional expected differences registry from
-`PARITY_EXPECTED_DIFFERENCES_PATH`.
+path.
 
 ## Source batches
 
@@ -218,7 +214,7 @@ runner observes migrated findings on the selected runtime surface. The parity
 runner turns the two finding streams into the batch result that the accumulator
 merges into the final run output.
 
-## Strict comparison and governance
+## Strict comparison and persistence
 
 The comparison layer normalizes reference and migrated outputs into
 [observed findings](../reference/data-contracts.md#observedfinding) and
@@ -234,11 +230,9 @@ findings plus counts to the run result with
 
 When the run uses a
 [parity store](../reference/run-configuration-and-artifacts.md#parity-store),
-the store also records each concrete missing or extra finding. If an
-[expected differences registry](reference-data-and-parity.md#expected-differences-policy)
-is active, the recorder classifies those persisted mismatches as expected or
-unexpected for review. That governance layer does not change strict comparison
-semantics or turn failed checks into passing checks.
+the store also records each concrete missing or extra finding. That stored
+review data does not change strict comparison semantics or turn failed checks
+into passing checks.
 
 ## Run result and outputs
 
@@ -277,9 +271,6 @@ flowchart TB
     C -- "Parity store enabled" --> E --> G --> H
 ```
 
-Governance counts for expected differences appear only on the path that reads
-from the parity store.
-
 The completed run produces:
 
 - a static HTML report
@@ -292,8 +283,7 @@ The parity store, when enabled, also persists:
 
 - run configuration and status
 - batch telemetry
-- concrete mismatches with optional expected-difference rule ids
-- governance summaries for each check
+- concrete mismatches
 - dataset profile metadata
 - active migration family metadata
 - a serialized copy of `run.json`

@@ -68,7 +68,6 @@ stored review data, and report generation.
   enriched snapshots
 - [RunResult](../reference/data-contracts.md#runresult) accumulation
 - migration catalog loading for planning metadata and profile filtering
-- rule loading for expected differences
 - [strict comparison](reference-data-and-parity.md#strict-comparison)
 - parity store persistence for run telemetry, mismatches, and review metadata
 - [report rendering](../reference/report-artifacts.md#html-report), snippet
@@ -94,8 +93,7 @@ stored review data, and report generation.
   pool that drives it.
 - `app/migration/`: Migration family catalog loading and planning metadata used
   by run selection and review.
-- `app/parity/`: Strict comparison logic plus the expected differences policy
-  parsing.
+- `app/parity/`: Strict comparison logic.
 - `app/storage/`: Application-owned persistence for recorded runs and parity
   review state.
 - `app/report/`: Static report rendering, JSON download bundling, and snippet
