@@ -44,22 +44,35 @@ flowchart TB
 
 ### RawProductRow
 
-`RawProductRow` is the input contract for raw runs loaded from a DuckDB
-[source snapshot](glossary.md#source-snapshot).
+`RawProductRow` is the normalized internal raw runtime contract shared by the
+application runtime, the shared library runtime, and the legacy backend input
+projection.
 
-Use this contract when the selected checks can run from public product rows
-alone.
+Library callers do not need to build this shape themselves. They pass public
+Open Food Facts source rows and the shared source adapter normalizes those rows
+before the runtime uses them.
+
+The shared adapter supports the real public row shapes used by:
+
+- the flat public CSV export
+- public Parquet snapshots
+- DuckDB databases created from those public snapshots
 
 Reference points:
 
 - Canonical model: `src/openfoodfacts_data_quality/contracts/raw.py`
-- Column anchor: `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`
+- Shared source adapter: `src/openfoodfacts_data_quality/source_rows.py`
 - Related runtime surface: `raw_products`
 
 Checks that only need public product fields can stay on this surface and avoid
 enriched snapshots. In application runs, checks on this surface can still need
 the [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 when strict comparison requires reference findings.
+
+Application runs do not read `RawProductRow` directly from DuckDB. The source
+reader validates a supported [source snapshot](glossary.md#source-snapshot)
+contract and projects each row into `RawProductRow` before the shared runtime
+uses it. Direct library callers go through the same normalization path.
 
 ### EnrichedSnapshotResult
 

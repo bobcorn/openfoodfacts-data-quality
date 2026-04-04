@@ -77,13 +77,15 @@ For the exact JSON and CSV contracts, see
 
 ## Fix DuckDB schema mismatches
 
-The source reader validates the `products` table against the explicit
-[RawProductRow](../reference/data-contracts.md#rawproductrow) contract.
+The source reader validates the `products` table against one supported
+application source snapshot contract and then projects each row into
+[RawProductRow](../reference/data-contracts.md#rawproductrow).
 
-If you see errors about missing columns, your snapshot does not match
-`openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`. Use the tracked
-sample, regenerate a compatible sample, or align the snapshot schema before you
-run the application.
+If you see errors about missing columns, your snapshot does not expose either
+the structured public Open Food Facts source snapshot subset used by the
+application or the supported flat public CSV export subset. Use a public Open
+Food Facts snapshot, regenerate a compatible source sample, or switch back to
+the tracked sample before you run the application.
 
 ## Fix a missing report at the preview URL
 

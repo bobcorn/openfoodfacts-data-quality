@@ -1,13 +1,15 @@
-"""Minimal raw surface example on the bundled CSV sample."""
+"""Minimal raw surface example on the bundled public CSV sample."""
 
 import csv
 from pprint import pprint
 
 from openfoodfacts_data_quality import raw
 
-# Load the bundled CSV sample with the standard library.
+csv.field_size_limit(10_000_000)
+
+# Load the bundled tab-separated public CSV sample with the standard library.
 with open("examples/data/products.csv", encoding="utf-8", newline="") as handle:
-    rows = list(csv.DictReader(handle))
+    rows = list(csv.DictReader(handle, delimiter="\t"))
 
 # Inspect a small, friendly subset of checks before running them.
 checks = raw.list_checks(

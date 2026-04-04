@@ -124,7 +124,7 @@ class RawProductRow(BaseModel):
     zinc_100g: RawNumericValue = None
 
     def as_mapping(self) -> dict[str, object]:
-        """Expose the stable raw row mapping shape with OFF column names."""
+        """Expose the stable raw row mapping shape with Open Food Facts column names."""
         values = self.model_dump(mode="python")
         return {
             _raw_row_field_to_column(field_name): value
