@@ -105,6 +105,9 @@ findings = raw.run_checks(
 )
 ```
 
+Pass rows from Open Food Facts public source snapshots. The library normalizes
+those rows internally before the shared runtime builds check contexts.
+
 Use `enriched` when a check depends on stable enriched data. In application
 runs, that data usually comes from the
 [reference path](docs/explanation/reference-data-and-parity.md#why-the-reference-path-exists).

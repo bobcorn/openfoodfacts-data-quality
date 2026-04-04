@@ -62,7 +62,7 @@ def test_raw_surface_run_checks_executes_raw_products_checks_only() -> None:
         [
             {
                 "code": "123",
-                "product_name": "Example",
+                "product_name": [{"lang": "main", "text": "Example"}],
                 "quantity": "500 g",
                 "product_quantity": "100",
                 "serving_size": "150 g",
@@ -71,20 +71,41 @@ def test_raw_surface_run_checks_executes_raw_products_checks_only() -> None:
                 "categories": None,
                 "labels": None,
                 "emb_codes": None,
-                "ingredients_text": None,
+                "ingredients_text": [],
                 "ingredients_tags": None,
                 "nutriscore_grade": None,
                 "nutriscore_score": None,
                 "categories_tags": None,
                 "labels_tags": None,
                 "countries_tags": None,
-                "fat_100g": None,
-                "saturated-fat_100g": None,
-                "trans-fat_100g": None,
-                "sugars_100g": None,
-                "fiber_100g": None,
-                "omega-3-fat_100g": None,
-                "energy-kcal_100g": None,
+                "nutriments": [],
+            }
+        ],
+        check_ids={"en:serving-quantity-over-product-quantity"},
+    )
+
+    assert [
+        (finding.product_id, finding.check_id, finding.severity) for finding in findings
+    ] == [("123", "en:serving-quantity-over-product-quantity", "warning")]
+
+
+def test_raw_surface_run_checks_accepts_public_csv_export_rows() -> None:
+    findings = raw.run_checks(
+        [
+            {
+                "code": "123",
+                "product_name": "Example",
+                "quantity": "500 g",
+                "product_quantity": "100",
+                "serving_size": "150 g",
+                "serving_quantity": "150",
+                "ingredients_text": "Sugar, salt",
+                "ingredients_tags": "en:sugar,en:salt",
+                "categories_tags": "en:dietary-supplements",
+                "labels_tags": "en:vegan",
+                "countries_tags": "en:canada",
+                "energy-kcal_100g": "123",
+                "fat_100g": "3.5",
             }
         ],
         check_ids={"en:serving-quantity-over-product-quantity"},

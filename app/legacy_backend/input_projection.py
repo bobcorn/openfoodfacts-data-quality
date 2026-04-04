@@ -10,16 +10,14 @@ from app.legacy_backend.contracts import (
     LegacyBackendInputNutrition,
     LegacyBackendInputPayload,
 )
-from openfoodfacts_data_quality.contracts.raw import (
-    RawProductRow,
-    validate_raw_product_row,
-)
+from openfoodfacts_data_quality.contracts.raw import RawProductRow
 from openfoodfacts_data_quality.raw_products import (
     build_input_sets,
     build_raw_classifier_fields,
     ingredient_tags_from_raw_row,
 )
 from openfoodfacts_data_quality.scalars import as_number
+from openfoodfacts_data_quality.source_rows import normalize_raw_input_row
 
 
 class LegacyBackendInputProduct(BaseModel, frozen=True, extra="forbid"):
@@ -38,7 +36,7 @@ class LegacyBackendInputProduct(BaseModel, frozen=True, extra="forbid"):
 def build_legacy_backend_input_products(
     rows: Sequence[RawProductRow | Mapping[str, object]],
 ) -> list[LegacyBackendInputProduct]:
-    """Convert raw OFF rows into backend input payloads."""
+    """Convert raw Open Food Facts rows into backend input payloads."""
     return [_legacy_backend_input_product(raw_row) for raw_row in rows]
 
 
@@ -56,7 +54,7 @@ def _legacy_backend_input_product(
 def project_legacy_backend_input_product(
     row: RawProductRow | Mapping[str, object],
 ) -> LegacyBackendInputPayload:
-    """Project a raw OFF row into the explicit backend input contract."""
+    """Project a raw Open Food Facts row into the explicit backend input contract."""
     raw_row = _validated_raw_row(row)
     ingredient_tags = ingredient_tags_from_raw_row(raw_row)
     classifier_fields = build_raw_classifier_fields(raw_row)
@@ -89,9 +87,7 @@ def _validated_raw_row(
     row: RawProductRow | Mapping[str, object],
 ) -> RawProductRow:
     """Return one validated raw row contract object for adapter usage."""
-    if isinstance(row, RawProductRow):
-        return row
-    return validate_raw_product_row(dict(row))
+    return normalize_raw_input_row(row)
 
 
 def _optional_text(value: object) -> str | None:

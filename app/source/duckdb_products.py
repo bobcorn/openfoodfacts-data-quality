@@ -8,11 +8,13 @@ from typing import TYPE_CHECKING
 import duckdb
 
 from app.source.datasets import SourceSelection
-from openfoodfacts_data_quality.contracts.raw import (
-    RawProductRow,
-    validate_raw_product_row,
+from openfoodfacts_data_quality.contracts.raw import RawProductRow
+from openfoodfacts_data_quality.source_rows import (
+    PUBLIC_CSV_EXPORT_CONTRACT,
+    PUBLIC_SOURCE_SNAPSHOT_CONTRACT,
+    SUPPORTED_SOURCE_CONTRACTS,
+    SupportedSourceContract,
 )
-from openfoodfacts_data_quality.raw_products import RAW_INPUT_COLUMNS
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -82,7 +84,7 @@ def count_source_rows(
     """Return the number of products stored in the source DuckDB."""
     connection = duckdb.connect(str(db_path), read_only=True)
     try:
-        _require_source_columns(connection)
+        _require_supported_source_contract(connection)
         query, parameters = _source_query(
             selection=selection,
             select_list="count(*)",
@@ -110,9 +112,9 @@ def iter_source_batches(
 
     connection = duckdb.connect(str(db_path), read_only=True)
     try:
-        _require_source_columns(connection)
+        source_contract = _require_supported_source_contract(connection)
         select_list = ", ".join(
-            _quote_identifier(column) for column in RAW_INPUT_COLUMNS
+            _quote_identifier(column) for column in source_contract.required_columns
         )
         query, parameters = _source_query(
             selection=selection,
@@ -126,7 +128,7 @@ def iter_source_batches(
             if not batch_rows:
                 break
             yield [
-                validate_raw_product_row(dict(zip(columns, row, strict=False)))
+                source_contract.normalize_row(dict(zip(columns, row, strict=False)))
                 for row in batch_rows
             ]
     finally:
@@ -184,22 +186,34 @@ def _source_query(
     return query, list(selection.codes)
 
 
-def _require_source_columns(connection: duckdb.DuckDBPyConnection) -> None:
-    """Raise a clear error when the local DuckDB snapshot does not match the source contract."""
-    available_columns = {
+def _require_supported_source_contract(
+    connection: duckdb.DuckDBPyConnection,
+) -> SupportedSourceContract:
+    """Return the matching source contract or raise a clear error."""
+    available_columns = _available_source_columns(connection)
+    for source_contract in SUPPORTED_SOURCE_CONTRACTS:
+        if not source_contract.missing_columns(available_columns):
+            return source_contract
+
+    public_missing_csv = ", ".join(
+        PUBLIC_SOURCE_SNAPSHOT_CONTRACT.missing_columns(available_columns)
+    )
+    csv_missing_csv = ", ".join(
+        PUBLIC_CSV_EXPORT_CONTRACT.missing_columns(available_columns)
+    )
+    raise ValueError(
+        "Source DuckDB does not satisfy any supported application source contract. "
+        f"Missing public snapshot columns: {public_missing_csv}. "
+        f"Missing public CSV export columns: {csv_missing_csv}. "
+        "Use a public Open Food Facts source snapshot or a compatible public CSV export subset."
+    )
+
+
+def _available_source_columns(
+    connection: duckdb.DuckDBPyConnection,
+) -> set[str]:
+    """Return the products table columns exposed by one source DuckDB."""
+    return {
         row[0]
         for row in connection.execute("describe select * from products").fetchall()
     }
-    missing_columns = [
-        column for column in RAW_INPUT_COLUMNS if column not in available_columns
-    ]
-    if not missing_columns:
-        return
-
-    missing_csv = ", ".join(missing_columns)
-    raise ValueError(
-        "Source DuckDB does not satisfy the explicit application source contract. "
-        f"Missing columns: {missing_csv}. "
-        "Regenerate the sample DuckDB or align the input snapshot schema with "
-        "openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS."
-    )

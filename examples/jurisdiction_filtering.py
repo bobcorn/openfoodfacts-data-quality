@@ -4,8 +4,11 @@ import csv
 
 from openfoodfacts_data_quality import raw
 
+csv.field_size_limit(10_000_000)
+
+# Load the bundled tab-separated public CSV sample.
 with open("examples/data/products.csv", encoding="utf-8", newline="") as handle:
-    rows = list(csv.DictReader(handle))
+    rows = list(csv.DictReader(handle, delimiter="\t"))
 
 # Without a jurisdiction filter, the raw surface exposes every shipped jurisdiction.
 all_checks = raw.list_checks(

@@ -8,7 +8,10 @@ the parity store and the cache.
 ## Source and execution settings
 
 - `SOURCE_SNAPSHOT_PATH`: DuckDB [source snapshot](glossary.md#source-snapshot).
-  This is required for local runtime runs.
+  This is required for local runtime runs. It should point to a public Open Food Facts
+  source snapshot, ideally one imported from the public Parquet export, or a
+  compatible application source sample. The application also supports a
+  DuckDB `products` table shaped like the flat public CSV export subset.
 - `SOURCE_SNAPSHOT_ID`: Optional explicit source snapshot id. When unset, the
   runtime uses a sidecar manifest or hashes the DuckDB file.
 - `PORT`: Preview port when you run `app.main` directly. In the default Docker

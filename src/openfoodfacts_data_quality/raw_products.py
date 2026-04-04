@@ -7,13 +7,13 @@ from openfoodfacts_data_quality.contracts.raw import (
     RAW_NUTRIMENT_COLUMNS,
     RAW_PRODUCT_COLUMNS,
     RawProductRow,
-    validate_raw_product_row,
 )
 from openfoodfacts_data_quality.contracts.structured import (
     NutrientValue,
     NutritionInputSet,
 )
 from openfoodfacts_data_quality.scalars import as_number
+from openfoodfacts_data_quality.source_rows import normalize_raw_input_row
 from openfoodfacts_data_quality.structured_values import object_list_or_empty
 
 
@@ -104,9 +104,7 @@ def _lowercased_optional_text(value: object) -> str | None:
 
 def _validated_raw_row(row: RawProductRow | Mapping[str, object]) -> RawProductRow:
     """Return one validated raw row contract object from any supported caller shape."""
-    if isinstance(row, RawProductRow):
-        return row
-    return validate_raw_product_row(dict(row))
+    return normalize_raw_input_row(row)
 
 
 __all__ = [
@@ -118,5 +116,4 @@ __all__ = [
     "build_raw_classifier_fields",
     "ingredient_tags_from_raw_row",
     "split_tags",
-    "validate_raw_product_row",
 ]

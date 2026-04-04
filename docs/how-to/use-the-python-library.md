@@ -21,9 +21,22 @@ the [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split).
 Use `raw` when the checks you care about can run from public product rows
 alone.
 
-Those rows should match the explicit
-[RawProductRow](../reference/data-contracts.md#rawproductrow) contract anchored
-by `openfoodfacts_data_quality.raw_products.RAW_INPUT_COLUMNS`.
+Pass rows from Open Food Facts public source snapshots. The library normalizes
+those rows into its internal raw runtime contract before it builds check
+contexts.
+
+That means callers can use rows loaded from:
+
+- public Parquet snapshots
+- DuckDB databases created from those public snapshots
+- the public CSV export
+
+The public CSV download is tab-separated even though it uses a `.csv` file
+name.
+
+The raw surface accepts the real public row shapes for those sources. It
+handles the flat CSV export and the structured Parquet or DuckDB snapshot
+shape internally.
 
 ```python
 from openfoodfacts_data_quality import raw
