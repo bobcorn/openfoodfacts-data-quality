@@ -2,6 +2,11 @@
 
 This repository is a framework prototype for migrating Open Food Facts data quality checks from Perl to Python with parity validation against the legacy backend.
 
+> [!NOTE]
+> This prototype is still taking shape through active exploration.
+> The current architecture and design decisions are not final and may change substantially as it is consolidated.
+> Check back later to follow the project as it develops.
+
 ## Use the repository
 
 You can use the repository in two ways:
