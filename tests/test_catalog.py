@@ -33,13 +33,9 @@ def _selection_catalog(
     catalog_with_checks_factory: Callable[..., CheckCatalog],
 ) -> CheckCatalog:
     return catalog_with_checks_factory(
-        check_definition_factory(
-            global_check_id,
-            supported_input_surfaces=("raw_products",),
-        ),
+        check_definition_factory(global_check_id),
         check_definition_factory(
             "en:ca-runtime-check",
-            supported_input_surfaces=("raw_products",),
             parity_baseline="none",
             jurisdictions=("ca",),
         ),

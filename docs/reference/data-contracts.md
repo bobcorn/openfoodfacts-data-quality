@@ -15,68 +15,87 @@ flowchart TB
     end
 
     subgraph INPUTS["Input contracts"]
-        C["RawProductRow"]
-        D["EnrichedSnapshotResult"]
+        D["SourceProduct"]
+        E["EnrichedSnapshotRecord"]
+        L["ProductDocument"]
     end
 
     subgraph RT["Shared runtime"]
-        E["NormalizedContext"]
-        F["Finding"]
-        E --> F
+        F["CheckContext"]
+        G["Finding"]
+        F --> G
     end
 
     subgraph APP["Application contracts"]
-        G["ObservedFinding"]
-        H["RunCheckResult"]
-        I["RunResult"]
-        J["RecordedRunSnapshot"]
-        G --> H --> I --> J
+        H["ObservedFinding"]
+        I["RunCheckResult"]
+        J["RunResult"]
+        K["RecordedRunSnapshot"]
+        H --> I --> J --> K
     end
 
-    B --> D
-    C --> E
-    D --> E
-    B --> G
-    F --> G
+    D --> F
+    E --> F
+    L --> D
+    L -.-> B
+    B --> H
+    B --> F
+    G --> H
 ```
 
 ## Input contracts
 
-### RawProductRow
+### SourceProduct
 
-`RawProductRow` is the normalized internal raw runtime contract shared by the
-application runtime, the shared library runtime, and the legacy backend input
-projection.
+`SourceProduct` is the normalized source product contract used by the shared
+runtime and the public `checks` library API.
 
-Library callers do not need to build this shape themselves. They pass public
-Open Food Facts source rows and the shared source adapter normalizes those rows
-before the runtime uses them.
+Library callers pass rows to `off_data_quality.checks.run(...)`. It validates
+canonical rows, applies explicit column remapping when provided, normalizes the
+structured Open Food Facts product export shape when present, and then executes
+the checks.
 
-The shared adapter supports the real public row shapes used by:
-
-- the flat public CSV export
-- public Parquet snapshots
-- DuckDB databases created from those public snapshots
+The public `checks` API runs on one canonical contract. Its internal
+preparation step accepts only supported loaded row shapes and fails when the
+input is not supported.
 
 Reference points:
 
-- Canonical model: `src/openfoodfacts_data_quality/contracts/raw.py`
-- Shared source adapter: `src/openfoodfacts_data_quality/source_rows.py`
-- Related runtime surface: `raw_products`
+- Canonical model: `src/openfoodfacts_data_quality/contracts/source_products.py`
+- `checks` API: `src/off_data_quality/checks/__init__.py`
+- Related runtime provider: `source_products`
 
-Checks that only need public product fields can stay on this surface and avoid
-enriched snapshots. In application runs, checks on this surface can still need
+`off_data_quality` is the public import namespace. The shared implementation
+and contracts live under `openfoodfacts_data_quality/`.
+
+Checks that only need source product fields can stay on this provider and avoid
+enriched snapshots. In application runs, checks on this provider can still need
 the [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 when strict comparison requires reference findings.
 
-Application runs do not read `RawProductRow` directly from DuckDB. The source
-reader validates a supported [source snapshot](glossary.md#source-snapshot)
-contract and projects each row into `RawProductRow` before the shared runtime
-uses it. Direct library callers go through the same normalization path.
+Application runs load full product documents into the app-owned
+`ProductDocument` contract and project a `SourceProduct` view for the migrated
+runtime.
 
-### EnrichedSnapshotResult
+### ProductDocument
 
-`EnrichedSnapshotResult` is the stable library contract for enriched inputs.
+`ProductDocument` is the app-owned full product contract for parity runs. It is
+not part of the public library API.
+
+Application source adapters build `ProductDocument` values from JSONL source
+snapshots or DuckDB snapshots with a `products` table. The reference path sends
+that full document to the legacy backend. The migrated runtime receives a
+derived `SourceProduct` view from the same batch record.
+
+Reference point:
+
+- Contract: `app/source/models.py`
+- Application source adapters: `app/source/product_documents.py`
+
+### EnrichedSnapshotRecord
+
+`EnrichedSnapshotRecord` is the stable enriched-input contract owned by the
+shared runtime.
 
 It wraps:
 
@@ -86,43 +105,9 @@ It wraps:
 
 In [application runs](../explanation/application-runs.md), the legacy backend
 emits a versioned result envelope whose stable payload includes
-`ReferenceResult.enriched_snapshot`. The application projects that validated
-payload into `EnrichedSnapshotResult`.
-
-## Input surfaces
-
-[Input surfaces](../explanation/runtime-model.md#input-surfaces) describe two
-execution situations:
-
-- `raw_products`: The check can run from the public source snapshot alone.
-- `enriched_products`: The check depends on stable enriched data that must be
-  materialized or provided.
-
-The chosen surface changes:
-
-- which checks are eligible for a run
-- whether the
-  [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
-  must run
-- which normalized context fields are available
-
-The application also has
-[dataset profiles](run-configuration-and-artifacts.md#dataset-profiles), but
-those profiles change which rows are selected for one run, not the runtime
-contract itself.
-
-## Runtime contracts
-
-### NormalizedContext
-
-Checks do not consume raw rows or backend payloads directly. They consume
-`NormalizedContext`.
-
-`NormalizedContext` is the central shared runtime contract. It separates checks
-from source specific input structures. It gives raw and enriched runs one
-execution model. It also defines the dotted paths used by
-[DSL](../explanation/migrated-checks.md#definition-languages) and input surface
-inference.
+`ReferenceResult.enriched_snapshot`. The repository also keeps
+`off_data_quality.snapshots` reserved as the future public namespace for direct
+enrichment-driven library usage.
 
 ## Reference contracts
 
@@ -153,7 +138,47 @@ Fields:
 - `legacy_check_tags`
 
 This contract is owned by the Python runtime even when the legacy backend
-produces the payload.
+produces the payload. The application then derives:
+
+- `CheckContext` for `enriched_snapshots` migrated-check input
+- normalized reference findings for strict comparison
+
+## Context providers
+
+[Context providers](../explanation/runtime-model.md#context-providers) describe two
+execution situations:
+
+- `source_products`: The provider builds contexts from source products alone.
+- `enriched_snapshots`: The provider builds contexts from stable enriched data
+  that must be materialized or provided.
+
+The chosen provider changes:
+
+- which required context paths are available to checks
+- whether the
+  [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
+  must run
+- which check context fields are available
+
+The application also has
+[dataset profiles](run-configuration-and-artifacts.md#dataset-profiles), but
+those profiles change which rows are selected for one run, not the runtime
+contract itself.
+
+## Runtime contracts
+
+### CheckContext
+
+Checks do not consume source products or backend payloads directly. They consume
+`CheckContext`.
+
+`CheckContext` is the central shared runtime contract. It separates checks
+from source specific input structures. Source product and enriched snapshot
+providers share one execution model. It also defines the dotted paths used by
+[DSL](../explanation/migrated-checks.md#definition-languages) and capability
+resolution.
+
+## Context providers
 
 ## Output and review contracts
 
@@ -217,7 +242,7 @@ projection, DSL validation,
 ## See also
 
 - [About the runtime model](../explanation/runtime-model.md)
-- [About reference data and parity](../explanation/reference-data-and-parity.md)
+- [About reference and parity](../explanation/reference-data-and-parity.md)
 - [Report artifacts](report-artifacts.md)
 
 [Back to documentation index](../index.md)

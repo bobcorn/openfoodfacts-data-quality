@@ -1,32 +1,32 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, cast
+from typing import Any
 
 import pytest
-from app.legacy_backend.input_projection import (
-    build_legacy_backend_input_products,
-)
+from app.legacy_backend.input_payloads import build_legacy_backend_input_payloads
 from app.reference.models import (
     ReferenceResult,
-    enriched_snapshots_from_reference_results,
+    reference_check_contexts_from_reference_results,
 )
 from app.run.context_builders import check_context_builder_for
+from app.source.models import ProductDocument
+from app.source.product_documents import validate_product_document
 
-from openfoodfacts_data_quality.context.builder import (
-    build_enriched_contexts,
-    build_raw_contexts,
+from openfoodfacts_data_quality.context.builder import build_source_product_contexts
+from openfoodfacts_data_quality.context.providers import ContextProviderId
+from openfoodfacts_data_quality.contracts.source_products import (
+    SourceProduct,
+    validate_source_product,
 )
-from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
-from openfoodfacts_data_quality.contracts.raw import (
-    RawProductRow,
-    validate_raw_product_row,
+from openfoodfacts_data_quality.source_product_preparation import (
+    prepare_source_products,
 )
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
 
-def _raw_product_row(**overrides: Any) -> RawProductRow:
+def _source_product(**overrides: Any) -> SourceProduct:
     row = {
         "code": "123",
         "created_t": "123",
@@ -56,14 +56,29 @@ def _raw_product_row(**overrides: Any) -> RawProductRow:
         "no_nutrition_data": "",
     }
     row.update(overrides)
-    return validate_raw_product_row(row)
+    return validate_source_product(row)
+
+
+def _product_document(**overrides: Any) -> ProductDocument:
+    document = {
+        "code": "123",
+        "created_t": "123",
+        "product_name": "Example",
+        "lang": "fr",
+        "countries_tags": ["en:france", "en:canada"],
+        "nutriments": {"energy-kcal_100g": 123.0, "fat_100g": 3.5},
+        "empty_array": [],
+        "false_flag": False,
+    }
+    document.update(overrides)
+    return validate_product_document(document)
 
 
 def _mismatched_row_and_backend_result(
     reference_result_factory: ReferenceResultFactory,
-) -> tuple[RawProductRow, ReferenceResult]:
-    # The raw surface owns the canonical row contract even in parity side tests.
-    row = _raw_product_row(product_name="Raw name")
+) -> tuple[SourceProduct, ReferenceResult]:
+    # The source products provider owns the canonical row contract even in parity side tests.
+    row = _source_product(product_name="Source name")
     reference_result = reference_result_factory(
         code="123",
         enriched_snapshot={
@@ -77,45 +92,25 @@ def _mismatched_row_and_backend_result(
     return row, reference_result
 
 
-def test_build_legacy_backend_input_products_projects_backend_input_shape() -> None:
-    rows = [_raw_product_row()]
+def test_build_legacy_backend_input_payloads_serializes_full_product_document() -> None:
+    product_documents = [_product_document()]
 
-    backend_input_product = build_legacy_backend_input_products(rows)[0]
+    backend_input_payload = build_legacy_backend_input_payloads(product_documents)[0]
 
-    assert backend_input_product.code == "123"
-    assert "lang" not in backend_input_product.projected_input
-    assert backend_input_product.projected_input["created_t"] == 123.0
-    assert backend_input_product.projected_input["product_quantity"] == 500.0
-    assert backend_input_product.projected_input["serving_quantity"] == 50.0
-    assert backend_input_product.projected_input["labels_tags"] == [
-        "en:vegan",
-        "en:nutriscore-grade-a",
-    ]
-    assert backend_input_product.projected_input["countries_tags"] == [
+    assert backend_input_payload["code"] == "123"
+    assert backend_input_payload["lang"] == "fr"
+    assert backend_input_payload["countries_tags"] == [
         "en:france",
         "en:canada",
     ]
-    assert "lc" not in backend_input_product.projected_input
-    assert "product_type" not in backend_input_product.projected_input
-    assert "nutriscore_grade_producer" not in backend_input_product.projected_input
-    assert backend_input_product.projected_input["ingredients"] == [
-        {"id": "en:sugar"},
-        {"id": "en:salt"},
-    ]
-    nutrition = cast(
-        dict[str, object],
-        backend_input_product.projected_input["nutrition"],
-    )
-    input_sets = cast(list[dict[str, object]], nutrition["input_sets"])
-    nutrients = cast(dict[str, dict[str, float]], input_sets[0]["nutrients"])
-    assert nutrients["energy-kcal"]["value"] == 123.0
-    assert nutrients["fat"]["value"] == 3.5
+    assert backend_input_payload["empty_array"] == []
+    assert backend_input_payload["false_flag"] is False
 
 
-def test_build_raw_contexts_uses_raw_product_rows() -> None:
-    rows = [_raw_product_row(no_nutrition_data=None)]
+def test_build_source_product_contexts_uses_source_products() -> None:
+    rows = [_source_product(no_nutrition_data=None)]
 
-    context = build_raw_contexts(rows)[0]
+    context = build_source_product_contexts(rows)[0]
 
     assert context.code == "123"
     assert context.product.lang is None
@@ -140,29 +135,28 @@ def test_build_raw_contexts_uses_raw_product_rows() -> None:
     }
 
 
-def test_build_raw_contexts_normalizes_public_source_rows() -> None:
-    context = build_raw_contexts(
+def test_build_source_product_contexts_accepts_prepared_source_products() -> None:
+    prepared_rows = prepare_source_products(
         [
             {
                 "code": "123",
                 "created_t": 123,
-                "product_name": [{"lang": "main", "text": "Example"}],
+                "product_name": "Example",
                 "quantity": "500 g",
                 "product_quantity": "500",
                 "serving_size": "50 g",
                 "serving_quantity": "50",
-                "ingredients_text": [{"lang": "main", "text": "Sugar, salt"}],
+                "ingredients_text": "Sugar, salt",
                 "ingredients_tags": ["en:sugar", "en:salt"],
                 "labels_tags": ["en:vegan", "en:nutriscore-grade-a"],
                 "categories_tags": ["en:supplements", "en:dietary-supplements"],
                 "countries_tags": ["en:france", "en:canada"],
-                "nutriments": [
-                    {"name": "energy-kcal", "100g": 123.0},
-                    {"name": "fat", "100g": 3.5},
-                ],
+                "energy-kcal_100g": 123.0,
+                "fat_100g": 3.5,
             }
         ]
-    )[0]
+    )
+    context = build_source_product_contexts(prepared_rows)[0]
 
     assert context.code == "123"
     assert context.product.product_name == "Example"
@@ -174,7 +168,7 @@ def test_build_raw_contexts_normalizes_public_source_rows() -> None:
     }
 
 
-def test_build_enriched_contexts_uses_backend_enriched_snapshot(
+def test_build_enriched_snapshot_contexts_uses_backend_enriched_snapshot(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
     reference_result = reference_result_factory(
@@ -221,9 +215,7 @@ def test_build_enriched_contexts_uses_backend_enriched_snapshot(
         },
     )
 
-    context = build_enriched_contexts(
-        enriched_snapshots_from_reference_results([reference_result])
-    )[0]
+    context = reference_check_contexts_from_reference_results([reference_result])[0]
 
     assert context.product.product_name == "Prepared name"
     assert context.product.quantity == "Prepared quantity"
@@ -256,7 +248,7 @@ def test_build_enriched_contexts_uses_backend_enriched_snapshot(
     }
 
 
-def test_build_enriched_contexts_rejects_snapshot_code_mismatch(
+def test_build_enriched_snapshot_contexts_rejects_snapshot_code_mismatch(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
     with pytest.raises(
@@ -270,29 +262,31 @@ def test_build_enriched_contexts_rejects_snapshot_code_mismatch(
 
 
 @pytest.mark.parametrize(
-    ("input_surface", "expected_product_name", "expected_lang"),
+    ("context_provider", "expected_product_name", "expected_lang"),
     [
-        ("raw_products", "Raw name", None),
-        ("enriched_products", "Enriched name", "fr"),
+        ("source_products", "Source name", None),
+        ("enriched_snapshots", "Enriched name", "fr"),
     ],
 )
-def test_check_context_builder_uses_selected_input_surface(
-    input_surface: CheckInputSurface,
+def test_check_context_builder_uses_selected_context_provider(
+    context_provider: ContextProviderId,
     expected_product_name: str,
     expected_lang: str | None,
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
-    builder = check_context_builder_for(input_surface)
+    builder = check_context_builder_for(context_provider)
     row, reference_result = _mismatched_row_and_backend_result(reference_result_factory)
 
     context = builder.build_contexts(
         rows=[row],
-        enriched_snapshots=enriched_snapshots_from_reference_results(
+        reference_check_contexts=reference_check_contexts_from_reference_results(
             [reference_result]
         ),
     )[0]
 
-    assert builder.input_surface == input_surface
-    assert builder.requires_enriched_snapshots is (input_surface == "enriched_products")
+    assert builder.context_provider == context_provider
+    assert builder.requires_reference_check_contexts is (
+        context_provider == "enriched_snapshots"
+    )
     assert context.product.product_name == expected_product_name
     assert context.product.lang == expected_lang

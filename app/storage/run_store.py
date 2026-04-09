@@ -4,6 +4,7 @@ import json
 from contextlib import AbstractContextManager
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING
 
 import duckdb
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
     from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
 
-PARITY_STORE_SCHEMA_VERSION = 3
+PARITY_STORE_SCHEMA_VERSION = 1
 
 
 class NoopRunRecorder(AbstractContextManager["NoopRunRecorder"]):
@@ -103,6 +104,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
     def record_batch(self, batch_result: BatchExecutionResult) -> None:
         """Persist one merged batch and its concrete mismatches."""
         connection = self._require_connection()
+        started = perf_counter()
         mismatch_rows = self._build_mismatch_rows(batch_result)
         connection.execute("begin")
         try:
@@ -116,9 +118,16 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     backend_run_count,
                     reference_finding_count,
                     migrated_finding_count,
-                    elapsed_seconds
+                    elapsed_seconds,
+                    source_read_seconds,
+                    reference_load_seconds,
+                    reference_check_context_materialization_seconds,
+                    reference_finding_materialization_seconds,
+                    migrated_findings_seconds,
+                    parity_compare_seconds,
+                    record_batch_seconds
                 )
-                values (?, ?, ?, ?, ?, ?, ?, ?)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     self.prepared_run.run_id,
@@ -129,6 +138,13 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     batch_result.reference_finding_count,
                     batch_result.migrated_finding_count,
                     batch_result.elapsed_seconds,
+                    batch_result.stage_timings.source_read_seconds,
+                    batch_result.stage_timings.reference_load_seconds,
+                    batch_result.stage_timings.reference_check_context_materialization_seconds,
+                    batch_result.stage_timings.reference_finding_materialization_seconds,
+                    batch_result.stage_timings.migrated_findings_seconds,
+                    batch_result.stage_timings.parity_compare_seconds,
+                    0.0,
                 ],
             )
             if mismatch_rows:
@@ -152,6 +168,18 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         except Exception:
             connection.execute("rollback")
             raise
+        connection.execute(
+            """
+            update run_batches
+            set record_batch_seconds = ?
+            where run_id = ? and batch_index = ?
+            """,
+            [
+                perf_counter() - started,
+                self.prepared_run.run_id,
+                batch_result.batch_index,
+            ],
+        )
 
     def record_final_result(self, run_result: RunResult) -> None:
         """Persist the finalized per-check summary and mark the run complete."""
@@ -226,6 +254,38 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
     def _ensure_store_schema(self) -> None:
         """Create or validate the run store schema."""
         connection = self._require_connection()
+        self._create_store_metadata_schema()
+        rows = connection.execute(
+            "select schema_version from parity_store_meta"
+        ).fetchall()
+        if not rows:
+            self._recreate_store_schema()
+            return
+        if len(rows) != 1:
+            self._recreate_store_schema()
+            return
+        schema_version = int(rows[0][0])
+        if schema_version != PARITY_STORE_SCHEMA_VERSION:
+            self._recreate_store_schema()
+            return
+        if not self._matches_current_store_schema():
+            self._recreate_store_schema()
+            return
+        self._create_current_store_schema()
+
+    def _create_fresh_store_schema(self) -> None:
+        """Create the current schema and metadata row in an empty store."""
+        connection = self._require_connection()
+        self._create_store_metadata_schema()
+        self._create_current_store_schema()
+        connection.execute(
+            "insert into parity_store_meta values (?, ?)",
+            [PARITY_STORE_SCHEMA_VERSION, _utc_now()],
+        )
+
+    def _create_store_metadata_schema(self) -> None:
+        """Ensure the local store metadata table exists."""
+        connection = self._require_connection()
         connection.execute(
             """
             create table if not exists parity_store_meta (
@@ -234,29 +294,47 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
             )
             """
         )
-        rows = connection.execute(
-            "select schema_version from parity_store_meta"
-        ).fetchall()
-        if not rows:
-            self._create_current_store_schema()
-            connection.execute(
-                "insert into parity_store_meta values (?, ?)",
-                [PARITY_STORE_SCHEMA_VERSION, _utc_now()],
-            )
-            return
-        if len(rows) != 1:
-            raise RuntimeError(
-                "Run store metadata schema is incompatible with the current runtime. "
-                f"Expected schema version {PARITY_STORE_SCHEMA_VERSION}."
-            )
-        schema_version = int(rows[0][0])
-        if schema_version != PARITY_STORE_SCHEMA_VERSION:
-            raise RuntimeError(
-                f"Parity store {self.path} uses schema version {schema_version}, "
-                f"but the current runtime expects {PARITY_STORE_SCHEMA_VERSION}. "
-                "Delete the parity store file and rerun to create a fresh local store."
-            )
-        self._create_current_store_schema()
+
+    def _recreate_store_schema(self) -> None:
+        """Replace an obsolete local store with the current unreleased schema."""
+        connection = self._require_connection()
+        connection.close()
+        self._connection = None
+        self.path.unlink(missing_ok=True)
+        self._connection = duckdb.connect(str(self.path))
+        self._create_fresh_store_schema()
+
+    def _matches_current_store_schema(self) -> bool:
+        """Return whether the persisted store exposes the required current columns."""
+        return self._table_has_columns(
+            "runs",
+            (
+                "requires_reference_results",
+                "requires_reference_check_contexts",
+                "requires_reference_findings",
+            ),
+        ) and self._table_has_columns(
+            "run_batches",
+            (
+                "reference_load_seconds",
+                "reference_check_context_materialization_seconds",
+                "reference_finding_materialization_seconds",
+            ),
+        )
+
+    def _table_has_columns(
+        self,
+        table_name: str,
+        required_columns: tuple[str, ...],
+    ) -> bool:
+        """Return whether one persisted table exposes every required column."""
+        connection = self._require_connection()
+        try:
+            rows = connection.execute(f"pragma table_info('{table_name}')").fetchall()
+        except duckdb.Error:
+            return False
+        existing_columns = {str(row[1]) for row in rows}
+        return all(column in existing_columns for column in required_columns)
 
     def _create_current_store_schema(self) -> None:
         """Ensure that every current store table and index exists."""
@@ -270,10 +348,14 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 completed_at_utc varchar,
                 source_snapshot_id varchar not null,
                 product_count integer not null,
+                prepare_run_seconds double not null,
+                source_snapshot_id_seconds double not null,
+                dataset_profile_load_seconds double not null,
+                source_row_count_seconds double not null,
                 source_db_path varchar not null,
                 requested_check_profile_name varchar,
                 active_check_profile_name varchar not null,
-                check_input_surface varchar not null,
+                check_context_provider varchar not null,
                 batch_size integer not null,
                 batch_workers integer not null,
                 legacy_backend_workers integer not null,
@@ -281,7 +363,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 reference_result_cache_key varchar,
                 reference_result_cache_path varchar,
                 requires_reference_results boolean not null,
-                requires_enriched_snapshots boolean not null,
+                requires_reference_check_contexts boolean not null,
                 requires_reference_findings boolean not null,
                 python_check_count integer not null,
                 dsl_check_count integer not null,
@@ -318,6 +400,13 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 reference_finding_count integer not null,
                 migrated_finding_count integer not null,
                 elapsed_seconds double not null,
+                source_read_seconds double not null,
+                reference_load_seconds double not null,
+                reference_check_context_materialization_seconds double not null,
+                reference_finding_materialization_seconds double not null,
+                migrated_findings_seconds double not null,
+                parity_compare_seconds double not null,
+                record_batch_seconds double not null,
                 primary key (run_id, batch_index)
             )
             """
@@ -420,10 +509,14 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 completed_at_utc,
                 source_snapshot_id,
                 product_count,
+                prepare_run_seconds,
+                source_snapshot_id_seconds,
+                dataset_profile_load_seconds,
+                source_row_count_seconds,
                 source_db_path,
                 requested_check_profile_name,
                 active_check_profile_name,
-                check_input_surface,
+                check_context_provider,
                 batch_size,
                 batch_workers,
                 legacy_backend_workers,
@@ -431,7 +524,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 reference_result_cache_key,
                 reference_result_cache_path,
                 requires_reference_results,
-                requires_enriched_snapshots,
+                requires_reference_check_contexts,
                 requires_reference_findings,
                 python_check_count,
                 dsl_check_count,
@@ -455,7 +548,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 failure_type,
                 failure_message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 self.prepared_run.run_id,
@@ -464,10 +557,14 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 None,
                 self.prepared_run.source_snapshot_id,
                 self.prepared_run.product_count,
+                self.prepared_run.preparation_timings.prepare_run_seconds,
+                self.prepared_run.preparation_timings.source_snapshot_id_seconds,
+                self.prepared_run.preparation_timings.dataset_profile_load_seconds,
+                self.prepared_run.preparation_timings.source_row_count_seconds,
                 str(self.run_spec.db_path),
                 self.run_spec.check_profile_name,
                 self.prepared_run.active_check_profile.name,
-                self.prepared_run.active_check_profile.check_input_surface,
+                self.prepared_run.active_check_profile.check_context_provider,
                 self.run_spec.batch_size,
                 self.run_spec.batch_workers,
                 self.run_spec.legacy_backend_workers,
@@ -479,7 +576,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     else None
                 ),
                 self.prepared_run.requires_reference_results,
-                self.prepared_run.requires_enriched_snapshots,
+                self.prepared_run.requires_reference_check_contexts,
                 self.prepared_run.requires_reference_findings,
                 self.prepared_run.python_count,
                 self.prepared_run.dsl_count,

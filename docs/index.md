@@ -29,16 +29,16 @@ Use these pages based on what you need:
 - [About the project scope](explanation/project-scope.md): Scope, stable
   boundaries, limits, and the role of the legacy backend.
 - [About the runtime model](explanation/runtime-model.md): Shared runtime
-  boundaries, input surfaces, dataset selection, and `NormalizedContext`.
+  boundaries, context providers, and `CheckContext`.
 - [About migrated checks](explanation/migrated-checks.md): Packaged checks,
   definition languages, metadata, and application check profiles.
-- [About reference data and parity](explanation/reference-data-and-parity.md):
+- [About reference and parity](explanation/reference-data-and-parity.md):
   Reference loading, cache reuse, strict comparison, and mismatch governance.
 - [About the system architecture](explanation/system-architecture.md):
   Repository ownership boundaries and the split between `src/` and `app/`.
 - [About application runs](explanation/application-runs.md): The full run flow
-  from DuckDB input and dataset selection to parity store data and report
-  artifacts.
+  from source snapshot input and dataset selection to parity store data and
+  report artifacts.
 
 ## Reference
 

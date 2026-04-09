@@ -22,9 +22,9 @@ Check `SOURCE_SNAPSHOT_PATH` in `.env`.
 That path must exist on the host so Docker can mount it into the container. The
 sample `.env.example` points at the tracked
 [source snapshot](../reference/glossary.md#source-snapshot) under
-`examples/data/products.duckdb`.
+`examples/data/products.jsonl`.
 
-Local runtime runs do not use a bundled DuckDB path. If
+Local application runs do not use a bundled source snapshot path. If
 `SOURCE_SNAPSHOT_PATH` is unset or blank, startup fails and asks you to set it
 explicitly. Use the
 [demo image](../../README.md#run-the-demo) when you want the bundled sample
@@ -60,17 +60,17 @@ to disable that lookup for one run.
 For the exact JSON and CSV contracts, see
 [Migration metadata inputs](../reference/run-configuration-and-artifacts.md#migration-metadata-inputs).
 
-## Fix DuckDB schema mismatches
+## Fix source snapshot input errors
 
-The source reader validates the `products` table against one supported
-application source snapshot contract and then projects each row into
-[RawProductRow](../reference/data-contracts.md#rawproductrow).
+The application source reader accepts JSONL full product documents or a DuckDB
+snapshot with a `products` table and a `code` column. It builds
+[ProductDocument](../reference/data-contracts.md#productdocument) for the
+reference path and [SourceProduct](../reference/data-contracts.md#sourceproduct)
+for the migrated runtime.
 
-If you see errors about missing columns, your snapshot does not expose either
-the structured public Open Food Facts source snapshot subset used by the
-application or the supported flat public CSV export subset. Use a public Open
-Food Facts snapshot, regenerate a compatible source sample, or switch back to
-the tracked sample before you run the application.
+When the path suffix is not enough, the runtime uses deterministic content
+detection. If a DuckDB snapshot fails, make sure it exposes a `products`
+table with a nonblank `code` column.
 
 ## Fix a missing report at the preview URL
 
@@ -100,7 +100,7 @@ local run.
 
 ## Fix missing legacy backend modules
 
-Compared runs and enriched application runs depend on the
+Compared runs and enriched snapshot application runs depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists),
 which still needs the
 [legacy backend environment](../reference/legacy-backend-image.md) for cache

@@ -19,7 +19,7 @@ from app.artifacts import (
 )
 from app.migration.catalog import MigrationCatalog
 from app.reference.materializers import (
-    EnrichedSnapshotMaterializer,
+    ReferenceCheckContextMaterializer,
     ReferenceFindingMaterializer,
 )
 from app.reference.models import ReferenceResult
@@ -50,25 +50,31 @@ from app.source.datasets import (
     SourceSelection,
     default_dataset_profile,
 )
+from app.source.models import (
+    ProductDocument,
+    SourceBatchRecord,
+)
+from app.source.product_documents import source_batch_record_from_document
 
+from openfoodfacts_data_quality.context.providers import (
+    ContextProviderId,
+    context_availability_for_provider,
+)
+from openfoodfacts_data_quality.contracts.capabilities import (
+    resolve_check_capabilities,
+)
 from openfoodfacts_data_quality.contracts.checks import LEGACY_PARITY_BASELINES
-from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
 
     from openfoodfacts_data_quality.checks.catalog import CheckCatalog
-    from openfoodfacts_data_quality.contracts.checks import (
-        CheckInputSurface,
-        CheckParityBaseline,
-    )
-    from openfoodfacts_data_quality.contracts.context import NormalizedContext
+    from openfoodfacts_data_quality.contracts.checks import CheckParityBaseline
+    from openfoodfacts_data_quality.contracts.context import CheckContext
     from openfoodfacts_data_quality.contracts.findings import Finding
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
     from openfoodfacts_data_quality.contracts.run import RunResult
-
-from openfoodfacts_data_quality.contracts.raw import RawProductRow
+    from openfoodfacts_data_quality.contracts.source_products import SourceProduct
 
 
 class RunResultFactory(Protocol):
@@ -153,63 +159,66 @@ class _RecordingRunRecorder:
 
 
 class _UnusedCheckContextBuilder:
-    requires_enriched_snapshots = False
+    requires_reference_check_contexts = False
 
     @property
-    def input_surface(self) -> CheckInputSurface:
-        return "raw_products"
+    def context_provider(self) -> ContextProviderId:
+        return "source_products"
 
     def build_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> list[NormalizedContext]:
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> list[CheckContext]:
         raise AssertionError(
-            f"Unexpected context build for rows={rows!r}, enriched_snapshots={enriched_snapshots!r}"
+            "Unexpected context build for "
+            f"rows={rows!r}, reference_check_contexts={reference_check_contexts!r}"
         )
 
     def iter_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> Iterator[NormalizedContext]:
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> Iterator[CheckContext]:
         raise AssertionError(
-            f"Unexpected context iteration for rows={rows!r}, enriched_snapshots={enriched_snapshots!r}"
+            "Unexpected context iteration for "
+            f"rows={rows!r}, reference_check_contexts={reference_check_contexts!r}"
         )
 
 
 class _RecordingReferenceResultLoader:
     def __init__(self, reference_results: list[ReferenceResult]) -> None:
         self.reference_results = reference_results
-        self.calls: list[list[RawProductRow]] = []
+        self.calls: list[list[ProductDocument]] = []
 
     def load_many(
         self,
-        rows: list[RawProductRow],
+        product_documents: list[ProductDocument],
     ) -> ResolvedReferenceResults:
-        self.calls.append(rows)
+        self.calls.append(product_documents)
         return ResolvedReferenceResults(
             reference_results=self.reference_results,
             cache_hit_count=0,
-            backend_run_count=len(rows),
+            backend_run_count=len(product_documents),
         )
 
 
-def _raw_row(**overrides: object) -> RawProductRow:
-    return RawProductRow.model_validate({"code": "0000000000000", **overrides})
+def _source_record(**overrides: object) -> SourceBatchRecord:
+    document = {"code": "0000000000000", **overrides}
+    return source_batch_record_from_document(document)
 
 
 def _single_row_batch(
     *,
     batch_index: int = 1,
     code: str = "123",
-    product_name: str = "Raw name",
+    product_name: str = "Source name",
 ) -> ScheduledBatch:
     return ScheduledBatch(
         batch_index=batch_index,
-        rows=[_raw_row(code=code, product_name=product_name)],
+        records=[_source_record(code=code, product_name=product_name)],
     )
 
 
@@ -255,10 +264,10 @@ def _execute_batch_with_stubbed_runtime(
     execution: BatchExecutionContext,
     expected_run_result: RunResult,
     monkeypatch: pytest.MonkeyPatch,
-    observed_contexts: list[NormalizedContext] | None = None,
+    observed_contexts: list[CheckContext] | None = None,
 ) -> BatchExecutionResult:
     def fake_iter_check_findings_with_evaluators(
-        contexts: Sequence[NormalizedContext],
+        contexts: Sequence[CheckContext],
         *_: object,
         **__: object,
     ) -> Iterator[Finding]:
@@ -296,18 +305,18 @@ def _dummy_execution_context() -> BatchExecutionContext:
 
 def _execution_context(
     *,
-    input_surface: CheckInputSurface,
+    context_provider: ContextProviderId,
     reference_result_loader: _RecordingReferenceResultLoader | None,
     reference_observer: _RecordingReferenceObserver,
-    include_enriched_snapshots: bool,
+    include_reference_check_contexts: bool,
 ) -> BatchExecutionContext:
     return BatchExecutionContext(
         reference_runner=(
             LegacyReferenceRunner(
                 reference_result_loader=reference_result_loader,
-                enriched_snapshot_materializer=(
-                    EnrichedSnapshotMaterializer()
-                    if include_enriched_snapshots
+                reference_check_context_materializer=(
+                    ReferenceCheckContextMaterializer()
+                    if include_reference_check_contexts
                     else None
                 ),
                 reference_finding_materializer=(
@@ -320,7 +329,7 @@ def _execution_context(
             else NoReferenceRunner()
         ),
         migrated_runner=MigratedRunner(
-            check_context_builder=check_context_builder_for(input_surface),
+            check_context_builder=check_context_builder_for(context_provider),
             evaluators={},
         ),
         parity_runner=ParityRunner(
@@ -337,7 +346,7 @@ def _batch_execution_result(
 ) -> BatchExecutionResult:
     return BatchExecutionResult(
         batch_index=batch.batch_index,
-        row_count=len(batch.rows),
+        row_count=len(batch.records),
         cache_hit_count=0,
         backend_run_count=0,
         reference_finding_count=0,
@@ -377,24 +386,31 @@ def test_prepare_run_collects_profile_and_definition_counts(
     default_check_catalog: CheckCatalog,
     tmp_path: Path,
 ) -> None:
+    source_capabilities = resolve_check_capabilities(
+        default_check_catalog.checks,
+        context_availability_for_provider("source_products"),
+    )
+    source_check_ids = {
+        capability.check_id for capability in source_capabilities.runnable_capabilities
+    }
     python_check = next(
         check
         for check in default_check_catalog.checks
         if check.definition_language == "python"
-        and check.supports_input_surface("raw_products")
+        and check.id in source_check_ids
         and check.parity_baseline == "legacy"
     )
     dsl_check = next(
         check
         for check in default_check_catalog.checks
         if check.definition_language == "dsl"
-        and check.supports_input_surface("raw_products")
+        and check.id in source_check_ids
         and check.parity_baseline == "legacy"
     )
     active_profile = ActiveCheckProfile(
-        name="raw_products",
+        name="source_products",
         description="Active test profile",
-        check_input_surface="raw_products",
+        check_context_provider="source_products",
         parity_baselines=LEGACY_PARITY_BASELINES,
         jurisdictions=None,
         check_ids=(python_check.id, dsl_check.id),
@@ -413,8 +429,10 @@ def test_prepare_run_collects_profile_and_definition_counts(
     def fake_source_snapshot_id_for(_: Path) -> str:
         return "snapshot-123"
 
-    def fake_count_source_rows(
-        _: Path, *, selection: SourceSelection | None = None
+    def fake_count_source_products(
+        _: Path,
+        *,
+        selection: SourceSelection | None = None,
     ) -> int:
         assert selection == active_dataset_profile.selection
         return 42
@@ -452,8 +470,8 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     monkeypatch.setattr(
         preparation_module,
-        "count_source_rows",
-        fake_count_source_rows,
+        "count_source_products",
+        fake_count_source_products,
     )
     monkeypatch.setattr(
         preparation_module,
@@ -500,7 +518,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     assert prepared.run_id
     assert prepared.product_count == 42
     assert prepared.active_check_profile == active_profile
-    assert prepared.check_context_builder.input_surface == "raw_products"
+    assert prepared.check_context_builder.context_provider == "source_products"
     assert set(prepared.evaluators) == {python_check.id, dsl_check.id}
     assert prepared.python_count == 1
     assert prepared.dsl_count == 1
@@ -512,7 +530,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     assert prepared.active_dataset_profile == active_dataset_profile
     assert prepared.active_migration_plan.family_count == 0
-    assert prepared.requires_enriched_snapshots is False
+    assert prepared.requires_reference_check_contexts is False
     assert prepared.requires_reference_findings is True
     assert prepared.requires_reference_results is True
 
@@ -618,7 +636,7 @@ def test_configured_source_dataset_profile_name_normalizes_blank_values(
 
 
 def test_build_site_requires_existing_source_snapshot_path(tmp_path: Path) -> None:
-    with pytest.raises(FileNotFoundError, match="Source DuckDB not found"):
+    with pytest.raises(FileNotFoundError, match="Source snapshot not found"):
         application_module.build_site(
             RunSpec(
                 project_root=tmp_path,
@@ -806,15 +824,15 @@ def test_with_reference_result_cache_replaces_cache_location(
         run_id="run-123",
         product_count=1,
         active_check_profile=ActiveCheckProfile(
-            name="enriched_products",
+            name="enriched_snapshots",
             description="Active test profile",
-            check_input_surface="enriched_products",
+            check_context_provider="enriched_snapshots",
             parity_baselines=LEGACY_PARITY_BASELINES,
             jurisdictions=None,
             check_ids=(sample_check.id,),
             checks=(sample_check,),
         ),
-        check_context_builder=check_context_builder_for("enriched_products"),
+        check_context_builder=check_context_builder_for("enriched_snapshots"),
         reference_observer=NoReferenceObserver(),
         evaluators={
             sample_check.id: default_check_catalog.evaluators_by_id[sample_check.id]
@@ -848,8 +866,8 @@ def test_batch_scheduler_submits_and_merges_batches_in_order(
     scheduler = BatchScheduler(
         batch_iterator=iter(
             [
-                ScheduledBatch(batch_index=1, rows=[_raw_row(code="1")]),
-                ScheduledBatch(batch_index=2, rows=[_raw_row(code="2")]),
+                ScheduledBatch(batch_index=1, records=[_source_record(code="1")]),
+                ScheduledBatch(batch_index=2, records=[_source_record(code="2")]),
             ]
         ),
         executor=_ImmediateExecutor(),
@@ -879,14 +897,19 @@ def test_run_batches_processes_all_batches(
     tmp_path: Path,
 ) -> None:
     def fake_iter_source_batches(
-        _: Path, *, batch_size: int, selection: SourceSelection
-    ) -> list[list[RawProductRow]]:
+        _: Path,
+        *,
+        batch_size: int,
+        selection: SourceSelection,
+    ) -> Iterator[list[SourceBatchRecord]]:
         assert batch_size == 2
         assert selection == default_dataset_profile().selection
-        return [
-            [_raw_row(code="1")],
-            [_raw_row(code="2"), _raw_row(code="3")],
-        ]
+        return iter(
+            [
+                [_source_record(code="1")],
+                [_source_record(code="2"), _source_record(code="3")],
+            ]
+        )
 
     def fake_execute_batch(
         batch: ScheduledBatch,
@@ -931,18 +954,18 @@ def test_run_batches_processes_all_batches(
 
 @pytest.mark.parametrize(
     (
-        "input_surface",
+        "context_provider",
         "expected_product_name",
         "expected_lang",
         "expects_reference_results",
     ),
     [
-        ("raw_products", "Raw name", None, False),
-        ("enriched_products", "Enriched name", "fr", True),
+        ("source_products", "Source name", None, False),
+        ("enriched_snapshots", "Enriched name", "fr", True),
     ],
 )
 def test_execute_batch_uses_selected_context_builder(
-    input_surface: CheckInputSurface,
+    context_provider: ContextProviderId,
     expected_product_name: str,
     expected_lang: str | None,
     expects_reference_results: bool,
@@ -967,15 +990,15 @@ def test_execute_batch_uses_selected_context_builder(
         else None
     )
     reference_observer = _RecordingReferenceObserver(requires_reference_results=False)
-    observed_contexts: list[NormalizedContext] = []
+    observed_contexts: list[CheckContext] = []
     expected_run_result = run_result_factory()
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
         execution=_execution_context(
-            input_surface=input_surface,
+            context_provider=context_provider,
             reference_result_loader=reference_result_loader,
             reference_observer=reference_observer,
-            include_enriched_snapshots=True,
+            include_reference_check_contexts=True,
         ),
         expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,
@@ -1010,10 +1033,10 @@ def test_execute_batch_loads_reference_results_for_legacy_parity_without_enriche
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
         execution=_execution_context(
-            input_surface="raw_products",
+            context_provider="source_products",
             reference_result_loader=reference_result_loader,
             reference_observer=reference_observer,
-            include_enriched_snapshots=False,
+            include_reference_check_contexts=False,
         ),
         expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,
@@ -1057,15 +1080,15 @@ def test_execute_batch_resolves_enrichment_and_reference_from_one_batch_input_lo
         ],
         requires_reference_results=True,
     )
-    observed_contexts: list[NormalizedContext] = []
+    observed_contexts: list[CheckContext] = []
     expected_run_result = run_result_factory().model_copy(update={"reference_total": 1})
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
         execution=_execution_context(
-            input_surface="enriched_products",
+            context_provider="enriched_snapshots",
             reference_result_loader=reference_result_loader,
             reference_observer=reference_observer,
-            include_enriched_snapshots=True,
+            include_reference_check_contexts=True,
         ),
         expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,

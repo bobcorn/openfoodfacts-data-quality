@@ -27,7 +27,7 @@ class EnrichedNutritionSnapshot(NutritionSnapshotFields):
 
 
 class EnrichedSnapshot(BaseModel):
-    """Stable enriched product snapshot consumed by the enriched runtime surface."""
+    """Stable enriched product snapshot consumed by the enriched snapshots provider."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -41,7 +41,7 @@ class EnrichedSnapshot(BaseModel):
     )
 
 
-class EnrichedSnapshotResult(BaseModel):
+class EnrichedSnapshotRecord(BaseModel):
     """Stable enriched snapshot identified by product code."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -50,7 +50,7 @@ class EnrichedSnapshotResult(BaseModel):
     enriched_snapshot: EnrichedSnapshot
 
     @model_validator(mode="after")
-    def validate_snapshot_code(self) -> EnrichedSnapshotResult:
+    def validate_snapshot_code(self) -> EnrichedSnapshotRecord:
         """Keep the outer code aligned with the embedded product code when present."""
         snapshot_code = self.enriched_snapshot.product.code
         if snapshot_code is not None and snapshot_code != self.code:

@@ -9,11 +9,12 @@ from app.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
     BatchRunPlan,
+    BatchStageTimings,
     ScheduledBatch,
 )
 from app.run.scheduler import BatchScheduler
 from app.source.datasets import SourceSelection
-from app.source.duckdb_products import iter_source_batches
+from app.source.product_documents import iter_source_batches
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -98,12 +99,25 @@ def _iter_scheduled_batches(
     batch_size: int,
     selection: SourceSelection,
 ) -> Iterator[ScheduledBatch]:
-    """Wrap raw source batches with monotonically increasing batch indices."""
-    for batch_index, rows in enumerate(
-        iter_source_batches(db_path, batch_size=batch_size, selection=selection),
-        start=1,
-    ):
-        yield ScheduledBatch(batch_index=batch_index, rows=rows)
+    """Wrap source product batches with monotonically increasing batch indices."""
+    source_batches = iter_source_batches(
+        db_path,
+        batch_size=batch_size,
+        selection=selection,
+    )
+    batch_index = 1
+    while True:
+        started = perf_counter()
+        try:
+            rows = next(source_batches)
+        except StopIteration:
+            break
+        yield ScheduledBatch(
+            batch_index=batch_index,
+            records=rows,
+            source_read_seconds=perf_counter() - started,
+        )
+        batch_index += 1
 
 
 def execute_batch(
@@ -112,18 +126,29 @@ def execute_batch(
 ) -> BatchExecutionResult:
     """Run one batch end to end through the current run model."""
     started = perf_counter()
-    resolved_reference_batch = execution.reference_runner.resolve(batch.rows)
-    batch_run_result = execution.parity_runner.compare(
-        product_count=len(batch.rows),
-        reference_findings=resolved_reference_batch.reference_findings,
-        migrated_findings=execution.migrated_runner.observe_findings(
-            rows=batch.rows,
-            enriched_snapshots=resolved_reference_batch.enriched_snapshots,
-        ),
+    resolved_reference_batch = execution.reference_runner.resolve(
+        batch.product_documents
     )
+    migrated_started = perf_counter()
+    migrated_findings = tuple(
+        execution.migrated_runner.observe_findings(
+            rows=batch.source_products,
+            reference_check_contexts=(
+                resolved_reference_batch.reference_check_contexts
+            ),
+        )
+    )
+    migrated_findings_seconds = perf_counter() - migrated_started
+    parity_started = perf_counter()
+    batch_run_result = execution.parity_runner.compare(
+        product_count=len(batch.records),
+        reference_findings=resolved_reference_batch.reference_findings,
+        migrated_findings=migrated_findings,
+    )
+    parity_compare_seconds = perf_counter() - parity_started
     return BatchExecutionResult(
         batch_index=batch.batch_index,
-        row_count=len(batch.rows),
+        row_count=len(batch.records),
         cache_hit_count=resolved_reference_batch.cache_hit_count,
         backend_run_count=resolved_reference_batch.backend_run_count,
         reference_finding_count=batch_run_result.reference_total,
@@ -133,6 +158,18 @@ def execute_batch(
         ),
         run_result=batch_run_result,
         elapsed_seconds=perf_counter() - started,
+        stage_timings=BatchStageTimings(
+            source_read_seconds=batch.source_read_seconds,
+            reference_load_seconds=resolved_reference_batch.load_seconds,
+            reference_check_context_materialization_seconds=(
+                resolved_reference_batch.reference_check_context_materialization_seconds
+            ),
+            reference_finding_materialization_seconds=(
+                resolved_reference_batch.reference_finding_materialization_seconds
+            ),
+            migrated_findings_seconds=migrated_findings_seconds,
+            parity_compare_seconds=parity_compare_seconds,
+        ),
     )
 
 

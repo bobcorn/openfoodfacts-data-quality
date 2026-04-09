@@ -13,21 +13,51 @@ from app.source.datasets import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     from app.artifacts import ApplicationArtifacts
-    from app.legacy_backend.input_projection import LegacyBackendInputProduct
     from app.reference.models import ReferenceResult
     from app.run.context_builders import SupportsCheckContextBuilder
     from app.run.profiles import ActiveCheckProfile
+    from app.source.models import (
+        ProductDocument,
+        SourceBatchRecord,
+    )
     from openfoodfacts_data_quality.checks.registry import CheckEvaluator
     from openfoodfacts_data_quality.contracts.checks import CheckParityBaseline
-    from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
+    from openfoodfacts_data_quality.contracts.context import CheckContext
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
     from openfoodfacts_data_quality.contracts.run import RunResult
+    from openfoodfacts_data_quality.contracts.source_products import SourceProduct
 
 _SubmitParams = ParamSpec("_SubmitParams")
+
+
+@dataclass(frozen=True)
+class BatchStageTimings:
+    """Per-batch execution timings for the main runtime stages."""
+
+    source_read_seconds: float = 0.0
+    reference_load_seconds: float = 0.0
+    reference_check_context_materialization_seconds: float = 0.0
+    reference_finding_materialization_seconds: float = 0.0
+    migrated_findings_seconds: float = 0.0
+    parity_compare_seconds: float = 0.0
+
+    def as_mapping(self) -> dict[str, float]:
+        """Return a stable mapping view for reporting and benchmark output."""
+        return {
+            "source_read_seconds": self.source_read_seconds,
+            "reference_load_seconds": self.reference_load_seconds,
+            "reference_check_context_materialization_seconds": (
+                self.reference_check_context_materialization_seconds
+            ),
+            "reference_finding_materialization_seconds": (
+                self.reference_finding_materialization_seconds
+            ),
+            "migrated_findings_seconds": self.migrated_findings_seconds,
+            "parity_compare_seconds": self.parity_compare_seconds,
+        }
 
 
 @dataclass(frozen=True)
@@ -42,6 +72,7 @@ class BatchExecutionResult:
     migrated_finding_count: int
     run_result: RunResult
     elapsed_seconds: float
+    stage_timings: BatchStageTimings = field(default_factory=BatchStageTimings)
 
 
 @dataclass(frozen=True)
@@ -51,17 +82,39 @@ class ResolvedReferenceResults:
     reference_results: list[ReferenceResult]
     cache_hit_count: int
     backend_run_count: int
+    load_seconds: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
 class ResolvedReferenceBatch:
     """Reference-side batch inputs after cache/backend loading and projection."""
 
-    reference_results: list[ReferenceResult]
-    enriched_snapshots: list[EnrichedSnapshotResult]
+    reference_check_contexts: list[CheckContext]
     reference_findings: tuple[ObservedFinding, ...]
     cache_hit_count: int
     backend_run_count: int
+    load_seconds: float = 0.0
+    reference_check_context_materialization_seconds: float = 0.0
+    reference_finding_materialization_seconds: float = 0.0
+
+
+@dataclass(frozen=True)
+class RunPreparationTimings:
+    """Measured timings for the pre-batch run preparation stage."""
+
+    prepare_run_seconds: float = 0.0
+    source_snapshot_id_seconds: float = 0.0
+    dataset_profile_load_seconds: float = 0.0
+    source_row_count_seconds: float = 0.0
+
+    def as_mapping(self) -> dict[str, float]:
+        """Return a stable mapping view for store persistence and benchmark output."""
+        return {
+            "prepare_run_seconds": self.prepare_run_seconds,
+            "source_snapshot_id_seconds": self.source_snapshot_id_seconds,
+            "dataset_profile_load_seconds": self.dataset_profile_load_seconds,
+            "source_row_count_seconds": self.source_row_count_seconds,
+        }
 
 
 @dataclass(frozen=True)
@@ -81,6 +134,9 @@ class PreparedRun:
     dsl_count: int
     legacy_parity_count: int
     runtime_only_count: int
+    preparation_timings: RunPreparationTimings = field(
+        default_factory=RunPreparationTimings
+    )
     active_dataset_profile: ActiveDatasetProfile = field(
         default_factory=default_dataset_profile
     )
@@ -109,14 +165,15 @@ class PreparedRun:
             dsl_count=self.dsl_count,
             legacy_parity_count=self.legacy_parity_count,
             runtime_only_count=self.runtime_only_count,
+            preparation_timings=self.preparation_timings,
             active_dataset_profile=self.active_dataset_profile,
             active_migration_plan=self.active_migration_plan,
         )
 
     @property
-    def requires_enriched_snapshots(self) -> bool:
-        """Return whether migrated checks need enriched snapshots for this run."""
-        return self.check_context_builder.requires_enriched_snapshots
+    def requires_reference_check_contexts(self) -> bool:
+        """Return whether migrated checks need reference-side enriched contexts."""
+        return self.check_context_builder.requires_reference_check_contexts
 
     @property
     def requires_reference_findings(self) -> bool:
@@ -126,7 +183,9 @@ class PreparedRun:
     @property
     def requires_reference_results(self) -> bool:
         """Return whether this run needs reference results at all."""
-        return self.requires_enriched_snapshots or self.requires_reference_findings
+        return (
+            self.requires_reference_check_contexts or self.requires_reference_findings
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,7 +257,18 @@ class ScheduledBatch:
     """One submitted batch of source rows."""
 
     batch_index: int
-    rows: list[RawProductRow]
+    records: list[SourceBatchRecord]
+    source_read_seconds: float = 0.0
+
+    @property
+    def source_products(self) -> list[SourceProduct]:
+        """Return the selected products projected for migrated checks."""
+        return [record.source_product for record in self.records]
+
+    @property
+    def product_documents(self) -> list[ProductDocument]:
+        """Return the selected product documents for the reference path."""
+        return [record.product_document for record in self.records]
 
 
 class SupportsBatchExecutor(Protocol):
@@ -216,7 +286,10 @@ class SupportsBatchExecutor(Protocol):
 class SupportsReferenceResultLoader(Protocol):
     """Minimal reference result loading surface needed by a batch execution."""
 
-    def load_many(self, rows: list[RawProductRow]) -> ResolvedReferenceResults: ...
+    def load_many(
+        self,
+        product_documents: list[ProductDocument],
+    ) -> ResolvedReferenceResults: ...
 
 
 class SupportsLegacyBackendRunner(Protocol):
@@ -224,7 +297,7 @@ class SupportsLegacyBackendRunner(Protocol):
 
     def run(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        backend_input_payloads: Sequence[Mapping[str, object]],
     ) -> list[ReferenceResult]: ...
 
 
@@ -251,13 +324,13 @@ class SupportsReferenceObserver(Protocol):
     ) -> Iterable[ObservedFinding]: ...
 
 
-class SupportsEnrichedSnapshotMaterializer(Protocol):
-    """Projection surface for enriched runtime inputs."""
+class SupportsReferenceCheckContextMaterializer(Protocol):
+    """Projection surface for reference-side enriched check contexts."""
 
     def materialize(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[EnrichedSnapshotResult]: ...
+    ) -> list[CheckContext]: ...
 
 
 class SupportsReferenceFindingMaterializer(Protocol):
@@ -274,7 +347,7 @@ class SupportsReferenceRunner(Protocol):
 
     def resolve(
         self,
-        rows: list[RawProductRow],
+        product_documents: list[ProductDocument],
     ) -> ResolvedReferenceBatch: ...
 
 
@@ -284,8 +357,8 @@ class SupportsMigratedRunner(Protocol):
     def observe_findings(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: list[EnrichedSnapshotResult],
+        rows: list[SourceProduct],
+        reference_check_contexts: list[CheckContext],
     ) -> Iterable[ObservedFinding]: ...
 
 

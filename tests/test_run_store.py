@@ -14,11 +14,20 @@ from app.migration.catalog import (
 from app.reference.observers import NoReferenceObserver
 from app.report.renderer import render_report_from_store
 from app.run.context_builders import check_context_builder_for
-from app.run.models import BatchExecutionResult, PreparedRun, RunSpec
+from app.run.models import (
+    BatchExecutionResult,
+    BatchStageTimings,
+    PreparedRun,
+    RunPreparationTimings,
+    RunSpec,
+)
 from app.run.profiles import ActiveCheckProfile
 from app.source.datasets import ActiveDatasetProfile, SourceSelection
-from app.storage import load_recorded_run_snapshot
-from app.storage.run_store import DuckDBRunRecorder
+from app.storage import (
+    load_recorded_run_benchmark_summary,
+    load_recorded_run_snapshot,
+)
+from app.storage.run_store import PARITY_STORE_SCHEMA_VERSION, DuckDBRunRecorder
 
 from openfoodfacts_data_quality.contracts.run import RunResult
 
@@ -37,7 +46,11 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
             select
                 status,
                 active_check_profile_name,
-                run_artifact_json
+                run_artifact_json,
+                prepare_run_seconds,
+                source_snapshot_id_seconds,
+                dataset_profile_load_seconds,
+                source_row_count_seconds
             from runs
             where run_id = ?
             """,
@@ -45,6 +58,7 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
         ).fetchone()
         assert run_row is not None
         assert run_row[:2] == ("completed", "focused")
+        assert run_row[3:] == (0.11, 0.12, 0.13, 0.14)
 
         run_artifact = json.loads(str(run_row[2]))
         assert run_artifact["run_id"] == run_result.run_id
@@ -113,6 +127,25 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
                 "warning",
             )
         ]
+
+        batch_row = connection.execute(
+            """
+            select
+                source_read_seconds,
+                reference_load_seconds,
+                reference_check_context_materialization_seconds,
+                reference_finding_materialization_seconds,
+                migrated_findings_seconds,
+                parity_compare_seconds,
+                record_batch_seconds
+            from run_batches
+            where run_id = ? and batch_index = 1
+            """,
+            [run_result.run_id],
+        ).fetchone()
+        assert batch_row is not None
+        assert batch_row[:6] == (0.01, 0.02, 0.03, 0.04, 0.05, 0.06)
+        assert float(batch_row[6]) >= 0.0
 
         summary_rows = connection.execute(
             """
@@ -186,6 +219,36 @@ def test_load_recorded_run_snapshot_reads_store_backed_metadata(
     )
 
 
+def test_load_recorded_run_benchmark_summary_reads_stage_timings(
+    tmp_path: Path,
+    run_result_factory: Callable[[], RunResult],
+) -> None:
+    run_result = run_result_factory()
+    parity_store_path = _record_completed_run(tmp_path, run_result=run_result)
+
+    summary = load_recorded_run_benchmark_summary(
+        parity_store_path,
+        run_id=run_result.run_id,
+    )
+
+    assert summary.run_id == run_result.run_id
+    assert summary.status == "completed"
+    assert summary.product_count == run_result.product_count
+    assert summary.prepare_run_seconds == 0.11
+    assert summary.source_snapshot_id_seconds == 0.12
+    assert summary.dataset_profile_load_seconds == 0.13
+    assert summary.source_row_count_seconds == 0.14
+    assert summary.batch_count == 1
+    assert summary.batch_elapsed_seconds == 0.25
+    assert summary.source_read_seconds == 0.01
+    assert summary.reference_load_seconds == 0.02
+    assert summary.reference_check_context_materialization_seconds == 0.03
+    assert summary.reference_finding_materialization_seconds == 0.04
+    assert summary.migrated_findings_seconds == 0.05
+    assert summary.parity_compare_seconds == 0.06
+    assert summary.record_batch_seconds >= 0.0
+
+
 def test_render_report_from_store_uses_store_backed_snapshot(
     tmp_path: Path,
     run_result_factory: Callable[[], RunResult],
@@ -212,12 +275,9 @@ def test_render_report_from_store_uses_store_backed_snapshot(
     assert run_artifact["source_snapshot_id"] == run_result.source_snapshot_id
 
 
-def test_duckdb_run_recorder_rejects_legacy_store_schema(
-    tmp_path: Path,
-    run_result_factory: Callable[[], RunResult],
-) -> None:
-    parity_store_path = tmp_path / "parity-store.duckdb"
-    connection = duckdb.connect(str(parity_store_path))
+def _seed_parity_store_meta(path: Path, *, schema_version: int) -> None:
+    """Create one minimal parity-store metadata table at the requested version."""
+    connection = duckdb.connect(str(path))
     try:
         connection.execute(
             """
@@ -228,22 +288,109 @@ def test_duckdb_run_recorder_rejects_legacy_store_schema(
             """
         )
         connection.execute(
-            "insert into parity_store_meta values (2, '2026-01-01T00:00:00Z')"
+            "insert into parity_store_meta values (?, ?)",
+            [schema_version, "2026-01-01T00:00:00Z"],
+        )
+    finally:
+        connection.close()
+
+
+def _open_run_recorder_once(
+    *,
+    tmp_path: Path,
+    parity_store_path: Path,
+    run_result: RunResult,
+) -> None:
+    """Open one recorder instance so store bootstrap logic runs once."""
+    with DuckDBRunRecorder(
+        path=parity_store_path,
+        run_spec=_run_spec_for_store(tmp_path, parity_store_path=parity_store_path),
+        prepared_run=_prepared_run_for_result(run_result, tmp_path),
+    ):
+        pass
+
+
+def test_duckdb_run_recorder_recreates_legacy_store_schema(
+    tmp_path: Path,
+    run_result_factory: Callable[[], RunResult],
+) -> None:
+    parity_store_path = tmp_path / "parity-store.duckdb"
+    _seed_parity_store_meta(parity_store_path, schema_version=2)
+
+    run_result = run_result_factory()
+    _open_run_recorder_once(
+        tmp_path=tmp_path,
+        parity_store_path=parity_store_path,
+        run_result=run_result,
+    )
+
+    connection = duckdb.connect(str(parity_store_path))
+    try:
+        rows = connection.execute(
+            "select schema_version from parity_store_meta"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    assert rows == [(PARITY_STORE_SCHEMA_VERSION,)]
+
+
+def test_duckdb_run_recorder_recreates_same_version_store_with_missing_columns(
+    tmp_path: Path,
+    run_result_factory: Callable[[], RunResult],
+) -> None:
+    parity_store_path = tmp_path / "parity-store.duckdb"
+    _seed_parity_store_meta(
+        parity_store_path,
+        schema_version=PARITY_STORE_SCHEMA_VERSION,
+    )
+
+    connection = duckdb.connect(str(parity_store_path))
+    try:
+        connection.execute(
+            """
+            create table runs (
+                run_id varchar primary key,
+                requires_reference_results boolean not null,
+                requires_reference_findings boolean not null
+            )
+            """
+        )
+        connection.execute(
+            """
+            create table run_batches (
+                run_id varchar not null,
+                batch_index integer not null,
+                reference_load_seconds double not null,
+                reference_finding_materialization_seconds double not null
+            )
+            """
         )
     finally:
         connection.close()
 
     run_result = run_result_factory()
-    with pytest.raises(
-        RuntimeError,
-        match="Delete the parity store file and rerun",
-    ):
-        with DuckDBRunRecorder(
-            path=parity_store_path,
-            run_spec=_run_spec_for_store(tmp_path, parity_store_path=parity_store_path),
-            prepared_run=_prepared_run_for_result(run_result, tmp_path),
-        ):
-            pass
+    _open_run_recorder_once(
+        tmp_path=tmp_path,
+        parity_store_path=parity_store_path,
+        run_result=run_result,
+    )
+
+    connection = duckdb.connect(str(parity_store_path))
+    try:
+        runs_columns = {
+            str(row[1])
+            for row in connection.execute("pragma table_info('runs')").fetchall()
+        }
+        batch_columns = {
+            str(row[1])
+            for row in connection.execute("pragma table_info('run_batches')").fetchall()
+        }
+    finally:
+        connection.close()
+
+    assert "requires_reference_check_contexts" in runs_columns
+    assert "reference_check_context_materialization_seconds" in batch_columns
 
 
 def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedRun:
@@ -256,13 +403,13 @@ def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedR
         active_check_profile=ActiveCheckProfile(
             name="focused",
             description="Focused test profile",
-            check_input_surface="raw_products",
+            check_context_provider="source_products",
             parity_baselines=("legacy",),
             jurisdictions=None,
             check_ids=tuple(check.id for check in checks),
             checks=checks,
         ),
-        check_context_builder=check_context_builder_for("raw_products"),
+        check_context_builder=check_context_builder_for("source_products"),
         reference_observer=NoReferenceObserver(),
         evaluators={},
         reference_result_cache_key="cache-key",
@@ -276,6 +423,12 @@ def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedR
         ),
         runtime_only_count=sum(
             1 for check in checks if check.parity_baseline == "none"
+        ),
+        preparation_timings=RunPreparationTimings(
+            prepare_run_seconds=0.11,
+            source_snapshot_id_seconds=0.12,
+            dataset_profile_load_seconds=0.13,
+            source_row_count_seconds=0.14,
         ),
         active_dataset_profile=ActiveDatasetProfile(
             name="validation",
@@ -359,6 +512,14 @@ def _record_completed_run(
                 migrated_finding_count=run_result.compared_migrated_total,
                 run_result=run_result,
                 elapsed_seconds=0.25,
+                stage_timings=BatchStageTimings(
+                    source_read_seconds=0.01,
+                    reference_load_seconds=0.02,
+                    reference_check_context_materialization_seconds=0.03,
+                    reference_finding_materialization_seconds=0.04,
+                    migrated_findings_seconds=0.05,
+                    parity_compare_seconds=0.06,
+                ),
             )
         )
         recorder.record_final_result(run_result)

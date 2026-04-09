@@ -6,9 +6,6 @@ from importlib import import_module
 from types import MappingProxyType, ModuleType
 from typing import TYPE_CHECKING
 
-from openfoodfacts_data_quality.checks.context_dependencies import (
-    validate_check_context_contract,
-)
 from openfoodfacts_data_quality.checks.dsl.evaluator import compile_dsl_evaluators
 from openfoodfacts_data_quality.checks.dsl.parser import load_dsl_definitions
 from openfoodfacts_data_quality.checks.legacy import legacy_code_template_key
@@ -21,16 +18,10 @@ from openfoodfacts_data_quality.checks.sources import (
     default_dsl_check_pack_resources,
     default_python_check_pack_module_names,
 )
-from openfoodfacts_data_quality.context.paths import (
-    path_spec_for,
-    supported_input_surfaces_for,
-)
+from openfoodfacts_data_quality.context.paths import path_spec_for
 from openfoodfacts_data_quality.contracts.checks import (
     CheckDefinition,
-    CheckInputSurface,
-    CheckJurisdiction,
     CheckSelection,
-    normalize_check_jurisdictions,
 )
 
 if TYPE_CHECKING:
@@ -87,22 +78,6 @@ class CheckCatalog:
             for check in self.select_checks(active_check_ids, selection=selection)
         }
 
-    def select_surface_checks(
-        self,
-        input_surface: CheckInputSurface,
-        *,
-        active_check_ids: Collection[str] | None = None,
-        jurisdictions: Collection[CheckJurisdiction] | None = None,
-    ) -> tuple[CheckDefinition, ...]:
-        """Return the public checks available on one input surface."""
-        return self.select_checks(
-            active_check_ids,
-            selection=CheckSelection(
-                input_surface=input_surface,
-                jurisdictions=normalize_check_jurisdictions(jurisdictions),
-            ),
-        )
-
 
 def load_check_catalog(
     definitions_path: Traversable | None = None,
@@ -123,7 +98,6 @@ def load_check_catalog(
 
     for binding in python_bindings:
         _validate_required_context_paths(binding.required_context_paths, binding.id)
-        validate_check_context_contract(binding)
         _register_definition(
             definitions=definitions,
             evaluators=evaluators,
@@ -131,12 +105,8 @@ def load_check_catalog(
                 id=binding.id,
                 definition_language="python",
                 required_context_paths=binding.required_context_paths,
-                supported_input_surfaces=supported_input_surfaces_for(
-                    binding.required_context_paths
-                ),
                 parity_baseline=binding.parity_baseline,
                 jurisdictions=binding.jurisdictions,
-                legacy_identity=binding.legacy_identity,
             ),
             evaluator=binding.evaluator,
         )
@@ -155,12 +125,8 @@ def load_check_catalog(
                     id=check.id,
                     definition_language="dsl",
                     required_context_paths=check.required_context_paths,
-                    supported_input_surfaces=supported_input_surfaces_for(
-                        check.required_context_paths
-                    ),
                     parity_baseline=check.parity_baseline,
                     jurisdictions=check.jurisdictions,
-                    legacy_identity=check.legacy_identity,
                 ),
                 evaluator=dsl_evaluators[check.id],
             )
@@ -278,7 +244,7 @@ def _validate_required_context_paths(
     required_context_paths: tuple[str, ...],
     check_id: str,
 ) -> None:
-    """Ensure declared check dependencies refer to known normalized context paths."""
+    """Ensure declared check dependencies refer to known check-context paths."""
     unknown_paths = [
         path for path in required_context_paths if path_spec_for(path) is None
     ]
@@ -330,8 +296,6 @@ def _validate_active_check_ids_match_selection(
 def _selection_label(selection: CheckSelection) -> str:
     """Return a readable label describing one selection filter set."""
     parts: list[str] = []
-    if selection.input_surface is not None:
-        parts.append(f"input surface {selection.input_surface}")
     if selection.parity_baselines is not None:
         parts.append(
             "parity baselines " + ", ".join(sorted(selection.parity_baselines))

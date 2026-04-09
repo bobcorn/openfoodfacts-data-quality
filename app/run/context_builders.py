@@ -5,109 +5,110 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from openfoodfacts_data_quality.context.builder import (
-    build_enriched_contexts,
-    build_raw_contexts,
-    iter_enriched_contexts,
-    iter_raw_contexts,
+    build_source_product_contexts,
+    iter_source_product_contexts,
+)
+from openfoodfacts_data_quality.context.providers import (
+    ENRICHED_SNAPSHOTS_PROVIDER,
+    SOURCE_PRODUCTS_PROVIDER,
 )
 
 if TYPE_CHECKING:
-    from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
-    from openfoodfacts_data_quality.contracts.context import NormalizedContext
-    from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
+    from openfoodfacts_data_quality.context.providers import ContextProviderId
+    from openfoodfacts_data_quality.contracts.context import CheckContext
+    from openfoodfacts_data_quality.contracts.source_products import SourceProduct
 
 
 class SupportsCheckContextBuilder(Protocol):
-    """Context-building strategy selected for one migrated check runtime surface."""
+    """Context-building strategy selected for one migrated check runtime provider."""
 
     @property
-    def input_surface(self) -> CheckInputSurface: ...
+    def context_provider(self) -> ContextProviderId: ...
 
     @property
-    def requires_enriched_snapshots(self) -> bool: ...
+    def requires_reference_check_contexts(self) -> bool: ...
 
     def build_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> list[NormalizedContext]: ...
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> list[CheckContext]: ...
 
     def iter_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> Iterable[NormalizedContext]: ...
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> Iterable[CheckContext]: ...
 
 
 @dataclass(frozen=True, slots=True)
-class RawProductsContextBuilder:
-    """Build migrated check contexts directly from raw public-product rows."""
+class SourceProductContextBuilder:
+    """Build migrated check contexts directly from source products."""
 
-    input_surface: CheckInputSurface = "raw_products"
-    requires_enriched_snapshots: bool = False
+    context_provider: ContextProviderId = SOURCE_PRODUCTS_PROVIDER.name
+    requires_reference_check_contexts: bool = False
 
     def build_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> list[NormalizedContext]:
-        """Build runtime contexts from the raw source rows."""
-        del enriched_snapshots
-        return build_raw_contexts(rows)
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> list[CheckContext]:
+        """Build runtime contexts from the source products."""
+        del reference_check_contexts
+        return build_source_product_contexts(rows)
 
     def iter_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> Iterable[NormalizedContext]:
-        """Yield runtime contexts from the raw source rows."""
-        del enriched_snapshots
-        return iter_raw_contexts(rows)
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> Iterable[CheckContext]:
+        """Yield runtime contexts from the source products."""
+        del reference_check_contexts
+        return iter_source_product_contexts(rows)
 
 
 @dataclass(frozen=True, slots=True)
-class EnrichedProductsContextBuilder:
-    """Build migrated check contexts from explicit backend-enriched snapshots."""
+class EnrichedSnapshotContextBuilder:
+    """Build migrated check contexts from reference-side enriched contexts."""
 
-    input_surface: CheckInputSurface = "enriched_products"
-    requires_enriched_snapshots: bool = True
+    context_provider: ContextProviderId = ENRICHED_SNAPSHOTS_PROVIDER.name
+    requires_reference_check_contexts: bool = True
 
     def build_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> list[NormalizedContext]:
-        """Build runtime contexts from the enriched backend snapshot."""
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> list[CheckContext]:
+        """Build runtime contexts from reference-side enriched contexts."""
         del rows
-        return build_enriched_contexts(enriched_snapshots)
+        return list(reference_check_contexts)
 
     def iter_contexts(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: Sequence[EnrichedSnapshotResult],
-    ) -> Iterable[NormalizedContext]:
-        """Yield runtime contexts from the enriched backend snapshot."""
+        rows: list[SourceProduct],
+        reference_check_contexts: Sequence[CheckContext],
+    ) -> Iterable[CheckContext]:
+        """Yield runtime contexts from reference-side enriched contexts."""
         del rows
-        return iter_enriched_contexts(enriched_snapshots)
+        return (context for context in reference_check_contexts)
 
 
-RAW_PRODUCTS_CONTEXT_BUILDER = RawProductsContextBuilder()
-ENRICHED_PRODUCTS_CONTEXT_BUILDER = EnrichedProductsContextBuilder()
+SOURCE_PRODUCT_CONTEXT_BUILDER = SourceProductContextBuilder()
+ENRICHED_SNAPSHOT_CONTEXT_BUILDER = EnrichedSnapshotContextBuilder()
 
 
 def check_context_builder_for(
-    input_surface: CheckInputSurface,
+    context_provider: ContextProviderId,
 ) -> SupportsCheckContextBuilder:
-    """Return the migrated-runtime context builder for one input surface."""
-    if input_surface == "raw_products":
-        return RAW_PRODUCTS_CONTEXT_BUILDER
-    if input_surface == "enriched_products":
-        return ENRICHED_PRODUCTS_CONTEXT_BUILDER
-    raise ValueError(f"Unsupported check input surface: {input_surface!r}")
+    """Return the migrated-runtime context builder for one context provider."""
+    if context_provider == SOURCE_PRODUCTS_PROVIDER.name:
+        return SOURCE_PRODUCT_CONTEXT_BUILDER
+    if context_provider == ENRICHED_SNAPSHOTS_PROVIDER.name:
+        return ENRICHED_SNAPSHOT_CONTEXT_BUILDER
+    raise ValueError(f"Unsupported check context provider: {context_provider!r}")

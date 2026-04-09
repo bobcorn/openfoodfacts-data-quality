@@ -15,3 +15,9 @@ description = "Runs a broader deterministic sample for parity validation."
 kind = "stable_sample"
 sample_size = 1000
 seed = 42
+
+[profiles.benchmark_10k]
+description = "Runs a deterministic 10k sample for local benchmark loops."
+kind = "stable_sample"
+sample_size = 10000
+seed = 42

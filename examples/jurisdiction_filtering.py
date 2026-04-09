@@ -1,52 +1,47 @@
-"""Show how jurisdiction filters change the active raw surface checks."""
+"""Show how jurisdiction filters change checks.list(...) and checks.run(...)."""
 
-import csv
+import json
 
-from openfoodfacts_data_quality import raw
+import duckdb
 
-csv.field_size_limit(10_000_000)
+from off_data_quality import checks
 
-# Load the bundled tab-separated public CSV sample.
-with open("examples/data/products.csv", encoding="utf-8", newline="") as handle:
-    rows = list(csv.DictReader(handle, delimiter="\t"))
+CSV_SAMPLE = "examples/data/products.csv"
 
-# Without a jurisdiction filter, the raw surface exposes every shipped jurisdiction.
-all_checks = raw.list_checks(
-    check_ids=[
-        "en:quantity-to-be-completed",
-        "ca:source-of-fibre-claim-but-fibre-below-threshold",
-    ]
+# Load the sample once.
+rows = duckdb.read_csv(CSV_SAMPLE, sep="\t", all_varchar=True)
+
+# Look at the checks with and without a jurisdiction filter.
+all_checks = checks.list()
+global_checks = checks.list(jurisdictions=["global"])
+canada_checks = checks.list(jurisdictions=["ca"])
+
+print("Checks by jurisdiction")
+print(
+    json.dumps(
+        {
+            "all": [check.id for check in all_checks],
+            "global": [check.id for check in global_checks],
+            "ca": [check.id for check in canada_checks],
+        },
+        indent=2,
+    )
 )
-print("Checks returned by default:")
-print([check.id for check in all_checks])
 
-# Restrict the catalog to global checks only.
-global_checks = raw.list_checks(
-    check_ids=["en:quantity-to-be-completed"],
-    jurisdictions=["global"],
-)
-print("\nChecks returned for jurisdictions=['global']:")
-print([check.id for check in global_checks])
+# Use the same jurisdiction filter when you run the checks.
+all_findings = checks.run(rows)
+global_findings = checks.run(rows, jurisdictions=["global"])
+canada_findings = checks.run(rows, jurisdictions=["ca"])
 
-# Restrict the catalog to Canada-only checks.
-canada_checks = raw.list_checks(
-    check_ids=["ca:source-of-fibre-claim-but-fibre-below-threshold"],
-    jurisdictions=["ca"],
+print()
+print("Finding counts by jurisdiction")
+print(
+    json.dumps(
+        {
+            "all": len(all_findings),
+            "global": len(global_findings),
+            "ca": len(canada_findings),
+        },
+        indent=2,
+    )
 )
-print("\nChecks returned for jurisdictions=['ca']:")
-print([check.id for check in canada_checks])
-
-# The same filter also applies when you execute the checks.
-global_findings = raw.run_checks(
-    rows,
-    check_ids=["en:quantity-to-be-completed"],
-    jurisdictions=["global"],
-)
-print(f"\nGlobal findings on the bundled sample: {len(global_findings)}")
-
-canada_findings = raw.run_checks(
-    rows,
-    check_ids=["ca:source-of-fibre-claim-but-fibre-below-threshold"],
-    jurisdictions=["ca"],
-)
-print(f"Canada findings on the bundled sample: {len(canada_findings)}")

@@ -36,8 +36,9 @@ review.
 
 ### When should the APIs become durable?
 
-The raw and enriched APIs are explicit. The open question is when they should
-be documented and supported as durable public interfaces.
+The `checks` API for loaded rows is explicit. The repository also keeps a future
+`snapshots` namespace reserved. The open question is when those library
+surfaces should become durable public interfaces.
 
 ## Risks to watch
 
@@ -65,7 +66,7 @@ the project grows.
 
 - [Lessons learned from the prototype](lessons-from-the-prototype.md)
 - [About the project scope](../explanation/project-scope.md)
-- [About reference data and parity](../explanation/reference-data-and-parity.md)
+- [About reference and parity](../explanation/reference-data-and-parity.md)
 - [Report artifacts](../reference/report-artifacts.md)
 
 [Back to documentation index](../index.md)

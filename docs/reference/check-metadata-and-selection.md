@@ -19,17 +19,14 @@ For the rationale behind that split, see
 
 - `id`: Canonical identifier for the check definition.
 - `definition_language`: One of `python` or `dsl`.
-- `supported_input_surfaces`: The
-  [input surfaces](../explanation/runtime-model.md#input-surfaces) that can
-  execute the check.
 - `required_context_paths`: Stable dotted paths inside
-  [`NormalizedContext`](data-contracts.md#normalizedcontext) that the check
+  [`CheckContext`](data-contracts.md#checkcontext) that the check
   depends on.
 - `parity_baseline`: Whether the check participates in
   [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison).
 - `jurisdictions`: Markets where the check is eligible.
-- `legacy_identity`: Explicit mapping to the correct legacy emitted code
-  template when the default mapping is not enough.
+- `legacy_identity`: Derived mapping to the legacy emitted code template when
+  the check participates in parity comparison.
 
 Selection, validation, parity, and reporting all depend on this metadata.
 
@@ -37,15 +34,15 @@ Selection, validation, parity, and reporting all depend on this metadata.
 
 The catalog selects checks by:
 
-- input surface
 - parity baseline
 - jurisdictions
 - optional explicit check ids
 
 Application [check profiles](../explanation/migrated-checks.md#check-profiles)
-use all of these filters. The public library APIs use the same
-[input surface](../explanation/runtime-model.md#input-surfaces), jurisdiction,
-and explicit id filters on the selected runtime surface.
+use these filters, then apply provider capability from the selected
+[context provider](../explanation/runtime-model.md#context-providers). The public
+library APIs use the same context-path capability check on the selected runtime
+provider.
 
 ## Application profile extras
 
@@ -77,27 +74,33 @@ comparison?
 
 ## Legacy identity
 
-Checks compared against legacy behavior may need an explicit mapping to the
-legacy emitted code template. That mapping is stored as `legacy_identity`.
+For checks with `parity_baseline="legacy"`, the catalog derives
+`legacy_identity` from the check id. Runtime-only checks with
+`parity_baseline="none"` do not have a legacy identity.
 
-This mapping points one migrated check to the correct legacy tags even when the
-migrated implementation no longer mirrors the Perl source structure.
-
-For most checks with `parity_baseline="legacy"`, the catalog derives this
-mapping from the check id. Use `legacy_identity` when the compared legacy code
-template has a
-different canonical name. A check can keep id `en:contract-test` while mapping
-parity to legacy code template
-`en:legacy-contract-test`.
+Checks do not declare a separate legacy code template. If a check participates
+in parity comparison, its id is the compared legacy code template.
 
 ## Dependency invariant
 
-For Python checks, declared `requires=(...)` metadata is validated against
-inferred context usage from the check function and helper annotations.
+For Python checks, `requires=(...)` is the explicit dependency contract. The
+catalog materializes it as `required_context_paths` and validates that each path
+exists in the normalized runtime contract; it does not infer dependencies from
+Python source.
 
-Helpers that receive `context` or any whole or intermediate context object must
-declare their dependency paths explicitly with `@depends_on_context_paths(...)`.
-See [Author checks](../how-to/author-checks.md#extend-contracts-on-purpose).
+DSL checks do not declare this field directly. The DSL parser derives it from
+the expression fields because the DSL is path based and structurally limited.
+
+## Capability reports
+
+Provider capability is resolved from context paths. A provider declares the
+`available_context_paths` it can expose through its provider definition. The
+capability resolver compares those paths with each check's
+`required_context_paths` and returns runnable checks plus unsupported checks
+with their missing paths.
+
+This report does not describe source columns or derivations. That mapping
+belongs to provider or source profile code, not to check metadata.
 
 ## See also
 

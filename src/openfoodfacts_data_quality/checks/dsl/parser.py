@@ -23,10 +23,8 @@ from openfoodfacts_data_quality.checks.dsl.semantic import (
 )
 from openfoodfacts_data_quality.contracts.checks import (
     CheckPackMetadata,
-    LegacyCheckIdentity,
     normalize_check_jurisdictions,
     normalize_check_parity_baselines,
-    resolve_legacy_check_identity,
 )
 from openfoodfacts_data_quality.structured_values import (
     StringObjectMapping,
@@ -112,11 +110,6 @@ def _parse_check(
         when=_parse_expression(_require_mapping(payload.get("when"), label="DSL when")),
         parity_baseline=pack_metadata.parity_baseline,
         jurisdictions=pack_metadata.jurisdictions,
-        legacy_identity=_parse_legacy_identity(
-            check_id=check_id,
-            parity_baseline=pack_metadata.parity_baseline,
-            legacy_code_template=payload.get("legacy_code_template"),
-        ),
     )
 
 
@@ -247,25 +240,3 @@ def _parse_jurisdictions(
     if normalized is None:
         raise ValueError("DSL field 'jurisdictions' must contain one value.")
     return normalized
-
-
-def _parse_legacy_identity(
-    *,
-    check_id: str,
-    parity_baseline: CheckParityBaseline,
-    legacy_code_template: object,
-) -> LegacyCheckIdentity | None:
-    """Return the explicit legacy identity for one DSL check payload."""
-    if legacy_code_template is None:
-        return resolve_legacy_check_identity(
-            check_id=check_id,
-            parity_baseline=parity_baseline,
-            legacy_identity=None,
-        )
-    if not isinstance(legacy_code_template, str) or not legacy_code_template:
-        raise ValueError("DSL field 'legacy_code_template' must be a not empty string.")
-    return resolve_legacy_check_identity(
-        check_id=check_id,
-        parity_baseline=parity_baseline,
-        legacy_identity=LegacyCheckIdentity(code_template=legacy_code_template),
-    )

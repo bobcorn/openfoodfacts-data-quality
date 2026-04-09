@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
@@ -13,7 +13,6 @@ from app.legacy_backend.contracts import (
     LEGACY_BACKEND_RESULT_CONTRACT_KIND,
     LEGACY_BACKEND_RESULT_CONTRACT_VERSION,
 )
-from app.legacy_backend.input_projection import LegacyBackendInputProduct
 from app.legacy_backend.runner import (
     LazyLegacyBackendRunner,
     LegacyBackendSession,
@@ -40,8 +39,8 @@ class _SupportsFakeStdin(Protocol):
     def close(self) -> None: ...
 
 
-LegacyBackendInputProductFactory = Callable[..., LegacyBackendInputProduct]
 ReferenceResultFactory = Callable[..., ReferenceResult]
+LegacyBackendPayload = Mapping[str, object]
 
 
 class _FakeLineStream:
@@ -237,13 +236,9 @@ def _sorted_reference_findings(
 
 
 def _legacy_backend_batch(
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
     *codes: str,
-) -> list[LegacyBackendInputProduct]:
-    return [
-        legacy_backend_input_product_factory(code=code, projected_input={"code": code})
-        for code in codes
-    ]
+) -> list[LegacyBackendPayload]:
+    return [{"code": code} for code in codes]
 
 
 def _patch_fake_popen(
@@ -364,7 +359,6 @@ def test_iter_reference_findings_filters_to_active_checks(
 def test_legacy_backend_session_runs_one_batch_through_streaming_session(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     stderr_path = tmp_path / "logs" / "reference.log"
 
@@ -376,12 +370,8 @@ def test_legacy_backend_session_runs_one_batch_through_streaming_session(
     with LegacyBackendSession(stderr_path=stderr_path) as session:
         backend_results = session.run(
             [
-                legacy_backend_input_product_factory(
-                    code="123", projected_input={"code": "123"}
-                ),
-                legacy_backend_input_product_factory(
-                    code="456", projected_input={"code": "456"}
-                ),
+                {"code": "123"},
+                {"code": "456"},
             ]
         )
 
@@ -397,7 +387,6 @@ def test_legacy_backend_session_runs_one_batch_through_streaming_session(
 )
 def test_legacy_backend_session_surfaces_backend_startup_diagnostics(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
     process_factory: type[_FakeProcess],
 ) -> None:
     _patch_fake_popen(monkeypatch, process_factory())
@@ -406,9 +395,7 @@ def test_legacy_backend_session_surfaces_backend_startup_diagnostics(
         with pytest.raises(
             RuntimeError, match="Run the demo through the provided Docker image"
         ):
-            session.run(
-                _legacy_backend_batch(legacy_backend_input_product_factory, "123")
-            )
+            session.run(_legacy_backend_batch("123"))
 
 
 def test_legacy_backend_session_logs_slow_first_output_warning(
@@ -440,7 +427,6 @@ def test_legacy_backend_session_logs_slow_first_output_warning(
 
 def test_legacy_backend_session_rejects_unsupported_contract_kind(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     process = _FakeProcess()
     process.stdout.push(
@@ -460,7 +446,7 @@ def test_legacy_backend_session_rejects_unsupported_contract_kind(
             match="Unsupported legacy backend result contract kind",
         ),
     ):
-        session.run(_legacy_backend_batch(legacy_backend_input_product_factory, "123"))
+        session.run(_legacy_backend_batch("123"))
 
 
 def test_legacy_backend_wrapper_contract_constants_match_python_contract() -> None:
@@ -483,7 +469,6 @@ def test_legacy_backend_wrapper_contract_constants_match_python_contract() -> No
 
 def test_legacy_backend_session_pool_runs_batches_through_multiple_workers(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     popen_calls = _patch_fake_popen(monkeypatch)
 
@@ -491,11 +476,11 @@ def test_legacy_backend_session_pool_runs_batches_through_multiple_workers(
         with ThreadPoolExecutor(max_workers=2) as executor:
             first_future = executor.submit(
                 pool.run,
-                _legacy_backend_batch(legacy_backend_input_product_factory, "123"),
+                _legacy_backend_batch("123"),
             )
             second_future = executor.submit(
                 pool.run,
-                _legacy_backend_batch(legacy_backend_input_product_factory, "456"),
+                _legacy_backend_batch("456"),
             )
 
         first_result = first_future.result()
@@ -508,17 +493,12 @@ def test_legacy_backend_session_pool_runs_batches_through_multiple_workers(
 
 def test_legacy_backend_session_pool_reuses_worker_after_success(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     popen_calls = _patch_fake_popen(monkeypatch)
 
     with LegacyBackendSessionPool(worker_count=1) as pool:
-        first_result = pool.run(
-            _legacy_backend_batch(legacy_backend_input_product_factory, "123")
-        )
-        second_result = pool.run(
-            _legacy_backend_batch(legacy_backend_input_product_factory, "456")
-        )
+        first_result = pool.run(_legacy_backend_batch("123"))
+        second_result = pool.run(_legacy_backend_batch("456"))
 
     assert len(popen_calls) == 1
     assert [product.code for product in first_result] == ["123"]
@@ -527,7 +507,6 @@ def test_legacy_backend_session_pool_reuses_worker_after_success(
 
 def test_legacy_backend_session_pool_replaces_failed_worker_before_re_raise(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     popen_calls = _patch_fake_popen(monkeypatch, _FailingProcess(), _FakeProcess())
 
@@ -535,11 +514,9 @@ def test_legacy_backend_session_pool_replaces_failed_worker_before_re_raise(
         with pytest.raises(
             RuntimeError, match="Run the demo through the provided Docker image"
         ):
-            pool.run(_legacy_backend_batch(legacy_backend_input_product_factory, "123"))
+            pool.run(_legacy_backend_batch("123"))
 
-        result = pool.run(
-            _legacy_backend_batch(legacy_backend_input_product_factory, "456")
-        )
+        result = pool.run(_legacy_backend_batch("456"))
 
     assert len(popen_calls) == 2
     assert [product.code for product in result] == ["456"]
@@ -560,14 +537,11 @@ def test_lazy_legacy_backend_runner_skips_backend_start_without_cache_misses(
 
 def test_lazy_legacy_backend_runner_starts_backend_on_first_materialization(
     monkeypatch: pytest.MonkeyPatch,
-    legacy_backend_input_product_factory: LegacyBackendInputProductFactory,
 ) -> None:
     popen_calls = _patch_fake_popen(monkeypatch)
 
     with LazyLegacyBackendRunner(worker_count=1) as runner:
-        result = runner.run(
-            _legacy_backend_batch(legacy_backend_input_product_factory, "123")
-        )
+        result = runner.run(_legacy_backend_batch("123"))
         assert runner.started is True
 
     assert len(popen_calls) == 1

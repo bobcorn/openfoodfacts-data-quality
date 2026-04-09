@@ -1,5 +1,3 @@
-"""Public namespace-based API for Open Food Facts quality checks."""
+"""Internal package root for the shared Open Food Facts data quality runtime."""
 
-from . import enriched, raw
-
-__all__ = ["enriched", "raw"]
+__all__: list[str] = []

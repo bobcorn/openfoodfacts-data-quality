@@ -15,19 +15,19 @@ from openfoodfacts_data_quality.checks.engine import (
     run_checks_with_evaluators,
 )
 from openfoodfacts_data_quality.contracts.checks import CheckDefinition
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
+from openfoodfacts_data_quality.contracts.context import CheckContext
 from openfoodfacts_data_quality.contracts.findings import Finding
 from openfoodfacts_data_quality.contracts.observations import ObservedFinding
 from openfoodfacts_data_quality.contracts.run import RunMetadata, RunResult
 
 _QUANTITY_CHECK_ID = "en:quantity-not-recognized"
 
-ContextFactory = Callable[..., NormalizedContext]
+ContextFactory = Callable[..., CheckContext]
 ObservedFindingFactory = Callable[..., ObservedFinding]
 
 
 def _run_checks(
-    contexts: list[NormalizedContext],
+    contexts: list[CheckContext],
     *,
     active_check_ids: set[str] | None = None,
 ) -> list[Finding]:

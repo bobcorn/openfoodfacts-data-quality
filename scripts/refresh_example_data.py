@@ -11,12 +11,9 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from app.source.duckdb_products import (
-    source_snapshot_id_for,
-    write_source_snapshot_manifest,
+from openfoodfacts_data_quality.source_product_preparation import (
+    OFF_PRODUCT_EXPORT_COLUMNS,
 )
-
-from openfoodfacts_data_quality.source_rows import PUBLIC_SOURCE_SNAPSHOT_COLUMNS
 
 DEFAULT_SOURCE_PARQUET = ROOT / "data" / "food.parquet"
 DEFAULT_SOURCE_CSV = ROOT / "data" / "en.openfoodfacts.org.products.csv"
@@ -85,11 +82,6 @@ def main() -> int:
         sample_size=args.sample_size,
         seed=args.seed,
     )
-    write_source_snapshot_manifest(
-        output_duckdb,
-        source_snapshot_id=source_snapshot_id_for(output_duckdb),
-    )
-
     print(f"Wrote {row_count} products to {output_csv}")
     print(f"Wrote {row_count} products to {output_parquet}")
     print(f"Wrote {row_count} products to {output_duckdb}")
@@ -186,7 +178,7 @@ def _write_sample_parquet(
         _create_selected_codes_table(connection, selected_codes)
         select_list = ", ".join(
             f"sample_rows.{_quote_identifier(column)}"
-            for column in PUBLIC_SOURCE_SNAPSHOT_COLUMNS
+            for column in OFF_PRODUCT_EXPORT_COLUMNS
         )
         placeholders = ", ".join("?" for _ in selected_codes)
         connection.execute(
@@ -196,7 +188,7 @@ def _write_sample_parquet(
                 from selected_codes
                 join (
                     select
-                        {", ".join(_quote_identifier(column) for column in PUBLIC_SOURCE_SNAPSHOT_COLUMNS)},
+                        {", ".join(_quote_identifier(column) for column in OFF_PRODUCT_EXPORT_COLUMNS)},
                         row_number() over (partition by code order by code) as code_rank
                     from read_parquet('{_sql_literal(source_parquet)}')
                     where code in ({placeholders})

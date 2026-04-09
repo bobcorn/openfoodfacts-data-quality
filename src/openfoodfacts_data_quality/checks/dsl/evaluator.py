@@ -13,10 +13,10 @@ from openfoodfacts_data_quality.checks.dsl.ast import (
 )
 from openfoodfacts_data_quality.context.paths import MISSING, is_blank, resolve_path
 from openfoodfacts_data_quality.contracts.checks import CheckEmission
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
+from openfoodfacts_data_quality.contracts.context import CheckContext
 from openfoodfacts_data_quality.scalars import as_number
 
-CheckEvaluator = Callable[[NormalizedContext], list[CheckEmission]]
+CheckEvaluator = Callable[[CheckContext], list[CheckEmission]]
 _BOOLEAN_OPERATOR_VALUES = {"is_true": True, "is_false": False}
 _SCALAR_COMPARATORS = {"eq": eq, "ne": ne}
 _NUMERIC_COMPARATORS = {"gt": gt, "gte": ge, "lt": lt, "lte": le}
@@ -32,7 +32,7 @@ def compile_dsl_evaluators(
 def _compile_definition(check: DSLDefinition) -> CheckEvaluator:
     """Compile one DSL definition into a context evaluator."""
 
-    def evaluator(context: NormalizedContext) -> list[CheckEmission]:
+    def evaluator(context: CheckContext) -> list[CheckEmission]:
         if not evaluate_expression(check.when, context.as_mapping()):
             return []
         return [CheckEmission(severity=check.severity)]
@@ -41,7 +41,7 @@ def _compile_definition(check: DSLDefinition) -> CheckEvaluator:
 
 
 def evaluate_expression(expression: Expression, payload: Mapping[str, object]) -> bool:
-    """Evaluate one DSL expression against the normalized context mapping."""
+    """Evaluate one DSL expression against the check context mapping."""
     if isinstance(expression, All):
         return all(evaluate_expression(item, payload) for item in expression.items)
     if isinstance(expression, AnyOf):
@@ -52,7 +52,7 @@ def evaluate_expression(expression: Expression, payload: Mapping[str, object]) -
 
 
 def _evaluate_atom(expression: Atom, payload: Mapping[str, object]) -> bool:
-    """Evaluate one predicate atom against the normalized context mapping."""
+    """Evaluate one predicate atom against the check context mapping."""
     value = resolve_path(payload, expression.field)
     if _matches_missing_or_blank(expression, value):
         return True

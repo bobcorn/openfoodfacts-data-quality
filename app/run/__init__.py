@@ -1,7 +1,6 @@
 """Run orchestration for the Open Food Facts quality application."""
 
 from app.run.models import ExecutedApplicationRun, PreviewSettings, RunSpec
-from app.run.orchestrator import ApplicationRunner
 from app.run.settings import (
     configured_check_profile_name,
     configured_migration_estimation_sheet_path,
@@ -14,7 +13,6 @@ from app.run.settings import (
 )
 
 __all__ = [
-    "ApplicationRunner",
     "ExecutedApplicationRun",
     "PreviewSettings",
     "RunSpec",
