@@ -95,12 +95,9 @@ preview.
 
 ## Use the Python library
 
-The current public Python API exposes one concrete namespace:
+The public Python API exposes one concrete namespace:
 
 - `off_data_quality.checks`
-
-Use `checks` when you want findings from canonical Open Food Facts product
-rows:
 
 ```python
 from off_data_quality import checks
@@ -111,16 +108,8 @@ findings = checks.run(
 )
 ```
 
-The library does not load files for you. Use `csv`, DuckDB, pandas, or another
-tool to read rows, then pass those rows to `checks.run(...)`.
-
-`checks.run(...)` accepts canonical row mappings and common table-like objects
-that are already loaded in memory. It also normalizes the structured Open Food
-Facts product export shape. If your flat input uses different column names, pass
-an explicit `columns={canonical: source}` mapping to `checks.run(...)`.
-
-`off_data_quality.snapshots` exists as a placeholder namespace for a future
-enrichment-focused API, but it does not expose runnable entry points yet.
+See [Use the Python library](docs/how-to/use-the-python-library.md) for
+installation and usage details.
 
 ## Documentation
 
