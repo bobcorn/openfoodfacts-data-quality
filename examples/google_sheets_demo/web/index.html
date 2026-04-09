@@ -15,7 +15,7 @@
         <p class="eyebrow">Open Food Facts</p>
         <h1>Google Sheets Data Quality Demo</h1>
         <p class="intro">
-          Choose a Google Sheet. Run the Python checks there.
+          Choose a Google Sheet and run the Python checks there.
         </p>
       </header>
 
@@ -66,9 +66,10 @@
           <summary>Advanced settings</summary>
           <div class="disclosure-body">
             <p>
-              Change the tab names or switch Google account.
+              Change the tab names. When connected, you can also switch Google
+              account or clear the current selection.
             </p>
-            <div class="button-row disclosure-actions">
+            <div id="advanced-actions" class="button-row disclosure-actions">
               <button
                 id="login-button"
                 class="ghost-button has-tooltip"
@@ -85,6 +86,14 @@
               >
                 Disconnect Google
               </button>
+              <button
+                id="clear-spreadsheet-button"
+                class="ghost-button has-tooltip"
+                type="button"
+                data-tooltip="Forget the current spreadsheet selection in this browser."
+              >
+                Clear selected spreadsheet
+              </button>
             </div>
             <div class="field-grid compact-grid">
               <label class="field">
@@ -100,7 +109,7 @@
         </details>
       </section>
 
-      <section class="panel">
+      <section id="load-panel" class="panel panel-flow-step panel-flow-step--hidden">
         <h2>2. Load data</h2>
         <p class="section-copy">
           Load a local CSV into the Data tab.
@@ -129,10 +138,10 @@
         ></p>
       </section>
 
-      <section class="panel">
+      <section id="actions-panel" class="panel panel-flow-step panel-flow-step--hidden">
         <h2>3. Run actions</h2>
         <p class="section-copy">
-          Run checks. Clear derived output when needed. Keep only rows that pass.
+          Run checks and manage the derived output.
         </p>
         <div class="action-grid">
           <button
@@ -163,7 +172,8 @@
             id="upload-off-button"
             class="secondary-button has-tooltip"
             type="button"
-            data-tooltip="This step is not available yet."
+            data-tooltip="Run Prepare upload candidates first."
+            aria-disabled="true"
           >
             Upload to Open Food Facts
           </button>
@@ -178,21 +188,33 @@
         ></p>
       </section>
 
-      <section class="panel">
+      <section id="summary-panel" class="panel panel-flow-step panel-flow-step--hidden">
         <h2>4. Current validation status</h2>
         <p class="section-copy">
           Green rows passed. Warm colors mark rows that still need review.
         </p>
         <dl class="summary-grid">
-          <div class="summary-card summary-card--pass">
+          <div
+            class="summary-card summary-card--pass has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows processed by the latest validation run."
+          >
             <dt>Rows checked</dt>
             <dd id="summary-validated">0</dd>
           </div>
-          <div class="summary-card summary-card--fail">
+          <div
+            class="summary-card summary-card--fail has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows where validation found at least one issue."
+          >
             <dt>Rows with findings</dt>
             <dd id="summary-issues">0</dd>
           </div>
-          <div>
+          <div
+            class="summary-card has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows where validation returned an error instead of a normal result."
+          >
             <dt>Rows with errors</dt>
             <dd id="summary-errors">0</dd>
           </div>
@@ -202,14 +224,14 @@
       <section class="panel panel--quiet">
         <h2>Reference</h2>
         <p class="section-copy">
-          Read the current limits. See how the demo handles data.
+          Read the current limits and see how the demo handles data.
         </p>
         <details class="disclosure disclosure--quiet">
           <summary>Current demo limits</summary>
           <div class="disclosure-body">
             <ul class="disclosure-list">
               <li>
-                The UI loads CSV files into the <code>Data</code> tab. It does
+                The UI loads CSV files into the <code>Data</code> tab and does
                 not support JSONL.
               </li>
               <li>
@@ -217,8 +239,7 @@
                 not include Canada rules.
               </li>
               <li>
-                Findings are shown per row. The demo does not point to one
-                exact cell for each finding.
+                Findings are shown per row, not at the exact cell level.
               </li>
               <li>
                 <code>Prepare upload candidates</code> only keeps rows whose
@@ -230,7 +251,7 @@
                 The button only shows the planned next step.
               </li>
               <li>
-                Gemini is not controlled by this app. If Gemini is available in
+                Gemini is not controlled by this app. If it is available in
                 Google Sheets, you can use it in the side panel while this demo
                 runs validation.
               </li>
@@ -245,9 +266,9 @@
           <summary>How this demo uses your data</summary>
           <div class="disclosure-body">
             <p>
-              This demo runs in Docker on your machine. Google login stays in
-              the browser. Sheet access stays there too. The app only asks for
-              the spreadsheet you choose.
+              This demo runs in Docker on your machine. Google login and sheet
+              access stay in the browser and are limited to the spreadsheet
+              you choose.
             </p>
             <p>
               When you upload a CSV, the file content goes to the local demo
@@ -266,9 +287,9 @@
               for the current browser session.
             </p>
             <p>
-              This demo does not send sheet rows to Open Food Facts. The upload
-              button is still a placeholder. Outside Google services, the only
-              backend is the local container on your machine.
+              This demo does not send sheet rows to Open Food Facts because the
+              upload button is still a placeholder. Outside Google services,
+              the only backend is the local container on your machine.
             </p>
           </div>
         </details>

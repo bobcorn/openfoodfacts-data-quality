@@ -66,6 +66,30 @@ body {
   border-top: 1px solid var(--line);
 }
 
+.panel-flow-step {
+  max-height: 1200px;
+  transition:
+    opacity 170ms ease,
+    transform 170ms ease,
+    max-height 180ms ease,
+    margin-top 180ms ease,
+    padding-top 180ms ease,
+    padding-bottom 180ms ease,
+    border-top-width 180ms ease;
+}
+
+.panel-flow-step--hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .panel--quiet {
   padding-top: 18px;
 }
@@ -164,7 +188,8 @@ body {
 .field input[type="text"]:focus,
 .field input[type="file"]:focus,
 button:focus-visible,
-.disclosure summary:focus-visible {
+.disclosure summary:focus-visible,
+.summary-card:focus-visible {
   outline: 3px solid rgba(2, 122, 72, 0.16);
   outline-offset: 2px;
 }
@@ -226,6 +251,17 @@ button:hover:not(:disabled) {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+  transform: none;
+}
+
+button[aria-disabled="true"] {
+  opacity: 0.55;
+  transform: none;
+}
+
+button[aria-disabled="true"]:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--surface-subtle);
   transform: none;
 }
 
@@ -403,6 +439,10 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 16px;
+}
+
+.summary-card {
+  outline: none;
 }
 
 .summary-card--pass {
