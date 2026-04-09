@@ -31,13 +31,17 @@ CONTENT_SECURITY_POLICY = "; ".join(
         "object-src 'none'",
         "frame-ancestors 'none'",
         "script-src 'self' https://accounts.google.com https://apis.google.com",
-        "style-src 'self'",
+        "style-src 'self' 'unsafe-inline' https://accounts.google.com",
         "img-src 'self' data: https:",
         (
             "connect-src 'self' https://sheets.googleapis.com "
-            "https://accounts.google.com https://www.googleapis.com"
+            "https://accounts.google.com https://www.googleapis.com "
+            "https://content.googleapis.com"
         ),
-        "frame-src https://accounts.google.com https://docs.google.com https://drive.google.com",
+        (
+            "frame-src https://accounts.google.com https://docs.google.com "
+            "https://drive.google.com https://*.googleusercontent.com"
+        ),
         "form-action 'self' https://accounts.google.com",
     )
 )
