@@ -249,12 +249,13 @@ button:hover:not(:disabled) {
 }
 
 button:disabled {
-  cursor: not-allowed;
+  cursor: help;
   opacity: 0.55;
   transform: none;
 }
 
 button[aria-disabled="true"] {
+  cursor: help;
   opacity: 0.55;
   transform: none;
 }
@@ -267,6 +268,10 @@ button[aria-disabled="true"]:hover:not(:disabled) {
 
 .has-tooltip {
   cursor: help;
+}
+
+button.has-tooltip:not(:disabled):not([aria-disabled="true"]) {
+  cursor: pointer;
 }
 
 .primary-button {
