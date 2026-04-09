@@ -6,6 +6,38 @@ The browser owns the Google login and talks to Google Sheets directly. The
 Python server stays focused on CSV parsing and data-quality checks. Lightweight
 sheet-only cleanup steps stay in the browser to keep the round-trips small.
 
+```mermaid
+flowchart LR
+    subgraph B["Browser"]
+        U["User"]
+        UI["Local demo UI"]
+        GIS["Google login"]
+        PICKER["Sheet picker"]
+    end
+
+    subgraph G["Google"]
+        SHEETS["Sheets API"]
+        SHEET["Google Sheet"]
+    end
+
+    subgraph L["Local container"]
+        API["Local Python API"]
+        LIB["Checks library"]
+    end
+
+    U --> UI
+    UI --> GIS
+    UI --> PICKER
+    PICKER --> SHEET
+
+    UI --> SHEETS
+    SHEETS --> SHEET
+
+    UI --> API
+    API --> LIB
+    LIB --> API
+```
+
 This keeps the design signal clear and supports the distribution goal:
 
 - the demo consumes the public `off_data_quality.checks` API
