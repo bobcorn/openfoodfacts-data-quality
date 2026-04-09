@@ -9,15 +9,13 @@ from openfoodfacts_data_quality.contracts.checks import (
     CheckJurisdiction,
     CheckPackMetadata,
     CheckParityBaseline,
-    LegacyCheckIdentity,
-    resolve_legacy_check_identity,
 )
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
+from openfoodfacts_data_quality.contracts.context import CheckContext
 
 if TYPE_CHECKING:
     from types import ModuleType
 
-CheckEvaluator = Callable[[NormalizedContext], list[CheckEmission]]
+CheckEvaluator = Callable[[CheckContext], list[CheckEmission]]
 _CHECK_BINDING_ATTR = "__openfoodfacts_data_quality_check_binding__"
 _CHECK_PACK_METADATA_ATTR = "CHECK_PACK_METADATA"
 
@@ -31,19 +29,6 @@ class CheckBinding:
     required_context_paths: tuple[str, ...]
     parity_baseline: CheckParityBaseline
     jurisdictions: tuple[CheckJurisdiction, ...]
-    legacy_identity: LegacyCheckIdentity | None = None
-
-    def __post_init__(self) -> None:
-        """Resolve the explicit legacy identity implied by the parity baseline."""
-        object.__setattr__(
-            self,
-            "legacy_identity",
-            resolve_legacy_check_identity(
-                check_id=self.id,
-                parity_baseline=self.parity_baseline,
-                legacy_identity=self.legacy_identity,
-            ),
-        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,14 +38,12 @@ class _PendingCheckBinding:
     id: str
     evaluator: CheckEvaluator
     required_context_paths: tuple[str, ...]
-    legacy_identity: LegacyCheckIdentity | None = None
 
 
 def check(
     check_id: str,
     *,
     requires: tuple[str, ...] = (),
-    legacy_code_template: str | None = None,
 ) -> Callable[[CheckEvaluator], CheckEvaluator]:
     """Attach check metadata to one evaluator definition."""
 
@@ -72,11 +55,6 @@ def check(
                 id=check_id,
                 evaluator=evaluator,
                 required_context_paths=requires,
-                legacy_identity=(
-                    LegacyCheckIdentity(code_template=legacy_code_template)
-                    if legacy_code_template is not None
-                    else None
-                ),
             ),
         )
         return evaluator
@@ -99,7 +77,6 @@ def check_bindings(module: ModuleType) -> tuple[CheckBinding, ...]:
                 required_context_paths=pending_binding.required_context_paths,
                 parity_baseline=pack_metadata.parity_baseline,
                 jurisdictions=pack_metadata.jurisdictions,
-                legacy_identity=pending_binding.legacy_identity,
             )
         )
     return tuple(bindings)

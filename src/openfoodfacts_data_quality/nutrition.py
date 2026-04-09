@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from openfoodfacts_data_quality.checks.context_dependencies import (
-    depends_on_context_paths,
-)
 from openfoodfacts_data_quality.contracts.context import ContextSectionModel
 from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
 from openfoodfacts_data_quality.contracts.structured import NutritionInputSet
@@ -15,7 +12,6 @@ from openfoodfacts_data_quality.structured_values import (
 )
 
 
-@depends_on_context_paths("nutrition.input_sets")
 def first_non_estimated_as_sold_nutrients(
     nutrition: Mapping[str, object] | MappingViewModel | ContextSectionModel,
 ) -> StringObjectMapping:

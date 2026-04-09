@@ -44,7 +44,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["openfoodfacts_data_quality*"]
+include = ["openfoodfacts_data_quality*", "off_data_quality*"]
 
 [tool.setuptools.package-data]
 openfoodfacts_data_quality = [
@@ -101,7 +101,7 @@ exclude = [
   "dist/",
   "src/openfoodfacts_data_quality/contracts/context.py",
   "src/openfoodfacts_data_quality/contracts/enrichment.py",
-  "src/openfoodfacts_data_quality/contracts/raw.py",
+  "src/openfoodfacts_data_quality/contracts/source_products.py",
   "src/openfoodfacts_data_quality/contracts/snapshot_fields.py",
   "src/openfoodfacts_data_quality/contracts/structured.py",
 ]

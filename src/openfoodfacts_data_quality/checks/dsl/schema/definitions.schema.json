@@ -25,10 +25,6 @@
         "severity": {
           "enum": ["bug", "info", "completeness", "warning", "error"]
         },
-        "legacy_code_template": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*:[^\\s]+$"
-        },
         "when": { "$ref": "#/$defs/expression" }
       }
     },

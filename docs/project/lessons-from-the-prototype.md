@@ -35,13 +35,13 @@ predicates over approved fields.
 
 ### Runtime contracts need one clear owner
 
-If the meaning of the runtime surface is spread across layers, names change and
+If the meaning of the runtime provider is spread across layers, names change and
 behavior becomes harder to test. A contract needs one owner so its vocabulary
 and invariants stay in one place.
 
 In this repository, relevant references are
 [data contracts](../reference/data-contracts.md) and
-[NormalizedContext](../explanation/runtime-model.md#normalizedcontext).
+[CheckContext](../explanation/runtime-model.md#checkcontext).
 [About the system architecture](../explanation/system-architecture.md)
 describes the same boundary. The
 [legacy backend](../reference/glossary.md#legacy-backend) provides reference
@@ -50,7 +50,7 @@ data through a defined interface. The runtime contract remains in Python.
 ### Reusable runtime behavior and application behavior need separate boundaries
 
 A reusable library and an application run flow serve different purposes. The
-library needs a compact surface and dependable contracts, while the
+library needs a compact provider and dependable contracts, while the
 application needs orchestration and review support. When these concerns share
 one layer, it
 becomes harder to decide where a change belongs and which interface it should
@@ -89,7 +89,7 @@ application layer also separates run execution from report building.
 
 - [About the project scope](../explanation/project-scope.md)
 - [About the system architecture](../explanation/system-architecture.md)
-- [About reference data and parity](../explanation/reference-data-and-parity.md)
+- [About reference and parity](../explanation/reference-data-and-parity.md)
 - [Roadmap and open questions](roadmap-and-open-questions.md)
 
 [Back to documentation index](../index.md)

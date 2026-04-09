@@ -154,7 +154,7 @@ def _configured_optional_name(env_var: str) -> str | None:
 
 
 def configured_source_snapshot_path(project_root: Path) -> Path:
-    """Return the configured DuckDB source snapshot path."""
+    """Return the configured source snapshot path."""
     del project_root
     configured = os.environ.get(SOURCE_SNAPSHOT_PATH_ENV_VAR)
     if configured is None or not configured.strip():

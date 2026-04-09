@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TYPE_CHECKING
 
-from app.legacy_backend.input_projection import build_legacy_backend_input_products
+from app.legacy_backend.input_payloads import build_legacy_backend_input_payloads
 from app.run.models import ResolvedReferenceResults
 
 if TYPE_CHECKING:
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
         SupportsLegacyBackendRunner,
         SupportsReferenceResultCache,
     )
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
+    from app.source.models import ProductDocument
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,26 +24,34 @@ class ReferenceResultLoader:
 
     def load_many(
         self,
-        rows: list[RawProductRow],
+        product_documents: list[ProductDocument],
     ) -> ResolvedReferenceResults:
         """Return one ordered reference result list matching the requested input batch."""
-        if not rows:
+        if not product_documents:
             return ResolvedReferenceResults(
                 reference_results=[],
                 cache_hit_count=0,
                 backend_run_count=0,
+                load_seconds=0.0,
             )
 
+        started = perf_counter()
         cached_results = self.reference_result_cache.load_many(
-            [row.code for row in rows]
+            [document.code for document in product_documents]
         )
-        missing_rows = [row for row in rows if row.code not in cached_results]
-        missing_backend_input_products = (
-            build_legacy_backend_input_products(missing_rows) if missing_rows else []
+        missing_documents = [
+            document
+            for document in product_documents
+            if document.code not in cached_results
+        ]
+        missing_backend_input_payloads = (
+            build_legacy_backend_input_payloads(missing_documents)
+            if missing_documents
+            else []
         )
         fresh_results = (
-            self.legacy_backend_runner.run(missing_backend_input_products)
-            if missing_backend_input_products
+            self.legacy_backend_runner.run(missing_backend_input_payloads)
+            if missing_backend_input_payloads
             else []
         )
         if fresh_results:
@@ -52,7 +61,10 @@ class ReferenceResultLoader:
             **{result.code: result for result in fresh_results},
         }
         return ResolvedReferenceResults(
-            reference_results=[results_by_code[row.code] for row in rows],
+            reference_results=[
+                results_by_code[document.code] for document in product_documents
+            ],
             cache_hit_count=len(cached_results),
-            backend_run_count=len(missing_backend_input_products),
+            backend_run_count=len(missing_backend_input_payloads),
+            load_seconds=perf_counter() - started,
         )

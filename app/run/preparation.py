@@ -9,10 +9,10 @@ from app.artifacts import display_path
 from app.migration import load_migration_catalog
 from app.reference.observers import reference_observer_for
 from app.run.context_builders import check_context_builder_for
-from app.run.models import PreparedRun, RunSpec
+from app.run.models import PreparedRun, RunPreparationTimings, RunSpec
 from app.run.profiles import load_check_profile
 from app.source.datasets import load_dataset_profile
-from app.source.duckdb_products import count_source_rows, source_snapshot_id_for
+from app.source.product_documents import count_source_products, source_snapshot_id_for
 from openfoodfacts_data_quality.checks.catalog import (
     get_default_check_catalog,
 )
@@ -24,26 +24,33 @@ def prepare_run(
     logger: logging.Logger,
 ) -> PreparedRun:
     """Resolve source metadata, active checks, and evaluator counts."""
-    input_started = perf_counter()
+    prepare_started = perf_counter()
     logger.info(
         "[Input] Loading products from %s",
         display_path(run_spec.db_path, run_spec.project_root),
     )
+    source_snapshot_started = perf_counter()
     source_snapshot_id = source_snapshot_id_for(run_spec.db_path)
+    source_snapshot_id_seconds = perf_counter() - source_snapshot_started
+    dataset_profile_started = perf_counter()
     active_dataset_profile = load_dataset_profile(
         run_spec.dataset_profile_config_path,
         run_spec.dataset_profile_name,
     )
+    dataset_profile_load_seconds = perf_counter() - dataset_profile_started
     run_id = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
-    product_count = count_source_rows(
+    source_row_count_started = perf_counter()
+    product_count = count_source_products(
         run_spec.db_path,
         selection=active_dataset_profile.selection,
     )
+    source_row_count_seconds = perf_counter() - source_row_count_started
+    prepare_run_seconds = perf_counter() - prepare_started
     logger.info(
         "[Input] Found %d products in source snapshot %s in %.1fs.",
         product_count,
         source_snapshot_id,
-        perf_counter() - input_started,
+        prepare_run_seconds,
     )
     check_catalog = get_default_check_catalog()
     migration_catalog = load_migration_catalog(
@@ -68,7 +75,7 @@ def prepare_run(
         product_count=product_count,
         active_check_profile=active_check_profile,
         check_context_builder=check_context_builder_for(
-            active_check_profile.check_input_surface
+            active_check_profile.check_context_provider
         ),
         reference_observer=reference_observer_for(active_check_profile.checks),
         evaluators=evaluators,
@@ -85,6 +92,12 @@ def prepare_run(
             1
             for check in active_check_profile.checks
             if check.parity_baseline == "none"
+        ),
+        preparation_timings=RunPreparationTimings(
+            prepare_run_seconds=prepare_run_seconds,
+            source_snapshot_id_seconds=source_snapshot_id_seconds,
+            dataset_profile_load_seconds=dataset_profile_load_seconds,
+            source_row_count_seconds=source_row_count_seconds,
         ),
         active_dataset_profile=active_dataset_profile,
         active_migration_plan=migration_catalog.active_plan_for_check_ids(
@@ -107,10 +120,10 @@ def log_run_configuration(
         run.active_dataset_profile.selection.kind,
     )
     logger.info(
-        "[Checks] Active profile: %s (%d checks, check input surface %s).",
+        "[Checks] Active profile: %s (%d checks, check context provider %s).",
         run.active_check_profile.name,
         len(run.active_check_profile.checks),
-        run.active_check_profile.check_input_surface,
+        run.active_check_profile.check_context_provider,
     )
     logger.info(
         "[Checks] Loaded %d Python checks and %d DSL checks for the active profile.",

@@ -14,9 +14,10 @@ You can use the repository in two ways:
 - Use the shared runtime in `src/openfoodfacts_data_quality/` to run checks
   directly from Python. See
   [About the runtime model](docs/explanation/runtime-model.md).
-- Use the application layer in `app/` for complete runs. It loads DuckDB input and
-  resolves [reference data](docs/explanation/reference-data-and-parity.md) when
-  the run needs it. It also handles
+- Use the application layer in `app/` for complete runs. It loads a full-product
+  source snapshot and resolves
+  [reference data](docs/explanation/reference-data-and-parity.md) when the run
+  needs it. It also handles
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
   stored review data, and [report artifacts](docs/reference/report-artifacts.md).
 
@@ -94,31 +95,32 @@ preview.
 
 ## Use the Python library
 
-The public Python API exposes two input surfaces:
+The current public Python API exposes one concrete namespace:
 
-- `openfoodfacts_data_quality.raw`
-- `openfoodfacts_data_quality.enriched`
+- `off_data_quality.checks`
 
-Use `raw` when the rule depends only on public product rows:
+Use `checks` when you want findings from canonical Open Food Facts product
+rows:
 
 ```python
-from openfoodfacts_data_quality import raw
+from off_data_quality import checks
 
-findings = raw.run_checks(
+findings = checks.run(
     rows,
     check_ids=["en:serving-quantity-over-product-quantity"],
 )
 ```
 
-Pass rows from Open Food Facts public source snapshots. The library normalizes
-those rows internally before the shared runtime builds check contexts.
+The library does not load files for you. Use `csv`, DuckDB, pandas, or another
+tool to read rows, then pass those rows to `checks.run(...)`.
 
-Use `enriched` when a check depends on stable enriched data. In application
-runs, that data usually comes from the
-[reference path](docs/explanation/reference-data-and-parity.md#why-the-reference-path-exists).
-When you call the library directly, provide
-[EnrichedSnapshotResult](docs/reference/data-contracts.md#enrichedsnapshotresult)
-values explicitly.
+`checks.run(...)` accepts canonical row mappings and common table-like objects
+that are already loaded in memory. It also normalizes the structured Open Food
+Facts product export shape. If your flat input uses different column names, pass
+an explicit `columns={canonical: source}` mapping to `checks.run(...)`.
+
+`off_data_quality.snapshots` exists as a placeholder namespace for a future
+enrichment-focused API, but it does not expose runnable entry points yet.
 
 ## Documentation
 

@@ -1,41 +1,56 @@
-"""Minimal raw surface example on the bundled public CSV sample."""
+"""List the checks, then run them on the sample data."""
 
-import csv
-from pprint import pprint
+import json
 
-from openfoodfacts_data_quality import raw
+import duckdb
 
-csv.field_size_limit(10_000_000)
+from off_data_quality import checks
 
-# Load the bundled tab-separated public CSV sample with the standard library.
-with open("examples/data/products.csv", encoding="utf-8", newline="") as handle:
-    rows = list(csv.DictReader(handle, delimiter="\t"))
-
-# Inspect a small, friendly subset of checks before running them.
-checks = raw.list_checks(
-    check_ids=[
-        "en:quantity-to-be-completed",
-        "en:nutrition-data-per-serving-serving-quantity-is-not-recognized",
-        "en:serving-quantity-over-product-quantity",
-    ]
-)
-print("Selected checks:")
-print([check.id for check in checks])
-
-# Run the same checks on the loaded rows.
-findings = raw.run_checks(
-    rows,
-    check_ids=[
-        "en:quantity-to-be-completed",
-        "en:nutrition-data-per-serving-serving-quantity-is-not-recognized",
-        "en:serving-quantity-over-product-quantity",
-    ],
+CSV_SAMPLE = "examples/data/products.csv"
+SELECTED_CHECK_IDS = (
+    "en:quantity-to-be-completed",
+    "en:nutrition-data-per-serving-serving-quantity-is-not-recognized",
+    "en:serving-quantity-over-product-quantity",
 )
 
-print(f"\nLoaded {len(rows)} products from examples/data/products.csv.")
-print(f"Emitted {len(findings)} findings.")
-print("\nFirst five findings:")
-pprint(
-    [finding.model_dump(mode="json", exclude_none=True) for finding in findings[:5]],
-    sort_dicts=False,
+# Load one table of product rows.
+rows = duckdb.read_csv(CSV_SAMPLE, sep="\t", all_varchar=True)
+
+# Look at the checks in the library.
+all_checks = checks.list()
+print("All checks")
+print(json.dumps([check.id for check in all_checks], indent=2))
+
+# Run all checks on the loaded rows.
+all_findings = checks.run(rows)
+print()
+print("All findings")
+print(json.dumps({"count": len(all_findings)}, indent=2))
+
+# Run a smaller set of checks.
+selected_checks = checks.list(check_ids=SELECTED_CHECK_IDS)
+selected_findings = checks.run(rows, check_ids=SELECTED_CHECK_IDS)
+selected_example = None
+for finding in selected_findings:
+    selected_example = {
+        "product_id": finding.product_id,
+        "check_id": finding.check_id,
+        "severity": finding.severity,
+    }
+    break
+
+print()
+print("Selected checks")
+print(json.dumps([check.id for check in selected_checks], indent=2))
+
+print()
+print("Selected findings")
+print(
+    json.dumps(
+        {
+            "count": len(selected_findings),
+            "example": selected_example,
+        },
+        indent=2,
+    )
 )

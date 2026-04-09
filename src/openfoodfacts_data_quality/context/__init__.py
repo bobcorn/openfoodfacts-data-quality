@@ -1,1 +1,1 @@
-"""Normalized context construction and path semantics."""
+"""Check context construction and path semantics."""

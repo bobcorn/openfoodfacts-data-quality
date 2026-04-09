@@ -8,7 +8,7 @@ concept, contract, or boundary.
 For execution details, see
 [About the runtime model](../explanation/runtime-model.md),
 [About migrated checks](../explanation/migrated-checks.md), and
-[About reference data and parity](../explanation/reference-data-and-parity.md).
+[About reference and parity](../explanation/reference-data-and-parity.md).
 
 ## Canonical terms
 
@@ -32,20 +32,31 @@ For execution details, see
 
 ### Input and runtime
 
-- `raw_products`
-  raw public product input surface consumed directly from the source snapshot
-- `enriched_products`
-  enriched input surface consumed from stable `EnrichedSnapshotResult` values
-  owned by the Python runtime
-- `input surface`
-  library contract that defines which runtime surface a check supports
-- `check input surface`
-  application or config selection axis used to choose which checks are active
-  in a run
-- `normalized context`
+- `checks`
+  public library namespace for checks on loaded rows
+- `off_data_quality`
+  public import namespace for library callers
+- `snapshots`
+  reserved public namespace for a future enrichment-focused library API
+- `openfoodfacts_data_quality`
+  implementation package root for the shared runtime and contracts
+- `source_products`
+  context provider consumed directly from source products
+- `enriched_snapshots`
+  enriched snapshot context provider consumed from stable enriched data; in the
+  app reference path this arrives as `CheckContext`, while direct
+  library usage accepts `EnrichedSnapshotRecord`
+- `context provider`
+  current library bridge that defines which check context paths a provider
+  can expose
+- `check context provider`
+  application or config selection axis used to choose the context provider for
+  one run
+- `check context`
   Python runtime contract used by migrated checks
 - `dataset profile`
-  named application preset that selects which source rows enter one run
+  named application preset that selects which products from the source snapshot
+  enter one run
 - `source selection`
   explicit selection contract resolved from one dataset profile
 
@@ -76,9 +87,6 @@ For execution details, see
   the application layer
 - `shared runtime`
   reusable execution layer under `src/openfoodfacts_data_quality/`
-- `surface`
-  runtime and API contract such as `raw_products`, `enriched_products`, and the
-  raw or enriched library APIs
 
 ### Parity
 
@@ -121,13 +129,14 @@ For execution details, see
   raw legacy finding tags emitted by the Perl backend
 - `enriched_snapshot`
   stable enriched product payload embedded in `ReferenceResult` and
-  `EnrichedSnapshotResult`
+  `EnrichedSnapshotRecord`
 
 ### Source snapshot
 
 - `source snapshot`
-  versioned dataset used as input for one run, usually a DuckDB snapshot
-  identified by a sidecar manifest or a file hash
+  versioned full product dataset used as input for one application run. The
+  current run application supports JSONL snapshots and DuckDB snapshots with a
+  `products` table.
 - `source_snapshot_id`
   stable identifier of a source snapshot
 

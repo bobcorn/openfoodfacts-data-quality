@@ -7,7 +7,6 @@ if TYPE_CHECKING:
     from openfoodfacts_data_quality.contracts.checks import (
         CheckJurisdiction,
         CheckParityBaseline,
-        LegacyCheckIdentity,
         Severity,
     )
 
@@ -60,5 +59,4 @@ class DSLDefinition:
     when: Expression
     parity_baseline: CheckParityBaseline
     jurisdictions: tuple[CheckJurisdiction, ...]
-    legacy_identity: LegacyCheckIdentity | None = None
     required_context_paths: tuple[str, ...] = ()

@@ -2,68 +2,99 @@
 
 # Use the Python library
 
-Use the Python library when you want findings without DuckDB loading, reference
-caching, or report rendering.
+Use the Python library when you already have loaded rows and want findings
+without application source loading, reference caching, or report rendering.
 
-## Choose a namespace
+## Install the package
 
-- `openfoodfacts_data_quality.raw`
-- `openfoodfacts_data_quality.enriched`
+The library is not published on PyPI.
 
-Each namespace exposes `list_checks(...)` and `run_checks(...)`.
+To install it without a source checkout:
 
-They map to the two
-[input surfaces](../explanation/runtime-model.md#input-surfaces) supported by
-the [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split).
+1. Open the
+   [GitHub Releases page](https://github.com/bobcorn/openfoodfacts-data-quality/releases).
+2. Download the wheel for the version you want. The file name looks like
+   `openfoodfacts_data_quality-<VERSION>-py3-none-any.whl`.
+3. Install the wheel with `pip`:
 
-## Run checks on raw rows
+   ```bash
+   python -m pip install /path/to/openfoodfacts_data_quality-<VERSION>-py3-none-any.whl
+   ```
 
-Use `raw` when the checks you care about can run from public product rows
-alone.
+If you already have a source checkout, you can install the package from the
+repository root instead:
 
-Pass rows from Open Food Facts public source snapshots. The library normalizes
-those rows into its internal raw runtime contract before it builds check
-contexts.
+```bash
+python -m pip install .
+```
 
-That means callers can use rows loaded from:
+## Import the API
 
-- public Parquet snapshots
-- DuckDB databases created from those public snapshots
-- the public CSV export
+The current public entry point is:
 
-The public CSV download is tab-separated even though it uses a `.csv` file
-name.
+- `off_data_quality.checks`
 
-The raw surface accepts the real public row shapes for those sources. It
-handles the flat CSV export and the structured Parquet or DuckDB snapshot
-shape internally.
+It exposes:
+
+- `checks.list(...)`
+- `checks.run(...)`
+
+Import the public library from `off_data_quality`. The shared implementation
+and contracts live under `openfoodfacts_data_quality/` inside `src/`.
+
+`off_data_quality.snapshots` exists as a placeholder namespace for a future
+direct enrichment API, but it does not expose runnable entry points yet.
+
+## Run on loaded rows
+
+`checks.run(...)` accepts rows that use the canonical column names defined by
+the library contract.
+
+The library does not parse files for you. Load rows with the tools you prefer,
+such as `csv`, DuckDB, pandas, or PyArrow, then pass those rows to
+`checks.run(...)`.
+
+`checks.run(...)` accepts row iterables and common table-like objects that are
+already loaded in memory, such as pandas-style, PyArrow-style, and DuckDB-style
+objects. It also normalizes the structured Open Food Facts product export
+shape. It raises an error for file paths.
 
 ```python
-from openfoodfacts_data_quality import raw
+from off_data_quality import checks
 
-findings = raw.run_checks(
+findings = checks.run(
     rows,
     check_ids=["en:serving-quantity-over-product-quantity"],
 )
 ```
 
-## Run checks on enriched snapshots
+`checks.run(...)` prepares the rows before execution starts. If the rows do not
+match a supported contract, it raises an error immediately.
 
-Use `enriched` when the checks need data derived from the backend, such as
-flags, category properties, or richer nutrition structures.
+## Remap column names explicitly
 
-Pass [EnrichedSnapshotResult](../reference/data-contracts.md#enrichedsnapshotresult)
-items to the enriched surface:
+If your input uses different column names, pass an explicit `columns=...`
+mapping.
+
+- Key: canonical column name expected by the library
+- Value: source column name present in your input rows
 
 ```python
-from openfoodfacts_data_quality import enriched
+from off_data_quality import checks
 
-findings = enriched.run_checks(snapshots)
+findings = checks.run(
+    rows,
+    columns={
+        "code": "barcode",
+        "product_name": "name",
+        "quantity": "qty",
+    },
+)
 ```
 
-Library callers can build enriched snapshots directly without going through the
-application
-[reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists).
+The library does not infer aliases or read fallback shapes. If a mapped source
+column is missing, the run fails fast. Extra columns that are not part of the
+canonical contract are ignored.
 
 ## Narrow the active check set
 
@@ -71,15 +102,14 @@ application
 - Pass [`jurisdictions`](../reference/check-metadata-and-selection.md#metadata-fields)
   to limit eligible checks.
 
-If you request checks that are not valid for the selected
-[input surface](../explanation/runtime-model.md#input-surfaces), the library
-fails explicitly.
+If you request checks that need enriched snapshot input, the library fails
+explicitly.
 
 ## Know what the library does not do
 
 The public library does not include:
 
-- source loading from DuckDB
+- source snapshot file loading from JSONL or DuckDB paths
 - reference result loading or caching
 - report generation
 - artifact serialization
@@ -94,7 +124,7 @@ Use the library for programmatic findings inside Python callers.
 
 Use the application when you need
 [source loading](../explanation/application-runs.md#run-overview),
-[reference data](../explanation/reference-data-and-parity.md),
+[reference](../explanation/reference-data-and-parity.md),
 [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison),
 or the [HTML report](../reference/report-artifacts.md#html-report).
 
@@ -102,6 +132,7 @@ or the [HTML report](../reference/report-artifacts.md#html-report).
 
 - [About the runtime model](../explanation/runtime-model.md)
 - [Data contracts](../reference/data-contracts.md)
+- [CI and releases](../reference/ci-and-releases.md)
 - [Run the project locally](run-the-project-locally.md)
 
 [Back to documentation index](../index.md)

@@ -6,7 +6,6 @@ from typing import Literal
 
 Severity = Literal["bug", "info", "completeness", "warning", "error"]
 CheckDefinitionLanguage = Literal["python", "dsl"]
-CheckInputSurface = Literal["raw_products", "enriched_products"]
 CheckParityBaseline = Literal["legacy", "none"]
 CheckJurisdiction = Literal["global", "ca"]
 SEVERITY_ORDER: dict[str, int] = {
@@ -51,7 +50,6 @@ class LegacyCheckIdentity:
 class CheckSelection:
     """Optional metadata filters applied when selecting checks from the catalog."""
 
-    input_surface: CheckInputSurface | None = None
     parity_baselines: tuple[CheckParityBaseline, ...] | None = None
     jurisdictions: tuple[CheckJurisdiction, ...] | None = None
 
@@ -74,7 +72,6 @@ class CheckDefinition:
     jurisdictions: tuple[CheckJurisdiction, ...]
     legacy_identity: LegacyCheckIdentity | None = None
     required_context_paths: tuple[str, ...] = ()
-    supported_input_surfaces: tuple[CheckInputSurface, ...] = ()
 
     def __post_init__(self) -> None:
         """Resolve the explicit legacy identity implied by the parity baseline."""
@@ -88,16 +85,8 @@ class CheckDefinition:
             ),
         )
 
-    def supports_input_surface(self, surface: CheckInputSurface) -> bool:
-        """Return whether this check can run on the requested normalized surface."""
-        return surface in self.supported_input_surfaces
-
     def matches_selection(self, selection: CheckSelection) -> bool:
         """Return whether this check satisfies one catalog selection filter."""
-        if selection.input_surface is not None and not self.supports_input_surface(
-            selection.input_surface
-        ):
-            return False
         if (
             selection.parity_baselines is not None
             and self.parity_baseline not in selection.parity_baselines

@@ -6,6 +6,7 @@ import queue
 import subprocess
 import threading
 from collections import deque
+from collections.abc import Mapping, Sequence
 from contextlib import AbstractContextManager
 from pathlib import Path
 from time import perf_counter
@@ -19,8 +20,6 @@ from app.reference.models import ReferenceResult
 
 if TYPE_CHECKING:
     from types import TracebackType
-
-    from app.legacy_backend.input_projection import LegacyBackendInputProduct
 
 LOGGER = logging.getLogger(__name__)
 _EOF = object()
@@ -117,10 +116,10 @@ class LegacyBackendSession(_StartedContextManager):
 
     def run(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        backend_input_payloads: Sequence[Mapping[str, object]],
     ) -> list[ReferenceResult]:
         """Send one batch through the persistent backend worker."""
-        if not backend_input_products:
+        if not backend_input_payloads:
             return []
 
         self.start()
@@ -129,12 +128,12 @@ class LegacyBackendSession(_StartedContextManager):
         if stdin is None:
             raise RuntimeError("Legacy backend session lost its stdin pipe.")
 
-        for product in backend_input_products:
+        for payload in backend_input_payloads:
             self._ensure_running()
             try:
                 stdin.write(
                     json.dumps(
-                        product.serialized_input(),
+                        payload,
                         ensure_ascii=False,
                     )
                 )
@@ -147,10 +146,10 @@ class LegacyBackendSession(_StartedContextManager):
             self._raise_pipe_failure(exc)
 
         backend_results: list[ReferenceResult] = []
-        for _ in backend_input_products:
+        for _ in backend_input_payloads:
             payload = json.loads(
                 self.next_stdout_line(
-                    batch_size=len(backend_input_products),
+                    batch_size=len(backend_input_payloads),
                     received_count=len(backend_results),
                 )
             )
@@ -355,16 +354,16 @@ class LegacyBackendSessionPool(_StartedContextManager):
 
     def run(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        backend_input_payloads: Sequence[Mapping[str, object]],
     ) -> list[ReferenceResult]:
         """Run one batch through the next available persistent backend worker."""
-        if not backend_input_products:
+        if not backend_input_payloads:
             return []
 
         self.start()
         session = self._available_sessions.get()
         try:
-            backend_results = session.run(backend_input_products)
+            backend_results = session.run(backend_input_payloads)
         except Exception as exc:
             self._retire_failed_session(session, exc)
             raise
@@ -466,12 +465,12 @@ class LazyLegacyBackendRunner(AbstractContextManager["LazyLegacyBackendRunner"])
 
     def run(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        backend_input_payloads: Sequence[Mapping[str, object]],
     ) -> list[ReferenceResult]:
         """Run one batch, creating the backend pool only on first cache miss."""
-        if not backend_input_products:
+        if not backend_input_payloads:
             return []
-        return self._ensure_session_pool().run(backend_input_products)
+        return self._ensure_session_pool().run(backend_input_payloads)
 
     def close(self) -> None:
         """Close the started backend pool, if any."""

@@ -1,8 +1,8 @@
 [Back to documentation index](../index.md)
 
-# About reference data and parity
+# About reference and parity
 
-Some runs need reference data before they can compare migrated behavior with
+Some runs need reference results before they can compare migrated behavior with
 legacy behavior. The sections below cover that path and the review rules around
 it.
 
@@ -23,8 +23,9 @@ for one run or one batch.
 It exists because:
 
 - compared checks need reference findings for strict comparison
-- enriched application runs need
-  [enriched snapshots](../reference/data-contracts.md#enrichedsnapshotresult)
+- enriched snapshot application runs need
+  [`CheckContext`](../reference/data-contracts.md#checkcontext) values projected
+  from [ReferenceResult](../reference/data-contracts.md#referenceresult)
 
 ### Cache reuse and backend materialization
 
@@ -35,21 +36,21 @@ miss, the application projects the needed input into the legacy backend
 boundary, gets a backend result, validates it, and stores the resulting
 reference payload in the cache namespace for that run contract.
 
-### Compared raw runs still use the reference path
+### Compared source product runs still use the reference path
 
-Compared raw runs still need the reference path. `raw_products` on the
-migrated side only means that the migrated context comes from raw rows. The
-comparison still needs reference findings.
+Compared source product runs still need the reference path. `source_products`
+on the migrated side only means that the migrated context comes from source
+products. The comparison still needs reference findings.
 
 ```mermaid
 flowchart TB
-    subgraph COMP["Compared run"]
-        A["Selected source rows"]
-        B["Reference path"]
-        C["Migrated runtime"]
-        D["Reference findings"]
-        E["Migrated findings"]
-        F["Strict comparison"]
+    subgraph COMP["Compared Run"]
+        A["Selected Source Batch"]
+        B["Reference Path"]
+        C["Migrated Runtime"]
+        D["Reference Findings"]
+        E["Migrated Findings"]
+        F["Strict Comparison"]
         A --> B
         A --> C
         B --> D
@@ -58,18 +59,18 @@ flowchart TB
         E --> F
     end
 
-    subgraph REF["Reference sources"]
-        H["Reference cache"]
-        I["Legacy backend"]
+    subgraph REF["Reference Sources"]
+        H["Reference Cache"]
+        I["Legacy Backend"]
     end
 
     H -.-> B
     I -.-> B
 
-    subgraph RTO["Runtime only run"]
-        J["Selected source rows"]
-        K["Migrated runtime"]
-        L["Migrated findings"]
+    subgraph RTO["Runtime Only Run"]
+        J["Selected Source Batch"]
+        K["Migrated Runtime"]
+        L["Migrated Findings"]
         J --> K --> L
     end
 ```

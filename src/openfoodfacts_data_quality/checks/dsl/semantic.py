@@ -69,7 +69,7 @@ def _validate_expression(expression: Expression, check_id: str) -> None:
 
 
 def _validate_atom(expression: Atom, check_id: str) -> None:
-    """Validate one predicate atom against the normalized context contract."""
+    """Validate one predicate atom against the check context contract."""
     spec = _validated_path_spec(expression, check_id)
     if expression.op in _BOOLEAN_OPERATORS:
         _validate_boolean_atom(expression, spec.type)
@@ -101,7 +101,7 @@ def _validated_path_spec(expression: Atom, check_id: str) -> ContextPathSpec:
     spec = path_spec_for(expression.field)
     if spec is None:
         raise ValueError(
-            f"Unknown normalized context field '{expression.field}' in DSL definition '{check_id}'."
+            f"Unknown check context field '{expression.field}' in DSL definition '{check_id}'."
         )
     if not spec.dsl_allowed:
         raise ValueError(

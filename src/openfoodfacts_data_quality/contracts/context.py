@@ -6,7 +6,6 @@ from typing import Annotated, Any, Literal, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from openfoodfacts_data_quality.contracts.checks import CheckInputSurface
 from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
 from openfoodfacts_data_quality.contracts.structured import (
     IngredientNode,
@@ -17,42 +16,33 @@ from openfoodfacts_data_quality.contracts.structured import (
 
 PathType = Literal["string", "number", "boolean", "array", "object"]
 
-CHECK_INPUT_SURFACES: tuple[CheckInputSurface, ...] = (
-    "raw_products",
-    "enriched_products",
-)
-
 
 @dataclass(frozen=True)
 class ContextFieldMetadata:
-    """Path metadata attached directly to one normalized context contract field."""
+    """Path metadata attached directly to one check context field."""
 
     type: PathType
     dsl_allowed: bool = True
-    supported_input_surfaces: tuple[CheckInputSurface, ...] = CHECK_INPUT_SURFACES
 
 
 @dataclass(frozen=True)
 class ContextPathSpec:
-    """Materialized metadata for one dotted normalized context path."""
+    """Materialized metadata for one dotted check context path."""
 
     path: str
     type: PathType
     dsl_allowed: bool
-    supported_input_surfaces: tuple[CheckInputSurface, ...]
 
 
 def context_field(
     path_type: PathType,
     *,
     dsl_allowed: bool = True,
-    supported_input_surfaces: tuple[CheckInputSurface, ...] = CHECK_INPUT_SURFACES,
 ) -> ContextFieldMetadata:
-    """Attach normalized context path metadata to one contract field."""
+    """Attach check context path metadata to one contract field."""
     return ContextFieldMetadata(
         type=path_type,
         dsl_allowed=dsl_allowed,
-        supported_input_surfaces=supported_input_surfaces,
     )
 
 
@@ -75,14 +65,12 @@ class ProductContext(ContextSectionModel):
         str | None,
         context_field(
             "string",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     lang: Annotated[
         str | None,
         context_field(
             "string",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     created_t: Annotated[float | None, context_field("number")] = None
@@ -92,7 +80,6 @@ class ProductContext(ContextSectionModel):
         list[PackagingEntry] | None,
         context_field(
             "array",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     product_quantity: Annotated[float | None, context_field("number")] = None
@@ -108,7 +95,6 @@ class ProductContext(ContextSectionModel):
         context_field(
             "array",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ingredients_tags: Annotated[list[str], context_field("array")] = Field(
@@ -118,35 +104,30 @@ class ProductContext(ContextSectionModel):
         float | None,
         context_field(
             "number",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ingredients_with_specified_percent_n: Annotated[
         float | None,
         context_field(
             "number",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ingredients_with_unspecified_percent_n: Annotated[
         float | None,
         context_field(
             "number",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ingredients_with_specified_percent_sum: Annotated[
         float | None,
         context_field(
             "number",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ingredients_with_unspecified_percent_sum: Annotated[
         float | None,
         context_field(
             "number",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     nutriscore_grade: Annotated[
@@ -158,7 +139,6 @@ class ProductContext(ContextSectionModel):
         context_field(
             "string",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     nutriscore_score: Annotated[float | None, context_field("number")] = None
@@ -176,26 +156,23 @@ class ProductContext(ContextSectionModel):
         context_field(
             "array",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
 
 
 class FlagsContext(ContextSectionModel):
-    """Stable normalized flag subset derived from enriched snapshots."""
+    """Stable flag subset derived from enriched snapshots."""
 
     is_european_product: Annotated[
         bool | None,
         context_field(
             "boolean",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     has_animal_origin_category: Annotated[
         bool | None,
         context_field(
             "boolean",
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     ignore_energy_calculated_error: Annotated[
@@ -203,20 +180,18 @@ class FlagsContext(ContextSectionModel):
         context_field(
             "boolean",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
 
 
 class CategoryPropsContext(ContextSectionModel):
-    """Stable normalized category property subset derived from enriched snapshots."""
+    """Stable category property subset derived from enriched snapshots."""
 
     minimum_number_of_ingredients: Annotated[
         float | None,
         context_field(
             "number",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
 
@@ -234,7 +209,7 @@ class NutritionAsSoldContext(ContextSectionModel):
 
 
 class NutritionContext(ContextSectionModel):
-    """Stable normalized nutrition subset shared by raw and enriched runs."""
+    """Stable nutrition subset consumed by data quality checks."""
 
     input_sets: Annotated[
         list[NutritionInputSet],
@@ -245,13 +220,12 @@ class NutritionContext(ContextSectionModel):
         context_field(
             "object",
             dsl_allowed=False,
-            supported_input_surfaces=("enriched_products",),
         ),
     ] = None
     as_sold: NutritionAsSoldContext = Field(default_factory=NutritionAsSoldContext)
 
 
-class NormalizedContext(BaseModel):
+class CheckContext(BaseModel):
     """Stable typed context consumed by quality checks."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -263,11 +237,11 @@ class NormalizedContext(BaseModel):
     nutrition: NutritionContext = Field(default_factory=NutritionContext)
 
     @model_validator(mode="after")
-    def validate_product_code(self) -> NormalizedContext:
+    def validate_product_code(self) -> CheckContext:
         """Keep the outer code and product projection aligned."""
         if self.product.code != self.code:
             raise ValueError(
-                "Normalized context code must match product.code. "
+                "Check context code must match product.code. "
                 f"Got {self.code!r} and {self.product.code!r}."
             )
         return self
@@ -282,9 +256,9 @@ class NormalizedContext(BaseModel):
         }
 
 
-def iter_normalized_context_path_specs() -> tuple[ContextPathSpec, ...]:
-    """Derive every dotted normalized context path directly from the contract."""
-    return tuple(_collect_path_specs(NormalizedContext))
+def iter_check_context_path_specs() -> tuple[ContextPathSpec, ...]:
+    """Derive every dotted check context path directly from the contract."""
+    return tuple(_collect_path_specs(CheckContext))
 
 
 def _collect_path_specs(
@@ -304,7 +278,6 @@ def _collect_path_specs(
                     path=path,
                     type=metadata.type,
                     dsl_allowed=metadata.dsl_allowed,
-                    supported_input_surfaces=metadata.supported_input_surfaces,
                 )
             )
             continue
@@ -316,7 +289,7 @@ def _collect_path_specs(
 
 
 def _context_field_metadata(metadata_items: list[Any]) -> ContextFieldMetadata | None:
-    """Return the normalized context metadata item attached to one field."""
+    """Return the check context metadata item attached to one field."""
     for metadata_item in metadata_items:
         if isinstance(metadata_item, ContextFieldMetadata):
             return metadata_item

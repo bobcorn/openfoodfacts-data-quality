@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
-from app.source.duckdb_products import (
+from app.source.snapshots import (
     SOURCE_SNAPSHOT_ID_ENV_VAR,
     source_snapshot_id_for,
     source_snapshot_manifest_path_for,

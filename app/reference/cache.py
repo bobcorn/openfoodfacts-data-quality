@@ -26,12 +26,12 @@ REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS = (
     Path("app") / "reference" / "cache.py",
     Path("app") / "reference" / "models.py",
     Path("app") / "legacy_backend" / "contracts.py",
-    Path("app") / "legacy_backend" / "input_projection.py",
+    Path("app") / "legacy_backend" / "input_payloads.py",
     Path("app") / "legacy_backend" / "off_runtime.pl",
-    Path("src") / "openfoodfacts_data_quality" / "contracts" / "raw.py",
+    Path("app") / "source" / "product_documents.py",
+    Path("app") / "source" / "snapshots.py",
     Path("src") / "openfoodfacts_data_quality" / "contracts" / "enrichment.py",
     Path("src") / "openfoodfacts_data_quality" / "contracts" / "structured.py",
-    Path("src") / "openfoodfacts_data_quality" / "raw_products.py",
     Path("src") / "openfoodfacts_data_quality" / "scalars.py",
 )
 LEGACY_BACKEND_FINGERPRINT_PATHS = (

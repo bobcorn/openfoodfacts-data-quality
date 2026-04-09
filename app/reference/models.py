@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, model_validator
 
-from openfoodfacts_data_quality.contracts.enrichment import (
-    EnrichedSnapshot,
-    EnrichedSnapshotResult,
-)
+from openfoodfacts_data_quality.context.builder import build_enriched_snapshot_context
+from openfoodfacts_data_quality.contracts.context import CheckContext
+from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshot
 
-REFERENCE_RESULT_SCHEMA_VERSION = 4
+REFERENCE_RESULT_SCHEMA_VERSION = 1
 
 
 class LegacyCheckTags(BaseModel, frozen=True, extra="forbid"):
@@ -39,14 +38,14 @@ class ReferenceResult(BaseModel, frozen=True, extra="forbid"):
         return self
 
 
-def enriched_snapshots_from_reference_results(
+def reference_check_contexts_from_reference_results(
     reference_results: list[ReferenceResult],
-) -> list[EnrichedSnapshotResult]:
-    """Project reference results onto the library-facing enriched contract."""
+) -> list[CheckContext]:
+    """Project reference results onto reference-side enriched check contexts."""
     return [
-        EnrichedSnapshotResult(
+        build_enriched_snapshot_context(
             code=result.code,
-            enriched_snapshot=result.enriched_snapshot.model_copy(deep=True),
+            enriched_snapshot=result.enriched_snapshot,
         )
         for result in reference_results
     ]

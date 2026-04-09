@@ -7,7 +7,7 @@ Use this guide to add a migrated check and keep the logic inside the
 
 ## Before you begin
 
-- Choose the [input surface](../explanation/runtime-model.md#input-surfaces)
+- Choose the [context provider](../explanation/runtime-model.md#context-providers)
   the rule actually needs.
 - Decide whether the check should use a
   [`parity_baseline`](../explanation/reference-data-and-parity.md#parity-baselines)
@@ -35,7 +35,7 @@ flowchart TB
     F -->|"Ready"| H
 ```
 
-1. Choose the rule and the surface it belongs to.
+1. Choose the rule and the provider it belongs to.
 2. Choose `dsl` or `python`.
 3. Declare [metadata](../reference/check-metadata-and-selection.md) that
    matches the rule contract.
@@ -51,7 +51,7 @@ flowchart TB
 
 Use the [DSL](../explanation/migrated-checks.md#definition-languages) when the
 rule is a readable boolean predicate over approved
-[NormalizedContext](../reference/data-contracts.md#normalizedcontext) paths and
+[CheckContext](../reference/data-contracts.md#checkcontext) paths and
 one static severity is enough.
 
 Use Python when the rule needs:
@@ -70,19 +70,18 @@ Checks are packaged repository content. Do not hide them in `app/`.
 
 ## Set the metadata
 
-- `supported_input_surfaces` says which
-  [input surfaces](../explanation/runtime-model.md#input-surfaces) can run the
-  check.
 - `required_context_paths` records the stable dotted paths the rule needs
-  inside [`NormalizedContext`](../reference/data-contracts.md#normalizedcontext).
+  inside [`CheckContext`](../reference/data-contracts.md#checkcontext).
 - `parity_baseline` decides whether the check enters
   [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison).
 - `jurisdictions` limits the markets where the rule is eligible.
-- `legacy_identity` maps the check to the correct legacy emitted code template
-  when the default mapping is not enough.
+- `legacy_identity` is derived from the check id for checks that participate in
+  parity comparison.
 
-For Python checks, declared `required_context_paths` are validated against
-inferred context access and helper annotations.
+For Python checks, declare the stable context paths with `requires=(...)`. The
+catalog materializes that declaration as `required_context_paths`. The catalog
+validates that each declared path exists; it does not infer dependencies from
+Python source.
 
 ## Validate the change
 
@@ -112,15 +111,14 @@ call the work done.
 
 ## Extend contracts on purpose
 
-Checks depend on
-[`NormalizedContext`](../reference/data-contracts.md#normalizedcontext) paths,
-not on helper shapes local to `app/`.
-
-When a Python helper needs anything broader than leaf context values, annotate
-it with `@depends_on_context_paths(...)`.
+Checks depend on stable
+[`CheckContext`](../reference/data-contracts.md#checkcontext) paths,
+not on helper shapes local to `app/`. Helpers may receive leaf values, sections,
+or the whole context, but the check decorator still owns the dependency
+contract through `requires`.
 
 If a check needs additional stable data, extend the
-[normalized contract](../reference/data-contracts.md#normalizedcontext) and
+[normalized contract](../reference/data-contracts.md#checkcontext) and
 update tests plus docs in the same task.
 
 ## Use editor support for DSL packs

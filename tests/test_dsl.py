@@ -24,8 +24,10 @@ from openfoodfacts_data_quality.context.paths import (
     MISSING,
     is_blank,
     resolve_path,
-    supported_input_surfaces_for,
-    validate_input_surface,
+)
+from openfoodfacts_data_quality.context.providers import (
+    context_availability_for_provider,
+    validate_context_provider,
 )
 
 GLOBAL_DSL_CHECK_IDS = [
@@ -77,7 +79,7 @@ def test_validate_dsl_definitions_rejects_helper_shaped_path() -> None:
         ),
     )
 
-    with pytest.raises(ValueError, match="Unknown normalized context field"):
+    with pytest.raises(ValueError, match="Unknown check context field"):
         validate_dsl_definitions(checks)
 
 
@@ -308,14 +310,15 @@ def test_evaluate_expression_supports_remaining_boolean_numeric_and_membership_o
     )
 
 
-def test_validate_input_surface_and_path_helpers_cover_error_and_missing_cases() -> (
+def test_validate_context_provider_and_path_helpers_cover_error_and_missing_cases() -> (
     None
 ):
-    assert validate_input_surface("raw_products") == "raw_products"
-    assert supported_input_surfaces_for(("product.code", "nutrition.input_sets")) == (
-        "raw_products",
-        "enriched_products",
-    )
+    assert validate_context_provider("source_products") == "source_products"
+    source_availability = context_availability_for_provider("source_products")
+    enriched_availability = context_availability_for_provider("enriched_snapshots")
+    assert "nutrition.input_sets" in source_availability.available_context_paths
+    assert "product.lang" not in source_availability.available_context_paths
+    assert "product.lang" in enriched_availability.available_context_paths
     assert resolve_path({"product": {}}, "product.quantity") is MISSING
     assert resolve_path({"product": None}, "product.quantity") is MISSING
     assert is_blank(MISSING) is True
@@ -324,8 +327,8 @@ def test_validate_input_surface_and_path_helpers_cover_error_and_missing_cases()
     assert is_blank([]) is True
     assert is_blank(123) is False
 
-    with pytest.raises(ValueError, match="Unsupported input surface"):
-        validate_input_surface("invalid")
+    with pytest.raises(ValueError, match="Unsupported context provider"):
+        validate_context_provider("invalid")
 
 
 def test_parser_rejects_structurally_invalid_gt_without_value(tmp_path: Path) -> None:
@@ -347,7 +350,7 @@ checks:
         load_dsl_definitions(path)
 
 
-def test_parser_accepts_explicit_legacy_code_template_override(tmp_path: Path) -> None:
+def test_parser_rejects_legacy_code_template_override(tmp_path: Path) -> None:
     yaml_text = """
 metadata:
   parity_baseline: legacy
@@ -360,39 +363,10 @@ checks:
       field: product.quantity
       op: is_blank
 """
-    path = tmp_path / "legacy_identity.yaml"
+    path = tmp_path / "legacy_template_override.yaml"
     path.write_text(yaml_text, encoding="utf-8")
 
-    checks = load_dsl_definitions(path)
-
-    assert checks[0].legacy_identity is not None
-    assert (
-        checks[0].legacy_identity.code_template == "en:legacy-quantity-not-recognized"
-    )
-
-
-def test_parser_rejects_legacy_code_template_for_runtime_only_checks(
-    tmp_path: Path,
-) -> None:
-    yaml_text = """
-metadata:
-  parity_baseline: none
-  jurisdictions: [ca]
-checks:
-  - id: ca:runtime-only-check
-    legacy_code_template: en:legacy-runtime-only-check
-    severity: warning
-    when:
-      field: product.quantity
-      op: is_blank
-"""
-    path = tmp_path / "runtime_only_legacy_identity.yaml"
-    path.write_text(yaml_text, encoding="utf-8")
-
-    with pytest.raises(
-        ValueError,
-        match='cannot declare a legacy identity without parity_baseline="legacy"',
-    ):
+    with pytest.raises(ValidationError):
         load_dsl_definitions(path)
 
 

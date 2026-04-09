@@ -7,13 +7,12 @@ the parity store and the cache.
 
 ## Source and execution settings
 
-- `SOURCE_SNAPSHOT_PATH`: DuckDB [source snapshot](glossary.md#source-snapshot).
-  This is required for local runtime runs. It should point to a public Open Food Facts
-  source snapshot, ideally one imported from the public Parquet export, or a
-  compatible application source sample. The application also supports a
-  DuckDB `products` table shaped like the flat public CSV export subset.
+- `SOURCE_SNAPSHOT_PATH`: Full product
+  [source snapshot](glossary.md#source-snapshot). This is required for local
+  application runs. It must point to a JSONL snapshot or a DuckDB snapshot with a
+  `products` table.
 - `SOURCE_SNAPSHOT_ID`: Optional explicit source snapshot id. When unset, the
-  runtime uses a sidecar manifest or hashes the DuckDB file.
+  runtime uses a sidecar manifest or hashes the source snapshot file.
 - `PORT`: Preview port when you run `app.main` directly. In the default Docker
   flow, this value controls the published port on the host.
 - `BATCH_SIZE`: Source batch size.
@@ -55,13 +54,13 @@ the parity store and the cache.
 
 A [check profile](../explanation/migrated-checks.md#check-profiles) is a
 selection preset for one run. It sets the active checks,
-[input surface](../explanation/runtime-model.md#input-surfaces), and
+[context provider](../explanation/runtime-model.md#context-providers), and
 [parity baselines](../explanation/reference-data-and-parity.md#parity-baselines).
 
 The default profiles are:
 
 - `full`
-- `raw_products`
+- `source_products`
 - `focused`
 
 Profiles can also apply migration filters such as target implementation, size,
@@ -73,17 +72,18 @@ filters yet.
 
 ## Dataset profiles
 
-`config/dataset-profiles.toml` defines named dataset presets for source rows.
+`config/dataset-profiles.toml` defines named dataset presets for source selection.
 
-A dataset profile controls which rows from the DuckDB source snapshot enter one
-application run. It does not change the
-[check input surface](../explanation/runtime-model.md#input-surface-and-dataset-profile-are-different).
+A dataset profile controls which product documents from the source snapshot
+enter one application run. It does not change the
+[check context provider](../explanation/runtime-model.md#context-provider-and-dataset-profile-are-different).
 
 The default profiles are:
 
 - `full`: Run the full source snapshot.
 - `smoke`: Run a small deterministic sample.
 - `validation`: Run a larger deterministic sample for parity checks.
+- `benchmark_10k`: Run a deterministic 10k sample for benchmark loops.
 
 The supported selection kinds are:
 
@@ -95,7 +95,8 @@ The supported selection kinds are:
 codes inline from the profile or from a referenced file path.
 
 In the default config, `SOURCE_DATASET_PROFILE=smoke` uses the 50-row
-deterministic sample. `validation` uses the 1000-row sample.
+deterministic sample. `validation` uses the 1000-row sample. `benchmark_10k`
+uses the 10000-row sample.
 
 When a run records data in the parity store, it also stores the resolved
 selection fingerprint for that run.
@@ -169,8 +170,8 @@ does not decide whether the assessment is complete.
 
 The repository `compose.yaml` wires these settings into the local Docker flow:
 
-- `SOURCE_SNAPSHOT_PATH`: selects the DuckDB file on the host that Compose mounts
-  at `/work/products.duckdb` inside the container
+- `SOURCE_SNAPSHOT_PATH`: selects the source snapshot file on the host that
+  Compose mounts at `/work/source-snapshot` inside the container
 - `PORT`: controls the published port on the host
 - `BATCH_SIZE`
 - `BATCH_WORKERS`
@@ -185,11 +186,11 @@ The repository `compose.yaml` wires these settings into the local Docker flow:
 
 The local Docker flow requires `SOURCE_SNAPSHOT_PATH` through `.env` because
 the mounted source path is explicit and the runtime no longer uses a bundled
-DuckDB path.
+source snapshot path.
 
 `compose.yaml` mounts:
 
-- the selected DuckDB source snapshot
+- the selected source snapshot
 - `./data`
 - `./artifacts`
 - `./config`
@@ -210,9 +211,9 @@ The application writes run outputs under `artifacts/latest/`.
 not as persistent review history.
 
 [Source snapshots](glossary.md#source-snapshot) can also include a sidecar
-`<name>.duckdb.snapshot.json` manifest with an explicit `source_snapshot_id`.
-Refresh scripts write that manifest for generated sample DuckDB files, and the
-runtime writes it when it has to hash a DuckDB file directly.
+`<name>.<suffix>.snapshot.json` manifest with an explicit `source_snapshot_id`.
+Refresh scripts write that manifest for generated sample snapshots, and the
+runtime writes it when it has to hash a source snapshot file directly.
 
 Main generated files:
 
@@ -233,6 +234,17 @@ application runs.
 
 It stores review history across runs and report data that is not embedded
 in `run.json`, such as batch telemetry and migration metadata.
+
+Benchmark tooling also reads run-level preparation timings from the parity
+store. Those timings separate:
+
+- `prepare_run_seconds`
+- `source_snapshot_id_seconds`
+- `dataset_profile_load_seconds`
+- `source_row_count_seconds`
+
+The benchmark summary keeps those values outside the per-batch stage timings so
+source setup costs do not get mixed with batch execution costs.
 
 For local commands, the default store path is
 `data/parity_store/parity.duckdb`.
@@ -270,8 +282,8 @@ of reusing stale data.
 
 The cache is used only for runs that need
 [reference results](../explanation/reference-data-and-parity.md#why-the-reference-path-exists).
-Only runs that need neither enriched snapshots nor reference findings can skip
-it entirely.
+Only runs that need neither reference check contexts nor reference findings can
+skip it entirely.
 
 Its cache key depends on:
 

@@ -57,7 +57,7 @@ retention budget.
 ## Related information
 
 - [Report artifacts](../reference/report-artifacts.md)
-- [About reference data and parity](../explanation/reference-data-and-parity.md)
+- [About reference and parity](../explanation/reference-data-and-parity.md)
 - [Run the project locally](run-the-project-locally.md)
 
 [Back to documentation index](../index.md)
