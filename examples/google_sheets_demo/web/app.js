@@ -5,6 +5,7 @@ const SELECTED_SPREADSHEET_STORAGE_KEY =
   "off-google-sheets-demo:selected-spreadsheet";
 const GOOGLE_SESSION_STORAGE_KEY =
   "off-google-sheets-demo:google-session";
+const GOOGLE_PICKER_DIALOG_SELECTOR = ".picker-dialog";
 
 let pickerLibraryPromise = null;
 
@@ -17,12 +18,16 @@ const state = {
   pickerLoaded: false,
   selectedSpreadsheet: null,
   spreadsheetMetadataCache: new Map(),
+  uploadCandidatesPrepared: false,
   tooltipElement: null,
+  pendingTokenRequestReject: null,
 };
 
 const elements = {
+  advancedActions: document.querySelector("#advanced-actions"),
   loginButton: document.querySelector("#login-button"),
   disconnectButton: document.querySelector("#disconnect-button"),
+  clearSpreadsheetButton: document.querySelector("#clear-spreadsheet-button"),
   chooseSpreadsheetButton: document.querySelector("#choose-spreadsheet-button"),
   openSpreadsheetButton: document.querySelector("#open-spreadsheet-button"),
   connectionState: document.querySelector("#connection-state"),
@@ -42,6 +47,9 @@ const elements = {
   summaryValidated: document.querySelector("#summary-validated"),
   summaryIssues: document.querySelector("#summary-issues"),
   summaryErrors: document.querySelector("#summary-errors"),
+  loadPanel: document.querySelector("#load-panel"),
+  actionsPanel: document.querySelector("#actions-panel"),
+  summaryPanel: document.querySelector("#summary-panel"),
   tooltip: document.querySelector("#tooltip"),
 };
 
@@ -63,10 +71,16 @@ async function init() {
 
 function bindEvents() {
   elements.dataSheetNameInput.addEventListener("input", () => {
+    if (state.uploadCandidatesPrepared) {
+      resetUploadCandidatesPrepared();
+    }
     renderSelectedSpreadsheet();
     updateActionAvailability();
   });
   elements.readySheetNameInput.addEventListener("input", () => {
+    if (state.uploadCandidatesPrepared) {
+      resetUploadCandidatesPrepared();
+    }
     renderSelectedSpreadsheet();
     updateActionAvailability();
   });
@@ -80,6 +94,12 @@ function bindEvents() {
     void runWithUiLock(handleDisconnect, {
       statusElement: elements.sheetStatus,
       pendingMessage: "Disconnecting Google session...",
+    });
+  });
+  elements.clearSpreadsheetButton.addEventListener("click", () => {
+    void runWithUiLock(handleClearSpreadsheetSelection, {
+      statusElement: elements.sheetStatus,
+      pendingMessage: "Clearing spreadsheet selection...",
     });
   });
   elements.chooseSpreadsheetButton.addEventListener("click", () => {
@@ -163,6 +183,16 @@ async function configureGoogleClients() {
     client_id: state.config.googleClientId,
     scope: DRIVE_FILE_SCOPE,
     callback: () => {},
+    error_callback: (error) => {
+      if (typeof state.pendingTokenRequestReject !== "function") {
+        return;
+      }
+      const rejectPendingRequest = state.pendingTokenRequestReject;
+      state.pendingTokenRequestReject = null;
+      rejectPendingRequest(
+        new Error(describeGooglePopupError(error?.type)),
+      );
+    },
   });
 
   if (!hasPickerConfiguration()) {
@@ -175,7 +205,10 @@ async function configureGoogleClients() {
   }
 
   await loadGooglePickerLibrary();
-  await restoreGoogleSession({ trySilentRefresh: true });
+  const restoredSession = await restoreGoogleSession({ trySilentRefresh: true });
+  if (!restoredSession) {
+    clearSelectedSpreadsheet();
+  }
   clearStatus(elements.sheetStatus);
   renderAuthState();
 }
@@ -257,18 +290,45 @@ function updateActionAvailability() {
   const hasSpreadsheet = Boolean(state.selectedSpreadsheet?.id);
 
   renderAuthState();
+  elements.advancedActions.hidden = !hasAuth && !hasSpreadsheet;
+  elements.loginButton.hidden = !hasAuth;
   elements.loginButton.disabled = state.busy || !hasAuthConfiguration;
+  elements.disconnectButton.hidden = !hasAuth;
   elements.disconnectButton.disabled = state.busy || !hasAuth;
+  elements.clearSpreadsheetButton.hidden = !hasSpreadsheet;
+  elements.clearSpreadsheetButton.disabled = state.busy || !hasSpreadsheet;
   elements.chooseSpreadsheetButton.disabled =
     state.busy || !hasAuthConfiguration || !hasPickerConfigurationValues;
   elements.openSpreadsheetButton.disabled = !hasSpreadsheet;
+  const flowReady = hasSpreadsheet && hasAuth;
+  updateFlowStepVisibility(flowReady);
 
   const actionsEnabled = !state.busy && hasSpreadsheet && hasAuth;
   elements.uploadCsvButton.disabled = !actionsEnabled;
   elements.validateButton.disabled = !actionsEnabled;
   elements.clearButton.disabled = !actionsEnabled;
   elements.prepareButton.disabled = !actionsEnabled;
-  elements.uploadOffButton.disabled = !actionsEnabled;
+  const canAttemptOffUpload = actionsEnabled && state.uploadCandidatesPrepared;
+  elements.uploadOffButton.disabled = state.busy || !hasSpreadsheet || !hasAuth;
+  elements.uploadOffButton.setAttribute(
+    "aria-disabled",
+    canAttemptOffUpload ? "false" : "true",
+  );
+  elements.uploadOffButton.dataset.tooltip = canAttemptOffUpload
+    ? "Upload the prepared rows to Open Food Facts."
+    : "Run Prepare upload candidates first.";
+}
+
+function updateFlowStepVisibility(flowReady) {
+  toggleFlowStep(elements.loadPanel, flowReady);
+  toggleFlowStep(elements.actionsPanel, flowReady);
+  toggleFlowStep(elements.summaryPanel, flowReady);
+}
+
+function toggleFlowStep(panel, visible) {
+  panel.classList.toggle("panel-flow-step--hidden", !visible);
+  panel.setAttribute("aria-hidden", visible ? "false" : "true");
+  panel.inert = !visible;
 }
 
 async function handleLogin() {
@@ -289,9 +349,23 @@ async function handleDisconnect() {
     });
   }
   clearGoogleSession();
+  clearSelectedSpreadsheet();
   updateActionAvailability();
   clearStatus(elements.sheetStatus);
-  setSheetStatus("Google session cleared for this browser tab.", "success");
+  setSheetStatus(
+    "Google session cleared for this browser tab. Spreadsheet selection removed.",
+    "success",
+  );
+}
+
+async function handleClearSpreadsheetSelection() {
+  if (!state.selectedSpreadsheet) {
+    setSheetStatus("No spreadsheet is currently selected.", "neutral");
+    return;
+  }
+  const previousName = state.selectedSpreadsheet.name;
+  clearSelectedSpreadsheet();
+  setSheetStatus(`Cleared ${previousName}.`, "success");
 }
 
 async function ensureGoogleAccessToken({
@@ -323,7 +397,9 @@ async function ensureGoogleAccessToken({
 
 function requestGoogleAccessToken(prompt) {
   return new Promise((resolve, reject) => {
+    state.pendingTokenRequestReject = reject;
     state.tokenClient.callback = (response) => {
+      state.pendingTokenRequestReject = null;
       if (response.error) {
         reject(new Error(response.error));
         return;
@@ -332,6 +408,16 @@ function requestGoogleAccessToken(prompt) {
     };
     state.tokenClient.requestAccessToken({ prompt });
   });
+}
+
+function describeGooglePopupError(type) {
+  if (type === "popup_closed") {
+    return "Google sign in was closed before the flow finished.";
+  }
+  if (type === "popup_failed_to_open") {
+    return "Google sign in could not open a popup window.";
+  }
+  return "Google sign in did not complete.";
 }
 
 async function handleChooseSpreadsheet() {
@@ -359,7 +445,37 @@ async function openSpreadsheetPicker() {
   }
 
   return new Promise((resolve, reject) => {
+    const scrollPosition = { x: window.scrollX, y: window.scrollY };
     let settled = false;
+    let sawPickerDialog = false;
+    let closeWatcherId = 0;
+    let openTimeoutId = 0;
+    const stopWatching = () => {
+      if (closeWatcherId) {
+        window.clearInterval(closeWatcherId);
+        closeWatcherId = 0;
+      }
+      if (openTimeoutId) {
+        window.clearTimeout(openTimeoutId);
+        openTimeoutId = 0;
+      }
+    };
+    const settleResolve = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      stopWatching();
+      resolve(value);
+    };
+    const settleReject = (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      stopWatching();
+      reject(error);
+    };
     const view = new pickerNamespace.DocsView(pickerNamespace.ViewId.SPREADSHEETS)
       .setSelectFolderEnabled(false)
       .setMimeTypes("application/vnd.google-apps.spreadsheet");
@@ -377,8 +493,7 @@ async function openSpreadsheetPicker() {
         }
         const action = data?.[pickerNamespace.Response.ACTION];
         if (action === pickerNamespace.Action.CANCEL) {
-          settled = true;
-          resolve(null);
+          settleResolve(null);
           return;
         }
         if (action !== pickerNamespace.Action.PICKED) {
@@ -396,42 +511,81 @@ async function openSpreadsheetPicker() {
           toNonEmptyString(document?.[pickerNamespace.Document.NAME]) ||
           "Selected spreadsheet";
         if (!id) {
-          settled = true;
-          reject(new Error("Google Picker did not return a spreadsheet ID."));
+          settleReject(new Error("Google Picker did not return a spreadsheet ID."));
           return;
         }
 
         const url =
           toNonEmptyString(document?.[pickerNamespace.Document.URL]) ||
           buildSpreadsheetUrl(id);
-        settled = true;
-        resolve({ id, name, url });
+        settleResolve({ id, name, url });
       })
       .build();
 
     picker.setVisible(true);
+    scheduleScrollRestore(scrollPosition);
+    closeWatcherId = window.setInterval(() => {
+      const dialog = document.querySelector(GOOGLE_PICKER_DIALOG_SELECTOR);
+      if (dialog) {
+        sawPickerDialog = true;
+        return;
+      }
+      if (sawPickerDialog) {
+        settleResolve(null);
+      }
+    }, 150);
+    openTimeoutId = window.setTimeout(() => {
+      if (!sawPickerDialog) {
+        settleReject(new Error("Google Picker did not open correctly."));
+      }
+    }, 8000);
   });
+}
+
+function scheduleScrollRestore(position) {
+  const retryDelaysMs = [0, 60, 150, 300, 600];
+  for (const delay of retryDelaysMs) {
+    window.setTimeout(() => {
+      window.scrollTo(position.x, position.y);
+    }, delay);
+  }
 }
 
 function setSelectedSpreadsheet(selection) {
   state.selectedSpreadsheet = selection;
   primeSpreadsheetMetadataCache(selection.id, null);
-  renderSelectedSpreadsheet();
+  resetUploadCandidatesPrepared();
+  clearStatus(elements.dataStatus);
+  clearStatus(elements.actionStatus);
   resetSummary();
   writeLocalStorage(
     SELECTED_SPREADSHEET_STORAGE_KEY,
     JSON.stringify(selection),
   );
+  renderSelectedSpreadsheet();
+  updateActionAvailability();
+}
+
+function clearSelectedSpreadsheet() {
+  state.selectedSpreadsheet = null;
+  state.spreadsheetMetadataCache.clear();
+  resetUploadCandidatesPrepared();
+  writeLocalStorage(SELECTED_SPREADSHEET_STORAGE_KEY, "");
+  clearStatus(elements.dataStatus);
+  clearStatus(elements.actionStatus);
+  resetSummary();
+  renderSelectedSpreadsheet();
   updateActionAvailability();
 }
 
 function renderSelectedSpreadsheet() {
   const selection = state.selectedSpreadsheet;
   if (!selection) {
+    const hasAuth = hasUsableGoogleSession();
     elements.selectedSheetName.textContent = "No spreadsheet selected yet.";
-    elements.selectedSheetMeta.textContent =
-      "Choose a Sheet from Google Drive to enable the actions.";
-    clearStatus(elements.sheetStatus);
+    elements.selectedSheetMeta.textContent = hasAuth
+      ? "Choose a Sheet from Google Drive to enable the actions."
+      : "Choose a Sheet to sign in and enable the actions.";
     return;
   }
 
@@ -442,16 +596,18 @@ function renderSelectedSpreadsheet() {
 
 function renderAuthState() {
   const hasAuth = hasUsableGoogleSession();
+  const hasSpreadsheet = Boolean(state.selectedSpreadsheet);
   elements.connectionState.textContent = hasAuth
     ? "Google connected."
     : "Google not connected. Choose spreadsheet asks for access when needed.";
   elements.loginButton.textContent = hasAuth ? "Change Google account" : "Connect Google";
-  if (state.selectedSpreadsheet) {
+  if (!hasSpreadsheet) {
     renderSelectedSpreadsheet();
   }
 }
 
 async function handleUploadCsv() {
+  const spreadsheetId = currentSpreadsheetId();
   const file = elements.csvFileInput.files?.[0];
   if (!file) {
     throw new Error("Choose a CSV file before uploading.");
@@ -463,7 +619,6 @@ async function handleUploadCsv() {
   });
   const csvText = await file.text();
   const parsed = await postJson("/api/parse-csv", { csvText });
-  const spreadsheetId = currentSpreadsheetId();
   const dataSheetName = currentDataSheetName();
   setDataStatus(`Uploading ${parsed.table.rows.length} rows into ${dataSheetName}...`, "neutral", {
     loading: true,
@@ -474,6 +629,7 @@ async function handleUploadCsv() {
     table: parsed.table,
     rowBackgrounds: {},
   });
+  resetUploadCandidatesPrepared();
   resetSummary();
   setDataStatus(
     `Loaded ${parsed.table.rows.length} rows into ${dataSheetName}.`,
@@ -482,11 +638,11 @@ async function handleUploadCsv() {
 }
 
 async function handleValidate() {
+  const spreadsheetId = currentSpreadsheetId();
   await ensureGoogleAccessToken({ interactive: false });
   setActionStatus("Reading the Data tab...", "neutral", {
     loading: true,
   });
-  const spreadsheetId = currentSpreadsheetId();
   const dataSheetName = currentDataSheetName();
   const { table, sheetProperties } = await readSheetTable(
     spreadsheetId,
@@ -506,23 +662,24 @@ async function handleValidate() {
     rowBackgrounds: response.rowBackgrounds ?? {},
     sheetProperties,
   });
+  resetUploadCandidatesPrepared();
   updateSummary({
     validatedRows: response.validatedRows ?? 0,
     issueRows: response.issueRows ?? 0,
     errorRows: response.errorRows ?? 0,
   });
   setActionStatus(
-    `Validation complete. Checked ${response.validatedRows ?? 0} rows. Rows with findings: ${response.issueRows ?? 0}.`,
+    `Validation complete. Checked ${response.validatedRows ?? 0} rows, with ${response.issueRows ?? 0} rows that have findings.`,
     "success",
   );
 }
 
 async function handleClearValidationOutput() {
+  const spreadsheetId = currentSpreadsheetId();
   await ensureGoogleAccessToken({ interactive: false });
   setActionStatus("Reading the Data tab...", "neutral", {
     loading: true,
   });
-  const spreadsheetId = currentSpreadsheetId();
   const dataSheetName = currentDataSheetName();
   const { table, sheetProperties } = await readSheetTable(
     spreadsheetId,
@@ -539,16 +696,17 @@ async function handleClearValidationOutput() {
     rowBackgrounds: {},
     sheetProperties,
   });
+  resetUploadCandidatesPrepared();
   resetSummary();
   setActionStatus(`Removed derived validation columns from ${dataSheetName}.`, "success");
 }
 
 async function handlePrepareUploadCandidates() {
+  const spreadsheetId = currentSpreadsheetId();
   await ensureGoogleAccessToken({ interactive: false });
   setActionStatus("Reading rows from the Data tab...", "neutral", {
     loading: true,
   });
-  const spreadsheetId = currentSpreadsheetId();
   const dataSheetName = currentDataSheetName();
   const readySheetName = currentReadySheetName();
   const { table } = await readSheetTable(spreadsheetId, dataSheetName);
@@ -562,6 +720,8 @@ async function handlePrepareUploadCandidates() {
     table: candidateTable,
     rowBackgrounds: {},
   });
+  state.uploadCandidatesPrepared = true;
+  updateActionAvailability();
   setActionStatus(
     `Prepared ${candidateTable.rows.length} upload candidates in ${readySheetName}.`,
     "success",
@@ -569,10 +729,19 @@ async function handlePrepareUploadCandidates() {
 }
 
 async function handleUploadToOpenFoodFacts() {
+  if (!state.uploadCandidatesPrepared) {
+    setActionStatus("Run Prepare upload candidates before this step.", "warning");
+    return;
+  }
   setActionStatus(
-    "Upload to Open Food Facts is not available yet. Use Prepare upload candidates first.",
+    "Upload to Open Food Facts is not available yet.",
     "warning",
   );
+}
+
+function resetUploadCandidatesPrepared() {
+  state.uploadCandidatesPrepared = false;
+  updateActionAvailability();
 }
 
 function resetSummary() {
