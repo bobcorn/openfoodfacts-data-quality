@@ -9,45 +9,40 @@ The repository has one reusable layer in `src/` and one application layer in
 
 ```mermaid
 flowchart TB
-    subgraph SHARED["Shared Check System"]
-        A["Python Checks"]
-        B["DSL Checks"]
+    subgraph CHECKS["Shared Check System"]
+        A["Python Check Packs"]
+        B["DSL Check Packs"]
         C["Check Catalog and Metadata"]
-        D["Shared Runtime"]
+        D["Shared Check Runtime"]
         A --> C
         B --> C
         C --> D
     end
 
-    subgraph LIB["Python Library"]
+    subgraph LIB["Reusable Python Library"]
         E["Checks API"]
-        F["Snapshots API Placeholder"]
+        F["Snapshots API"]
     end
 
     subgraph APP["Parity Application"]
-        G["Source Snapshot Loading"]
-        H["Reference Path"]
-        I["Migrated Checks"]
-        J["Strict Comparison, Storage, and Report"]
-        G --> H
-        G --> I
-        H --> J
-        I --> J
+        G["Source and Reference Pipeline"]
+        J["Parity, Artifacts, and Report"]
+        G --> J
     end
 
-    K["Legacy Backend"]
+    K["Legacy Backend Runtime"]
 
     D --> E
     D -.-> F
-    D --> I
-    K -.-> H
+    D --> G
+    K -.-> G
 ```
 
 `src/openfoodfacts_data_quality/` owns the
 [shared runtime](runtime-model.md#why-the-runtime-is-split).
 
-In the diagram, `Checks API` refers to `off_data_quality.checks`. `Snapshots API
-Placeholder` refers to the reserved `off_data_quality.snapshots` namespace.
+In the diagram, `Checks API` refers to `off_data_quality.checks`. `Snapshots
+API` refers to the reserved `off_data_quality.snapshots` namespace.
 
 `app/` owns orchestration, source loading, dataset selection, the
 [reference path](reference-data-and-parity.md#why-the-reference-path-exists),
