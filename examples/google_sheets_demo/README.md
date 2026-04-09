@@ -122,16 +122,17 @@ outside the heavier sensitive-scope verification path.
 Run the published image:
 
 ```bash
-docker run --rm -p 127.0.0.1:8501:8501 ghcr.io/bobcorn/openfoodfacts-data-quality:google-sheets-demo
+docker run --rm -p 127.0.0.1:8501:8501 ghcr.io/bobcorn/openfoodfacts-data-quality-google-sheets-demo
 ```
 
 Then open [http://localhost:8501](http://localhost:8501).
 
-This tag is published by
+This image is published by
 `.github/workflows/publish-google-sheets-demo-image.yml`. Versioned releases
-also publish tags such as `google-sheets-demo-1.2.3`.
+also publish tags such as `1.2.3`.
 
-The older application demo image stays separate on the `demo` tag.
+The older application demo image stays separate in
+`ghcr.io/bobcorn/openfoodfacts-data-quality-demo`.
 
 For a local build with Compose:
 
