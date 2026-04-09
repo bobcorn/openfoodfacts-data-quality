@@ -21,6 +21,7 @@ RUN /root/.local/bin/uv venv --seed --python ${PYTHON_VERSION} /opt/openfoodfact
 
 COPY app /opt/openfoodfacts-data-quality/app
 COPY config /opt/openfoodfacts-data-quality/config
+COPY scripts /opt/openfoodfacts-data-quality/scripts
 
 RUN chmod +x /opt/openfoodfacts-data-quality/app/legacy_backend/off_runtime.pl \
     && mkdir -p /opt/openfoodfacts-data-quality/data

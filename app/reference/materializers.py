@@ -3,29 +3,27 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.reference.models import enriched_snapshots_from_reference_results
+from app.reference.models import reference_check_contexts_from_reference_results
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from app.reference.models import ReferenceResult
     from app.run.models import SupportsReferenceObserver
-    from openfoodfacts_data_quality.contracts.enrichment import (
-        EnrichedSnapshotResult,
-    )
+    from openfoodfacts_data_quality.contracts.context import CheckContext
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
 
 
 @dataclass(frozen=True, slots=True)
-class EnrichedSnapshotMaterializer:
-    """Project reference results onto the enriched runtime input surface."""
+class ReferenceCheckContextMaterializer:
+    """Project reference results onto reference-side enriched check contexts."""
 
     def materialize(
         self,
         reference_results: list[ReferenceResult],
-    ) -> list[EnrichedSnapshotResult]:
-        """Return stable enriched snapshots for the migrated runtime."""
-        return enriched_snapshots_from_reference_results(reference_results)
+    ) -> list[CheckContext]:
+        """Return reference-side enriched check contexts for the migrated runtime."""
+        return reference_check_contexts_from_reference_results(reference_results)
 
 
 @dataclass(frozen=True, slots=True)

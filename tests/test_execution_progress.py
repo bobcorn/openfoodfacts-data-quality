@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 
 import pytest
+from app.run.models import BatchStageTimings
 from app.run.progress import (
     ExecutionProgressConfig,
     ExecutionProgressReporter,
@@ -15,6 +16,18 @@ from app.run.progress import (
 @dataclass(frozen=True)
 class _BufferedBatch:
     row_count: int
+
+
+@dataclass(frozen=True)
+class _CompletedBatch:
+    batch_index: int
+    cache_hit_count: int
+    backend_run_count: int
+    reference_finding_count: int
+    migrated_finding_count: int
+    row_count: int
+    elapsed_seconds: float
+    stage_timings: BatchStageTimings
 
 
 def _progress_reporter() -> ExecutionProgressReporter:
@@ -97,4 +110,38 @@ def test_execution_progress_reporter_logs_heartbeat(
 
     assert caplog.messages == [
         "[Execution] Still running after 15.0s: 500 / 1000 products finished, 2 / 4 batches finished, 2 in flight."
+    ]
+
+
+def test_execution_progress_reporter_logs_completed_batch_with_stage_timings(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    reporter = _progress_reporter()
+    monkeypatch.setattr("app.run.progress.perf_counter", lambda: 12.0)
+    caplog.set_level(logging.INFO)
+
+    reporter.log_batch_completed(
+        _CompletedBatch(
+            batch_index=3,
+            cache_hit_count=40,
+            backend_run_count=10,
+            reference_finding_count=7,
+            migrated_finding_count=6,
+            row_count=250,
+            elapsed_seconds=2.5,
+            stage_timings=BatchStageTimings(
+                source_read_seconds=0.2,
+                reference_load_seconds=1.1,
+                reference_check_context_materialization_seconds=0.3,
+                reference_finding_materialization_seconds=0.1,
+                migrated_findings_seconds=0.5,
+                parity_compare_seconds=0.2,
+            ),
+        ),
+        processed_products=750,
+    )
+
+    assert caplog.messages == [
+        "[Batch 3] Cache 40 hit(s), backend 10 product(s), 7 reference findings, 6 migrated findings, processed 750 / 1000 products in 12.0s (batch 2.5s; stages: source 0.2s, reference load 1.1s, reference contexts 0.3s, reference findings 0.1s, migrated 0.5s, parity 0.2s)."
     ]

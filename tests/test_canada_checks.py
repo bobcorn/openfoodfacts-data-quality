@@ -7,9 +7,9 @@ from openfoodfacts_data_quality.checks.packs.python.canada_checks import (
     ca_trans_fat_free_claim_but_nutrition_does_not_meet_conditions,
 )
 from openfoodfacts_data_quality.checks.registry import CheckEvaluator
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
+from openfoodfacts_data_quality.contracts.context import CheckContext
 
-ContextFactory = Callable[..., NormalizedContext]
+ContextFactory = Callable[..., CheckContext]
 
 _CATALOG = get_default_check_catalog()
 

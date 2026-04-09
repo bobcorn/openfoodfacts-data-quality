@@ -5,9 +5,6 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from openfoodfacts_data_quality.checks.context_dependencies import (
-    depends_on_context_paths,
-)
 from openfoodfacts_data_quality.contracts.checks import CheckEmission, Severity
 from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
 from openfoodfacts_data_quality.scalars import as_number
@@ -20,7 +17,7 @@ from openfoodfacts_data_quality.structured_values import (
 )
 
 if TYPE_CHECKING:
-    from openfoodfacts_data_quality.contracts.context import NormalizedContext
+    from openfoodfacts_data_quality.contracts.context import CheckContext
 
 _NUTRITION_SET_ID_SANITIZE_PATTERN = re.compile(r"[^a-z0-9]+")
 
@@ -125,9 +122,8 @@ def ingredient_claim_has_unknowns(ingredients: object, claim: str) -> bool:
     return False
 
 
-@depends_on_context_paths("nutrition.input_sets", "nutrition.aggregated_set")
 def iter_nutrient_family_sets(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[tuple[str, StringObjectMapping, Severity]]:
     """Return the nutrient sets that emit family-tag findings."""
     family_sets: list[tuple[str, StringObjectMapping, Severity]] = []

@@ -21,7 +21,7 @@ from app.reference.cache import (
     reference_result_cache_key,
     reference_result_cache_manifest_path,
 )
-from app.reference.models import ReferenceResult
+from app.reference.models import REFERENCE_RESULT_SCHEMA_VERSION, ReferenceResult
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
@@ -102,7 +102,7 @@ def test_reference_result_cache_roundtrips_reference_results(
     assert manifest_payload["path"] == str(cache_path)
     assert manifest_payload["source_snapshot_id"] == "source-snapshot-123"
     assert manifest_payload["cache_key"] == "cache-key"
-    assert manifest_payload["schema_version"] == 4
+    assert manifest_payload["schema_version"] == REFERENCE_RESULT_SCHEMA_VERSION
     assert manifest_payload["execution_contract_fingerprint"] == (
         "execution-contract-fingerprint"
     )
@@ -119,7 +119,7 @@ def test_reference_result_cache_key_prefers_explicit_legacy_backend_fingerprint(
     cache_key = reference_result_cache_key(project_root)
 
     digest = hashlib.sha256()
-    digest.update(b"schema:4")
+    digest.update(f"schema:{REFERENCE_RESULT_SCHEMA_VERSION}".encode())
     digest.update(b"env:backend-image:demo")
     for relative_path in REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS:
         digest.update((project_root / relative_path).read_bytes())
@@ -143,7 +143,7 @@ def test_reference_result_cache_key_hashes_local_backend_files_when_no_override_
     assert first_key != second_key
 
 
-def test_reference_result_cache_key_changes_when_backend_input_projection_changes(
+def test_reference_result_cache_key_changes_when_backend_input_payloads_change(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -152,8 +152,8 @@ def test_reference_result_cache_key_changes_when_backend_input_projection_change
         monkeypatch,
     )
     first_key = reference_result_cache_key(project_root)
-    (project_root / "app/legacy_backend/input_projection.py").write_text(
-        "projection = 'changed'\n",
+    (project_root / "app/legacy_backend/input_payloads.py").write_text(
+        "payloads = 'changed'\n",
         encoding="utf-8",
     )
     second_key = reference_result_cache_key(project_root)

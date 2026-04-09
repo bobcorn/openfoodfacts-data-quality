@@ -35,7 +35,7 @@ tooling.
 
 ## Verify the result
 
-On the first run, Docker builds the image, mounts the configured DuckDB
+On the first run, Docker builds the image, mounts the configured source
 snapshot, writes
 [artifacts](../reference/report-artifacts.md) under `artifacts/latest/`, and
 serves the generated [report site](../reference/report-artifacts.md#html-report).
@@ -57,9 +57,9 @@ recorded run.
   [check profiles](../explanation/migrated-checks.md#check-profiles).
 - `config/dataset-profiles.toml` defines named
   [dataset profiles](../reference/run-configuration-and-artifacts.md#dataset-profiles).
-- `SOURCE_SNAPSHOT_PATH` selects the DuckDB
-  [source snapshot](../reference/glossary.md#source-snapshot). Local runtime
-  runs require it explicitly.
+- `SOURCE_SNAPSHOT_PATH` selects the
+  [source snapshot](../reference/glossary.md#source-snapshot). Local
+  application runs require it explicitly.
 - `CHECK_PROFILE` chooses the active check profile.
 - `SOURCE_DATASET_PROFILE` chooses the active source dataset profile.
 - `MIGRATION_INVENTORY_PATH` and `MIGRATION_ESTIMATION_SHEET_PATH` point to
@@ -70,12 +70,12 @@ recorded run.
   misses.
 - `PORT` changes the published port on the host for the local preview.
 
-The sample `.env.example` points to the tracked sample DuckDB, so the first
-run succeeds with repository data.
+The sample `.env.example` points to the tracked sample JSONL snapshot, so the
+first run succeeds with repository data.
 
 ## Know when Docker is required
 
-Compared runs and enriched application runs still depend on the
+Compared runs and enriched snapshot application runs still depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 and the supported [legacy backend environment](../reference/legacy-backend-image.md).
 
@@ -112,6 +112,12 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
   you want the shortest parity loop.
 - Switch `SOURCE_DATASET_PROFILE` to `validation` when you want a broader
   deterministic review sample.
+- Use `SOURCE_DATASET_PROFILE=benchmark_10k` or
+  `.venv/bin/python scripts/benchmark_run.py --clear-reference-cache --repeat 2`
+  when you want repeatable benchmark loops with machine-readable timing output.
+- The benchmark JSON separates `run_preparation` timings from per-batch
+  `stage_timings`, so you can distinguish source snapshot id and row-count
+  costs from batch execution costs.
 - Edit `config/check-profiles.toml` when you need a different set of checks.
 - Keep the tracked sample snapshot for short compared runs.
 - Switch to a larger local snapshot when you need wider coverage.
@@ -130,7 +136,7 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
   delete or replace its DuckDB file.
 - [Source snapshots](../reference/glossary.md#source-snapshot) can include a
   `.snapshot.json` sidecar. The runtime writes it automatically when it has to
-  hash the DuckDB file.
+  hash the source snapshot file.
 
 ## Related information
 

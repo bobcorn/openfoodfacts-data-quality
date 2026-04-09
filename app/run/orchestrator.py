@@ -16,7 +16,7 @@ from app.reference.cache import (
 )
 from app.reference.loader import ReferenceResultLoader
 from app.reference.materializers import (
-    EnrichedSnapshotMaterializer,
+    ReferenceCheckContextMaterializer,
     ReferenceFindingMaterializer,
 )
 from app.run.accumulator import RunResultAccumulator
@@ -172,7 +172,8 @@ class ApplicationRunner:
         if self.run_spec.db_path.exists():
             return
         raise FileNotFoundError(
-            "Source DuckDB not found. Mount or provide a DuckDB file and set SOURCE_SNAPSHOT_PATH."
+            "Source snapshot not found. Mount or provide a JSONL or DuckDB source "
+            "snapshot and set SOURCE_SNAPSHOT_PATH."
         )
 
     def _prepare_run_with_reference_cache(
@@ -241,9 +242,9 @@ class ApplicationRunner:
                 legacy_backend_runner=legacy_backend,
                 reference_result_cache=reference_result_cache,
             ),
-            enriched_snapshot_materializer=(
-                EnrichedSnapshotMaterializer()
-                if run.requires_enriched_snapshots
+            reference_check_context_materializer=(
+                ReferenceCheckContextMaterializer()
+                if run.requires_reference_check_contexts
                 else None
             ),
             reference_finding_materializer=(

@@ -9,7 +9,13 @@ from openfoodfacts_data_quality.checks.catalog import (
     CheckCatalog,
     get_default_check_catalog,
 )
-from openfoodfacts_data_quality.context.paths import validate_input_surface
+from openfoodfacts_data_quality.context.providers import (
+    context_availability_for_provider,
+    validate_context_provider,
+)
+from openfoodfacts_data_quality.contracts.capabilities import (
+    resolve_check_capabilities,
+)
 from openfoodfacts_data_quality.contracts.checks import (
     LEGACY_PARITY_BASELINES,
     CheckJurisdiction,
@@ -28,9 +34,9 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
+    from openfoodfacts_data_quality.context.providers import ContextProviderId
     from openfoodfacts_data_quality.contracts.checks import (
         CheckDefinition,
-        CheckInputSurface,
     )
 
 
@@ -40,7 +46,7 @@ class ActiveCheckProfile:
 
     name: str
     description: str
-    check_input_surface: CheckInputSurface
+    check_context_provider: ContextProviderId
     parity_baselines: tuple[CheckParityBaseline, ...]
     jurisdictions: tuple[CheckJurisdiction, ...] | None
     check_ids: tuple[str, ...]
@@ -50,7 +56,6 @@ class ActiveCheckProfile:
     def selection(self) -> CheckSelection:
         """Return the selection filters that produced this active check set."""
         return CheckSelection(
-            input_surface=self.check_input_surface,
             parity_baselines=self.parity_baselines,
             jurisdictions=self.jurisdictions,
         )
@@ -65,7 +70,7 @@ class _RequestedCheckProfile:
 
     name: str
     description: str
-    check_input_surface: CheckInputSurface
+    check_context_provider: ContextProviderId
     parity_baselines: tuple[CheckParityBaseline, ...]
     jurisdictions: tuple[CheckJurisdiction, ...] | None
     mode: _ProfileMode
@@ -78,7 +83,6 @@ class _RequestedCheckProfile:
     def selection(self) -> CheckSelection:
         """Return the catalog selection implied by this requested profile."""
         return CheckSelection(
-            input_surface=self.check_input_surface,
             parity_baselines=self.parity_baselines,
             jurisdictions=self.jurisdictions,
         )
@@ -103,7 +107,7 @@ def load_check_profile(
     return ActiveCheckProfile(
         name=requested_profile.name,
         description=requested_profile.description,
-        check_input_surface=requested_profile.check_input_surface,
+        check_context_provider=requested_profile.check_context_provider,
         parity_baselines=requested_profile.parity_baselines,
         jurisdictions=requested_profile.jurisdictions,
         check_ids=tuple(check.id for check in active_checks),
@@ -121,14 +125,16 @@ def _load_requested_profile(
     selected_name = _selected_profile_name(raw, config_path, profile_name)
     selected_profile = _selected_profile_mapping(profiles, selected_name)
     description = _profile_description(selected_profile, selected_name)
-    check_input_surface = _profile_check_input_surface(selected_profile, selected_name)
+    check_context_provider = _profile_check_context_provider(
+        selected_profile, selected_name
+    )
     parity_baselines = _profile_parity_baselines(selected_profile, selected_name)
     jurisdictions = _profile_jurisdictions(selected_profile, selected_name)
     mode = _profile_mode(selected_profile, selected_name)
     return _RequestedCheckProfile(
         name=selected_name,
         description=description,
-        check_input_surface=check_input_surface,
+        check_context_provider=check_context_provider,
         parity_baselines=parity_baselines,
         jurisdictions=jurisdictions,
         mode=mode,
@@ -213,22 +219,22 @@ def _profile_description(
     )
 
 
-def _profile_check_input_surface(
+def _profile_check_context_provider(
     selected_profile: StringObjectMapping,
     selected_name: str,
-) -> CheckInputSurface:
-    """Return the normalized check input surface for one profile."""
-    raw_check_input_surface = selected_profile.get(
-        "check_input_surface", "enriched_products"
+) -> ContextProviderId:
+    """Return the normalized check context provider for one profile."""
+    raw_check_context_provider = selected_profile.get(
+        "check_context_provider", "enriched_snapshots"
     )
     if (
-        not isinstance(raw_check_input_surface, str)
-        or not raw_check_input_surface.strip()
+        not isinstance(raw_check_context_provider, str)
+        or not raw_check_context_provider.strip()
     ):
         raise ValueError(
-            f"Invalid check profile config: profile {selected_name} is missing a valid check_input_surface."
+            f"Invalid check profile config: profile {selected_name} is missing a valid check_context_provider."
         )
-    return validate_input_surface(raw_check_input_surface.strip())
+    return validate_context_provider(raw_check_context_provider.strip())
 
 
 def _profile_parity_baselines(
@@ -327,8 +333,10 @@ def _select_active_checks(
 ) -> tuple[CheckDefinition, ...]:
     """Resolve the concrete active checks for one normalized profile request."""
     if requested_profile.mode == "all":
-        return catalog.select_checks(selection=requested_profile.selection)
-    return _select_included_checks(catalog, requested_profile)
+        selected_checks = catalog.select_checks(selection=requested_profile.selection)
+    else:
+        selected_checks = _select_included_checks(catalog, requested_profile)
+    return _select_checks_available_to_profile(selected_checks, requested_profile)
 
 
 def _select_included_checks(
@@ -343,6 +351,40 @@ def _select_included_checks(
         )
     except ValueError as exc:
         raise _translated_profile_selection_error(requested_profile, exc) from exc
+
+
+def _select_checks_available_to_profile(
+    checks: tuple[CheckDefinition, ...],
+    requested_profile: _RequestedCheckProfile,
+) -> tuple[CheckDefinition, ...]:
+    """Filter selected checks by the context paths exposed by the profile bridge."""
+    capability_report = resolve_check_capabilities(
+        checks,
+        context_availability_for_provider(requested_profile.check_context_provider),
+    )
+    if (
+        requested_profile.mode == "include"
+        and capability_report.unsupported_capabilities
+    ):
+        unsupported_ids = ", ".join(
+            sorted(
+                capability.check_id
+                for capability in capability_report.unsupported_capabilities
+            )
+        )
+        raise _translated_profile_selection_error(
+            requested_profile,
+            ValueError(
+                "Checks not available for "
+                f"context provider {requested_profile.check_context_provider}: "
+                f"{unsupported_ids}"
+            ),
+        )
+    checks_by_id = {check.id: check for check in checks}
+    return tuple(
+        checks_by_id[capability.check_id]
+        for capability in capability_report.runnable_capabilities
+    )
 
 
 def _apply_migration_filters(

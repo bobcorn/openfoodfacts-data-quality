@@ -13,6 +13,10 @@ from openfoodfacts_data_quality.checks.catalog import (
     load_check_catalog,
 )
 from openfoodfacts_data_quality.checks.dsl.resources import dsl_check_pack_resources
+from openfoodfacts_data_quality.context.providers import (
+    context_availability_for_provider,
+)
+from openfoodfacts_data_quality.contracts.capabilities import resolve_check_capabilities
 from openfoodfacts_data_quality.contracts.checks import (
     LEGACY_PARITY_BASELINES,
     CheckDefinition,
@@ -43,7 +47,7 @@ mode = "all"
     profile = load_check_profile(config_path)
 
     assert profile.name == "all"
-    assert profile.check_input_surface == "enriched_products"
+    assert profile.check_context_provider == "enriched_snapshots"
     assert profile.parity_baselines == LEGACY_PARITY_BASELINES
     assert len(profile.checks) > 1
     assert profile.check_ids == tuple(check.id for check in profile.checks)
@@ -76,25 +80,25 @@ check_ids = [
     )
 
 
-def test_load_check_profile_filters_all_checks_to_raw_products_surface(
+def test_load_check_profile_filters_all_checks_to_source_products_provider(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "check-profiles.toml"
     config_path.write_text(
         """
-default_profile = "raw_products"
+default_profile = "source_products"
 
-[profiles.raw_products]
-description = "Runs checks supported on the Open Food Facts public database schema."
+[profiles.source_products]
+description = "Runs checks supported on the Open Food Facts source product schema."
 mode = "all"
-check_input_surface = "raw_products"
+check_context_provider = "source_products"
 """.strip(),
         encoding="utf-8",
     )
 
     profile = load_check_profile(config_path)
 
-    assert profile.check_input_surface == "raw_products"
+    assert profile.check_context_provider == "source_products"
     assert "en:created-missing" in profile.check_ids
     assert "en:serving-quantity-over-product-quantity" in profile.check_ids
     assert "en:main-language-code-missing" not in profile.check_ids
@@ -104,25 +108,25 @@ check_input_surface = "raw_products"
     )
 
 
-def test_load_check_profile_rejects_include_checks_unsupported_on_surface(
+def test_load_check_profile_rejects_include_checks_unsupported_on_provider(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "check-profiles.toml"
     config_path.write_text(
         """
-default_profile = "raw_products"
+default_profile = "source_products"
 
-[profiles.raw_products]
-description = "Runs a focused raw products workset."
+[profiles.source_products]
+description = "Runs a focused source product workset."
 mode = "include"
-check_input_surface = "raw_products"
+check_context_provider = "source_products"
 check_ids = ["en:main-language-code-missing"]
 """.strip(),
         encoding="utf-8",
     )
 
     with pytest.raises(
-        ValueError, match="references checks outside input surface raw_products"
+        ValueError, match="references checks outside context provider source_products"
     ):
         load_check_profile(config_path)
 
@@ -166,7 +170,7 @@ default_profile = "all"
 [profiles.all]
 description = "Runs every check with a legacy baseline."
 mode = "all"
-check_input_surface = "raw_products"
+check_context_provider = "source_products"
 """.strip(),
         encoding="utf-8",
     )
@@ -194,7 +198,7 @@ default_profile = "dsl_focus"
 [profiles.dsl_focus]
 description = "Runs only low-risk DSL migration families."
 mode = "all"
-check_input_surface = "raw_products"
+check_context_provider = "source_products"
 migration_target_impls = ["dsl"]
 migration_risks = ["low"]
 """.strip(),
@@ -227,13 +231,13 @@ def test_shipped_full_profile_includes_runtime_only_checks() -> None:
     )
 
 
-def test_shipped_raw_profile_includes_runtime_only_checks() -> None:
+def test_shipped_source_products_profile_includes_runtime_only_checks() -> None:
     profile = load_check_profile(
         Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
-        profile_name="raw_products",
+        profile_name="source_products",
     )
 
-    assert profile.check_input_surface == "raw_products"
+    assert profile.check_context_provider == "source_products"
     assert profile.parity_baselines == ("legacy", "none")
     assert "ca:source-of-fibre-claim-but-fibre-below-threshold" in profile.check_ids
 
@@ -252,21 +256,32 @@ def test_load_check_catalog_select_evaluators_filters_to_active_check_ids() -> N
     )
 
 
-def test_catalog_derives_supported_input_surfaces() -> None:
+def test_context_availability_filters_default_catalog_checks() -> None:
     checks_by_id = get_default_check_catalog().checks_by_id
-    assert checks_by_id[
-        "en:serving-quantity-over-product-quantity"
-    ].supported_input_surfaces == (
-        "raw_products",
-        "enriched_products",
+    source_report = resolve_check_capabilities(
+        checks_by_id.values(),
+        context_availability_for_provider("source_products"),
     )
-    assert checks_by_id["en:created-missing"].supported_input_surfaces == (
-        "raw_products",
-        "enriched_products",
+    enriched_report = resolve_check_capabilities(
+        checks_by_id.values(),
+        context_availability_for_provider("enriched_snapshots"),
     )
-    assert checks_by_id["en:main-language-code-missing"].supported_input_surfaces == (
-        "enriched_products",
-    )
-    assert checks_by_id[
+
+    source_check_ids = {
+        capability.check_id for capability in source_report.runnable_capabilities
+    }
+    enriched_check_ids = {
+        capability.check_id for capability in enriched_report.runnable_capabilities
+    }
+
+    assert "en:serving-quantity-over-product-quantity" in source_check_ids
+    assert "en:created-missing" in source_check_ids
+    assert "en:main-language-code-missing" not in source_check_ids
+    assert (
         "en:ingredients-count-lower-than-expected-for-the-category"
-    ].supported_input_surfaces == ("enriched_products",)
+        not in source_check_ids
+    )
+    assert "en:main-language-code-missing" in enriched_check_ids
+    assert "en:ingredients-count-lower-than-expected-for-the-category" in (
+        enriched_check_ids
+    )

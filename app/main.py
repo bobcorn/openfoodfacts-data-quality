@@ -27,7 +27,7 @@ def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
     run_spec = configured_run_spec(project_root)
     preview_settings = configured_preview_settings()
-    LOGGER.info("[Config] Source DB: %s", run_spec.db_path)
+    LOGGER.info("[Config] Source snapshot: %s", run_spec.db_path)
     LOGGER.info("[Config] Batch size: %d", run_spec.batch_size)
     LOGGER.info("[Config] Concurrent batch workers: %d", run_spec.batch_workers)
     LOGGER.info(

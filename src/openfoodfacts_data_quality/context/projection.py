@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from openfoodfacts_data_quality._source_products import (
+    build_input_sets,
+    build_source_product_classifier_fields,
+    ingredient_tags_from_source_product,
+)
 from openfoodfacts_data_quality.contracts.context import (
     CategoryPropsContext,
     FlagsContext,
@@ -16,17 +21,43 @@ from openfoodfacts_data_quality.contracts.enrichment import (
     EnrichedProductSnapshot,
 )
 from openfoodfacts_data_quality.contracts.mapping_view import MappingViewModel
-from openfoodfacts_data_quality.contracts.raw import RawProductRow
+from openfoodfacts_data_quality.contracts.source_products import SourceProduct
 from openfoodfacts_data_quality.contracts.structured import IngredientNode
 from openfoodfacts_data_quality.nutrition import first_non_estimated_as_sold_nutrients
-from openfoodfacts_data_quality.raw_products import (
-    build_input_sets,
-    build_raw_classifier_fields,
-    ingredient_tags_from_raw_row,
-)
 from openfoodfacts_data_quality.scalars import as_number
 from openfoodfacts_data_quality.structured_values import (
     is_string_object_mapping,
+)
+
+SOURCE_PRODUCT_CONTEXT_PATHS: frozenset[str] = frozenset(
+    (
+        "product.code",
+        "product.created_t",
+        "product.product_name",
+        "product.quantity",
+        "product.product_quantity",
+        "product.serving_size",
+        "product.serving_quantity",
+        "product.brands",
+        "product.categories",
+        "product.labels",
+        "product.emb_codes",
+        "product.ingredients_text",
+        "product.ingredients_tags",
+        "product.nutriscore_grade",
+        "product.nutriscore_score",
+        "product.categories_tags",
+        "product.labels_tags",
+        "product.countries_tags",
+        "nutrition.input_sets",
+        "nutrition.as_sold.energy_kcal",
+        "nutrition.as_sold.fat",
+        "nutrition.as_sold.saturated_fat",
+        "nutrition.as_sold.trans_fat",
+        "nutrition.as_sold.sugars",
+        "nutrition.as_sold.fiber",
+        "nutrition.as_sold.omega_3",
+    )
 )
 
 
@@ -78,9 +109,9 @@ def nutrient_value(nutrients: dict[str, object], nutrient_id: str) -> float | No
     return as_number(nutrient.get("value"))
 
 
-def build_raw_product_projection(row: RawProductRow) -> ProductContext:
-    """Project one raw product row into the shared product subset."""
-    classifier_fields = build_raw_classifier_fields(row)
+def build_source_product_projection(row: SourceProduct) -> ProductContext:
+    """Project one source product into the shared product subset."""
+    classifier_fields = build_source_product_classifier_fields(row)
     return ProductContext.model_validate(
         compact_mapping(
             {
@@ -96,15 +127,15 @@ def build_raw_product_projection(row: RawProductRow) -> ProductContext:
                 "labels": row.labels or None,
                 "emb_codes": row.emb_codes or None,
                 "ingredients_text": row.ingredients_text or None,
-                "ingredients_tags": ingredient_tags_from_raw_row(row),
+                "ingredients_tags": ingredient_tags_from_source_product(row),
                 **classifier_fields,
             }
         )
     )
 
 
-def build_raw_nutrition_projection(row: RawProductRow) -> NutritionContext:
-    """Project one raw product row into the shared nutrition context shape."""
+def build_source_nutrition_projection(row: SourceProduct) -> NutritionContext:
+    """Project one source product into the shared nutrition context shape."""
     input_sets = build_input_sets(row)
     return NutritionContext.model_validate(
         {

@@ -20,7 +20,7 @@ from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPack
 from openfoodfacts_data_quality.scalars import as_number
 
 if TYPE_CHECKING:
-    from openfoodfacts_data_quality.contracts.context import NormalizedContext
+    from openfoodfacts_data_quality.contracts.context import CheckContext
 
 CHECK_PACK_METADATA = CheckPackMetadata(
     parity_baseline="none",
@@ -38,7 +38,7 @@ CHECK_PACK_METADATA = CheckPackMetadata(
     ),
 )
 def ca_trans_fat_free_claim_but_nutrition_does_not_meet_conditions(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag products whose trans-fat-free claim conflicts with Canada rules."""
     if "en:trans-fat-free" not in set(context.product.labels_tags):

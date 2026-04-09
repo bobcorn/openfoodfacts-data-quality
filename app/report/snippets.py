@@ -39,7 +39,7 @@ FormatterFactory = Callable[..., object]
 LEGACY_SNIPPET_TITLE = "Legacy Source"
 IMPLEMENTATION_SNIPPET_TITLE = "Current Implementation"
 SNIPPETS_ARTIFACT_KIND = "openfoodfacts_data_quality.snippets_artifact"
-SNIPPETS_ARTIFACT_SCHEMA_VERSION = 4
+SNIPPETS_ARTIFACT_SCHEMA_VERSION = 1
 SNIPPETS_ARTIFACT_FILENAME = "snippets.json"
 
 

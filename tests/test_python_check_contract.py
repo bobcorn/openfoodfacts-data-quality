@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Iterator
 from contextlib import contextmanager
 from importlib import import_module
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -14,10 +14,10 @@ from openfoodfacts_data_quality.checks.catalog import (
     get_default_check_catalog,
     load_check_catalog,
 )
-from openfoodfacts_data_quality.checks.context_dependencies import (
-    infer_check_context_dependencies,
-)
 from openfoodfacts_data_quality.checks.registry import CheckBinding, check_bindings
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _OMEGA_3_CHECK_ID = (
     "en:source-of-omega-3-label-claim-but-ala-or-sum-of-epa-and-dha-below-limitation"
@@ -27,426 +27,23 @@ _CANADA_TRANS_FAT_FREE_CHECK_ID = (
 )
 
 
-def test_default_catalog_keeps_declared_contract_for_omega_3_check() -> None:
+def test_default_catalog_keeps_declared_context_paths_for_omega_3_check() -> None:
     check_definition = get_default_check_catalog().check_by_id(_OMEGA_3_CHECK_ID)
     binding = next(
         binding
-        for binding in infer_bindings_for_default_catalog()
+        for binding in _bindings_for_default_python_packs()
         if binding.id == _OMEGA_3_CHECK_ID
     )
 
-    assert check_definition.required_context_paths == (
+    expected_paths = (
         "product.labels_tags",
         "nutrition.input_sets",
     )
-    assert tuple(
-        dependency.path for dependency in infer_check_context_dependencies(binding)
-    ) == (
-        "product.labels_tags",
-        "nutrition.input_sets",
-    )
+    assert check_definition.required_context_paths == expected_paths
+    assert binding.required_context_paths == expected_paths
 
 
-def test_catalog_rejects_python_check_with_missing_direct_and_helper_dependencies(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_contract_checks"
-    module_path = tmp_path / "temp_contract_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.context_dependencies import depends_on_context_paths
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-@depends_on_context_paths("nutrition.input_sets")
-def first_input_set(nutrition: object) -> object:
-    return nutrition
-
-@check("en:contract-test", requires=("product.product_name",))
-def en_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    if context.product.labels_tags:
-        return []
-    first_input_set(context.nutrition)
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Python check en:contract-test is missing declared context paths: "
-                "product.labels_tags \\(direct access to context.product.labels_tags\\), "
-                "nutrition.input_sets \\(helper dependency via first_input_set\\)"
-            ),
-        ):
-            load_check_catalog(
-                definitions_paths=(),
-                python_module_names=(module_name,),
-            )
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-@contextmanager
-def _loaded_temp_check_binding(
-    tmp_path: Path,
-    *,
-    module_name: str,
-    source: str,
-    check_id: str,
-) -> Iterator[tuple[CheckCatalog, CheckBinding]]:
-    module_path = tmp_path / f"{module_name}.py"
-    module_path.write_text(source.strip(), encoding="utf-8")
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-    try:
-        catalog = load_check_catalog(
-            definitions_paths=(),
-            python_module_names=(module_name,),
-        )
-        binding = next(
-            binding
-            for binding in check_bindings(import_module(module_name))
-            if binding.id == check_id
-        )
-        yield catalog, binding
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_catalog_accepts_direct_context_dependency_via_section_alias(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_alias_contract_checks"
-    with _loaded_temp_check_binding(
-        tmp_path,
-        module_name=module_name,
-        check_id="en:alias-contract-test",
-        source="""
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-@check("en:alias-contract-test", requires=("product.labels_tags",))
-def en_alias_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    product = context.product
-    if product.labels_tags:
-        return []
-    return [CheckEmission(severity="warning")]
-""",
-    ) as (catalog, binding):
-        assert catalog.check_by_id("en:alias-contract-test").required_context_paths == (
-            "product.labels_tags",
-        )
-        assert tuple(
-            dependency.path for dependency in infer_check_context_dependencies(binding)
-        ) == ("product.labels_tags",)
-
-
-def test_catalog_accepts_helper_dependency_via_context_alias(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_helper_alias_contract_checks"
-    with _loaded_temp_check_binding(
-        tmp_path,
-        module_name=module_name,
-        check_id="en:helper-alias-contract-test",
-        source="""
-from openfoodfacts_data_quality.checks.context_dependencies import depends_on_context_paths
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-@depends_on_context_paths("nutrition.input_sets")
-def first_input_set(nutrition: object) -> object:
-    return nutrition
-
-@check("en:helper-alias-contract-test", requires=("nutrition.input_sets",))
-def en_helper_alias_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    nutrition = context.nutrition
-    first_input_set(nutrition)
-    return [CheckEmission(severity="warning")]
-""",
-    ) as (catalog, binding):
-        assert catalog.check_by_id(
-            "en:helper-alias-contract-test"
-        ).required_context_paths == ("nutrition.input_sets",)
-        assert tuple(
-            dependency.path for dependency in infer_check_context_dependencies(binding)
-        ) == ("nutrition.input_sets",)
-
-
-def test_catalog_rejects_unannotated_helper_receiving_context_section(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_unannotated_helper_section_checks"
-    module_path = tmp_path / "temp_unannotated_helper_section_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-def first_input_set(nutrition: object) -> object:
-    return nutrition
-
-@check("en:unsupported-helper-pattern", requires=("nutrition.input_sets",))
-def en_unsupported_helper_pattern(context: NormalizedContext) -> list[CheckEmission]:
-    first_input_set(context.nutrition)
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Python check en:unsupported-helper-pattern uses unsupported "
-                "context-helper patterns: first_input_set receives context.nutrition"
-            ),
-        ):
-            load_check_catalog(
-                definitions_paths=(),
-                python_module_names=(module_name,),
-            )
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_catalog_rejects_unannotated_helper_receiving_context_subobject(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_unannotated_helper_subobject_checks"
-    module_path = tmp_path / "temp_unannotated_helper_subobject_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="none",
-    jurisdictions=("global",),
-)
-
-def energy(nutrition_as_sold: object) -> object:
-    return nutrition_as_sold
-
-@check(
-    "en:unsupported-helper-subobject-pattern",
-    requires=("nutrition.as_sold.energy_kcal",),
-)
-def en_unsupported_helper_subobject_pattern(
-    context: NormalizedContext,
-) -> list[CheckEmission]:
-    energy(context.nutrition.as_sold)
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Python check en:unsupported-helper-subobject-pattern uses "
-                "unsupported context-helper patterns: energy receives "
-                "context.nutrition.as_sold"
-            ),
-        ):
-            load_check_catalog(
-                definitions_paths=(),
-                python_module_names=(module_name,),
-            )
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_catalog_rejects_python_check_pack_without_pack_metadata(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_missing_pack_metadata_checks"
-    module_path = tmp_path / "temp_missing_pack_metadata_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-@check("en:contract-test", requires=("product.product_name",))
-def en_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    if context.product.product_name:
-        return []
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Python check pack temp_missing_pack_metadata_checks "
-                "must declare CHECK_PACK_METADATA."
-            ),
-        ):
-            load_check_catalog(
-                definitions_paths=(),
-                python_module_names=(module_name,),
-            )
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_catalog_accepts_python_check_legacy_code_template_override(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_legacy_identity_checks"
-    module_path = tmp_path / "temp_legacy_identity_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-@check(
-    "en:contract-test",
-    requires=("product.product_name",),
-    legacy_code_template="en:legacy-contract-test",
-)
-def en_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    if context.product.product_name:
-        return []
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        catalog = load_check_catalog(
-            definitions_paths=(),
-            python_module_names=(module_name,),
-        )
-        legacy_identity = catalog.check_by_id("en:contract-test").legacy_identity
-        assert legacy_identity is not None
-        assert legacy_identity.code_template == "en:legacy-contract-test"
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_catalog_rejects_duplicate_canonical_legacy_identity_mappings(
-    tmp_path: Path,
-) -> None:
-    module_name = "temp_duplicate_legacy_identity_checks"
-    module_path = tmp_path / "temp_duplicate_legacy_identity_checks.py"
-    module_path.write_text(
-        """
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
-
-CHECK_PACK_METADATA = CheckPackMetadata(
-    parity_baseline="legacy",
-    jurisdictions=("global",),
-)
-
-@check(
-    "en:first-contract-test",
-    requires=("product.product_name",),
-    legacy_code_template="en:ingredients-${lang_code}-photo-selected",
-)
-def en_first_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    if context.product.product_name:
-        return []
-    return [CheckEmission(severity="warning")]
-
-
-@check(
-    "en:second-contract-test",
-    requires=("product.product_name",),
-    legacy_code_template="en:ingredients-${display_lc}-photo-selected",
-)
-def en_second_contract_test(context: NormalizedContext) -> list[CheckEmission]:
-    if context.product.product_name:
-        return []
-    return [CheckEmission(severity="warning")]
-""".strip(),
-        encoding="utf-8",
-    )
-    sys.path.insert(0, str(tmp_path))
-    importlib.invalidate_caches()
-
-    try:
-        with pytest.raises(
-            ValueError,
-            match=(
-                "Duplicate legacy identity mappings: "
-                "en:ingredients-\\$\\{\\*\\}-photo-selected: "
-                "en:first-contract-test, en:second-contract-test"
-            ),
-        ):
-            load_check_catalog(
-                definitions_paths=(),
-                python_module_names=(module_name,),
-            )
-    finally:
-        sys.path.remove(str(tmp_path))
-        sys.modules.pop(module_name, None)
-        importlib.invalidate_caches()
-
-
-def test_default_catalog_keeps_declared_contract_for_canada_trans_fat_free_check() -> (
+def test_default_catalog_keeps_declared_context_paths_for_canada_trans_fat_free_check() -> (
     None
 ):
     check_definition = get_default_check_catalog().check_by_id(
@@ -454,27 +51,177 @@ def test_default_catalog_keeps_declared_contract_for_canada_trans_fat_free_check
     )
     binding = next(
         binding
-        for binding in infer_bindings_for_default_catalog()
+        for binding in _bindings_for_default_python_packs()
         if binding.id == _CANADA_TRANS_FAT_FREE_CHECK_ID
     )
 
-    assert check_definition.required_context_paths == (
+    expected_paths = (
         "product.labels_tags",
         "nutrition.as_sold.energy_kcal",
         "nutrition.as_sold.saturated_fat",
         "nutrition.as_sold.trans_fat",
     )
-    assert tuple(
-        dependency.path for dependency in infer_check_context_dependencies(binding)
-    ) == (
-        "product.labels_tags",
-        "nutrition.as_sold.energy_kcal",
-        "nutrition.as_sold.saturated_fat",
-        "nutrition.as_sold.trans_fat",
-    )
+    assert check_definition.required_context_paths == expected_paths
+    assert binding.required_context_paths == expected_paths
 
 
-def infer_bindings_for_default_catalog() -> tuple[CheckBinding, ...]:
+def test_catalog_uses_python_declared_context_paths_as_the_contract(
+    tmp_path: Path,
+) -> None:
+    with _loaded_temp_check_catalog(
+        tmp_path,
+        module_name="temp_declared_context_path_checks",
+        source="""
+from openfoodfacts_data_quality.checks.registry import check
+from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from openfoodfacts_data_quality.contracts.context import CheckContext
+
+CHECK_PACK_METADATA = CheckPackMetadata(
+    parity_baseline="legacy",
+    jurisdictions=("global",),
+)
+
+def helper(value: object) -> object:
+    return value
+
+@check("en:contract-test", requires=("product.product_name",))
+def en_contract_test(context: CheckContext) -> list[CheckEmission]:
+    helper(context.nutrition)
+    if context.product.labels_tags:
+        return []
+    return [CheckEmission(severity="warning")]
+""",
+    ) as catalog:
+        check_definition = catalog.check_by_id("en:contract-test")
+
+    assert check_definition.required_context_paths == ("product.product_name",)
+
+
+def test_catalog_rejects_unknown_python_context_path(tmp_path: Path) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Check en:contract-test declares unknown context paths: product.unknown",
+    ):
+        with _loaded_temp_check_catalog(
+            tmp_path,
+            module_name="temp_unknown_context_path_checks",
+            source="""
+from openfoodfacts_data_quality.checks.registry import check
+from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from openfoodfacts_data_quality.contracts.context import CheckContext
+
+CHECK_PACK_METADATA = CheckPackMetadata(
+    parity_baseline="legacy",
+    jurisdictions=("global",),
+)
+
+@check("en:contract-test", requires=("product.unknown",))
+def en_contract_test(context: CheckContext) -> list[CheckEmission]:
+    return [CheckEmission(severity="warning")]
+""",
+        ):
+            pass
+
+
+def test_catalog_rejects_python_check_pack_without_pack_metadata(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Python check pack temp_missing_pack_metadata_checks "
+            "must declare CHECK_PACK_METADATA."
+        ),
+    ):
+        with _loaded_temp_check_catalog(
+            tmp_path,
+            module_name="temp_missing_pack_metadata_checks",
+            source="""
+from openfoodfacts_data_quality.checks.registry import check
+from openfoodfacts_data_quality.contracts.checks import CheckEmission
+from openfoodfacts_data_quality.contracts.context import CheckContext
+
+@check("en:contract-test", requires=("product.product_name",))
+def en_contract_test(context: CheckContext) -> list[CheckEmission]:
+    if context.product.product_name:
+        return []
+    return [CheckEmission(severity="warning")]
+""",
+        ):
+            pass
+
+
+def test_catalog_rejects_duplicate_canonical_legacy_identity_mappings(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Duplicate legacy identity mappings: "
+            "en:ingredients-\\$\\{\\*\\}-photo-selected: "
+            "en:ingredients-\\$\\{display_lc\\}-photo-selected, "
+            "en:ingredients-\\$\\{lang_code\\}-photo-selected"
+        ),
+    ):
+        with _loaded_temp_check_catalog(
+            tmp_path,
+            module_name="temp_duplicate_legacy_identity_checks",
+            source="""
+from openfoodfacts_data_quality.checks.registry import check
+from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from openfoodfacts_data_quality.contracts.context import CheckContext
+
+CHECK_PACK_METADATA = CheckPackMetadata(
+    parity_baseline="legacy",
+    jurisdictions=("global",),
+)
+
+@check(
+    "en:ingredients-${lang_code}-photo-selected",
+    requires=("product.product_name",),
+)
+def en_first_contract_test(context: CheckContext) -> list[CheckEmission]:
+    if context.product.product_name:
+        return []
+    return [CheckEmission(severity="warning")]
+
+
+@check(
+    "en:ingredients-${display_lc}-photo-selected",
+    requires=("product.product_name",),
+)
+def en_second_contract_test(context: CheckContext) -> list[CheckEmission]:
+    if context.product.product_name:
+        return []
+    return [CheckEmission(severity="warning")]
+""",
+        ):
+            pass
+
+
+@contextmanager
+def _loaded_temp_check_catalog(
+    tmp_path: Path,
+    *,
+    module_name: str,
+    source: str,
+) -> Iterator[CheckCatalog]:
+    module_path = tmp_path / f"{module_name}.py"
+    module_path.write_text(source.strip(), encoding="utf-8")
+    sys.path.insert(0, str(tmp_path))
+    importlib.invalidate_caches()
+    try:
+        yield load_check_catalog(
+            definitions_paths=(),
+            python_module_names=(module_name,),
+        )
+    finally:
+        sys.path.remove(str(tmp_path))
+        sys.modules.pop(module_name, None)
+        importlib.invalidate_caches()
+
+
+def _bindings_for_default_python_packs() -> tuple[CheckBinding, ...]:
     module_names = (
         "openfoodfacts_data_quality.checks.packs.python.canada_checks",
         "openfoodfacts_data_quality.checks.packs.python.global_checks",

@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-
-from openfoodfacts_data_quality.contracts.raw import (
-    RAW_INPUT_COLUMNS,
-    RAW_NUTRIMENT_COLUMNS,
-    RAW_PRODUCT_COLUMNS,
-    RawProductRow,
+from openfoodfacts_data_quality.contracts.source_products import (
+    SOURCE_PRODUCT_COLUMNS,
+    SOURCE_PRODUCT_INPUT_COLUMNS,
+    SOURCE_PRODUCT_NUTRIMENT_COLUMNS,
+    SourceProduct,
 )
 from openfoodfacts_data_quality.contracts.structured import (
     NutrientValue,
     NutritionInputSet,
 )
 from openfoodfacts_data_quality.scalars import as_number
-from openfoodfacts_data_quality.source_rows import normalize_raw_input_row
 from openfoodfacts_data_quality.structured_values import object_list_or_empty
 
 
 def split_tags(value: object) -> list[str]:
-    """Normalize comma separated raw tag fields into a list."""
+    """Normalize comma separated tag fields into a list."""
     if value is None:
         return []
     list_value = object_list_or_empty(value)
@@ -30,25 +27,25 @@ def split_tags(value: object) -> list[str]:
     return [item.strip() for item in text.split(",") if item.strip()]
 
 
-def ingredient_tags_from_raw_row(
-    row: RawProductRow | Mapping[str, object],
+def ingredient_tags_from_source_product(
+    row: SourceProduct,
 ) -> list[str]:
-    """Return the normalized ingredient tags available on one raw product row."""
-    raw_row = _validated_raw_row(row)
-    return split_tags(raw_row.ingredients_tags)
+    """Return the normalized ingredient tags available on one source product."""
+    source_product = _require_source_product(row)
+    return split_tags(source_product.ingredients_tags)
 
 
-def build_raw_classifier_fields(
-    row: RawProductRow | Mapping[str, object],
+def build_source_product_classifier_fields(
+    row: SourceProduct,
 ) -> dict[str, object]:
-    """Return the normalized raw classification fields shared by runtime consumers."""
-    raw_row = _validated_raw_row(row)
+    """Return the source product classification fields shared by runtime consumers."""
+    source_product = _require_source_product(row)
     return {
-        "nutriscore_grade": _lowercased_optional_text(raw_row.nutriscore_grade),
-        "nutriscore_score": as_number(raw_row.nutriscore_score),
-        "categories_tags": split_tags(raw_row.categories_tags),
-        "labels_tags": split_tags(raw_row.labels_tags),
-        "countries_tags": split_tags(raw_row.countries_tags),
+        "nutriscore_grade": _lowercased_optional_text(source_product.nutriscore_grade),
+        "nutriscore_score": as_number(source_product.nutriscore_score),
+        "categories_tags": split_tags(source_product.categories_tags),
+        "labels_tags": split_tags(source_product.labels_tags),
+        "countries_tags": split_tags(source_product.countries_tags),
     }
 
 
@@ -62,12 +59,12 @@ def nutrient_unit_for(nutrient_id: str) -> str:
 
 
 def build_input_sets(
-    row: RawProductRow | Mapping[str, object],
+    row: SourceProduct,
 ) -> list[NutritionInputSet]:
-    """Build the minimal raw nutrition payload used by runtime consumers."""
-    raw_row = _validated_raw_row(row)
+    """Build the minimal source product nutrition payload used by runtime consumers."""
+    source_product = _require_source_product(row)
     nutrients: dict[str, NutrientValue] = {}
-    for column, value in raw_row.as_mapping().items():
+    for column, value in source_product.as_mapping().items():
         if not column.endswith("_100g"):
             continue
         number = as_number(value)
@@ -102,18 +99,24 @@ def _lowercased_optional_text(value: object) -> str | None:
     return text.lower()
 
 
-def _validated_raw_row(row: RawProductRow | Mapping[str, object]) -> RawProductRow:
-    """Return one validated raw row contract object from any supported caller shape."""
-    return normalize_raw_input_row(row)
+def _require_source_product(
+    row: object,
+) -> SourceProduct:
+    """Return one canonical source product or fail fast at the runtime boundary."""
+    if isinstance(row, SourceProduct):
+        return row
+    raise TypeError(
+        "Source product runtime helpers expect validated SourceProduct values."
+    )
 
 
 __all__ = [
-    "RAW_INPUT_COLUMNS",
-    "RAW_NUTRIMENT_COLUMNS",
-    "RAW_PRODUCT_COLUMNS",
-    "RawProductRow",
+    "SOURCE_PRODUCT_INPUT_COLUMNS",
+    "SOURCE_PRODUCT_NUTRIMENT_COLUMNS",
+    "SOURCE_PRODUCT_COLUMNS",
+    "SourceProduct",
     "build_input_sets",
-    "build_raw_classifier_fields",
-    "ingredient_tags_from_raw_row",
+    "build_source_product_classifier_fields",
+    "ingredient_tags_from_source_product",
     "split_tags",
 ]

@@ -43,7 +43,7 @@ Each check uses one definition language: Python or the repository DSL.
 
 The repository DSL is a small declarative language written in YAML for rules
 that work as direct predicates on approved
-[NormalizedContext](runtime-model.md#normalizedcontext) fields.
+[CheckContext](runtime-model.md#checkcontext) fields.
 
 A DSL check describes a condition and the finding that condition should emit.
 
@@ -53,7 +53,7 @@ Python checks are ordinary repository code. They receive the same runtime
 context and emit findings through the same contracts.
 
 Use the DSL when the rule is a direct boolean statement over approved
-`NormalizedContext` paths and one static severity is enough.
+`CheckContext` paths and one static severity is enough.
 
 Use Python when the rule needs:
 
@@ -76,13 +76,14 @@ run, how the runtime selects it, and whether it participates in
 
 These fields define most of that behavior:
 
-- `supported_input_surfaces`
 - `required_context_paths`
 - `parity_baseline`
 - `jurisdictions`
 - `legacy_identity`
 
 Selection, validation, parity, and reporting all depend on this metadata.
+For Python checks, authors declare context paths with `requires=(...)`; the
+catalog exposes them as `required_context_paths`.
 
 For the exact field list and selection inputs, see
 [Check metadata and selection](../reference/check-metadata-and-selection.md).
@@ -96,7 +97,8 @@ exist in the packaged catalog.
 
 Profiles can narrow the active checks by:
 
-- [input surface](runtime-model.md#input-surfaces)
+- the context paths available through the selected
+  [context provider](runtime-model.md#context-providers)
 - [parity baseline](reference-data-and-parity.md#parity-baselines)
 - jurisdiction
 - explicit check ids in profiles with `mode = "include"`
@@ -123,7 +125,7 @@ local validation loops without redefining checks for each environment.
 ## Related information
 
 - [About the runtime model](runtime-model.md)
-- [About reference data and parity](reference-data-and-parity.md)
+- [About reference and parity](reference-data-and-parity.md)
 - [Check metadata and selection](../reference/check-metadata-and-selection.md)
 
 [Back to documentation index](../index.md)

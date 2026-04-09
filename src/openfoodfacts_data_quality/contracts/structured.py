@@ -39,7 +39,7 @@ class IngredientNode(StructuredModel):
 
 
 class NutrientValue(StructuredModel):
-    """Stable nutrient payload shared by raw and enriched nutrition sets."""
+    """Stable nutrient payload shared by source-product and enriched-snapshot nutrition sets."""
 
     value: float | None = None
     unit: str | None = None
@@ -47,7 +47,7 @@ class NutrientValue(StructuredModel):
 
 
 class NutritionInputSet(StructuredModel):
-    """Stable nutrition input-set payload shared by raw and enriched runs."""
+    """Stable nutrition input-set payload shared by source-product and enriched-snapshot runs."""
 
     source: str | None = None
     preparation: str | None = None

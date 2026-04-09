@@ -13,36 +13,20 @@ run locally, and evolve.
 The repository keeps reusable runtime logic in
 `src/openfoodfacts_data_quality/` and application orchestration in `app/`.
 
-```mermaid
-flowchart LR
-    subgraph SRC["src/openfoodfacts_data_quality/"]
-        A["Shared runtime"]
-        B["Public library APIs"]
-        A --> B
-    end
-
-    subgraph APP["app/"]
-        C["Application run layer"]
-        D["Reference, parity, and storage"]
-        C --> D
-    end
-
-    E["Legacy backend"] -.-> C
-    A --> C
-    D --> F["Report and JSON artifacts"]
-```
-
 Python callers can use the shared runtime without the application layer.
-Compared runs and enriched application runs still depend on the legacy backend
+Compared runs and enriched snapshot application runs still depend on the legacy backend
 through the
 [reference path](reference-data-and-parity.md#why-the-reference-path-exists).
 Live backend execution happens only on cache misses.
 
+For the repository map and the architecture overview diagram, see
+[About the system architecture](system-architecture.md).
+
 ## What the repository already supports
 
-- A shared Python runtime with explicit raw and enriched input surfaces.
-- Runtime contracts owned by Python for raw rows, enriched snapshots, and
-  normalized context.
+- A shared Python runtime with explicit source product and enriched snapshot context providers.
+- Runtime contracts owned by Python for source products, enriched snapshots,
+  reference results, and check context.
 - Packaged checks written in Python and `dsl`.
 - Application runs that mix compared checks with checks that run without
   comparison.
@@ -52,7 +36,7 @@ Live backend execution happens only on cache misses.
 ## What is stable enough to build on
 
 - the shared [runtime contracts](../reference/data-contracts.md)
-- the [`NormalizedContext`](runtime-model.md#normalizedcontext) model
+- the [`CheckContext`](runtime-model.md#checkcontext) model
 - the packaged [check catalog](../reference/check-metadata-and-selection.md)
 - [application runs](application-runs.md) as a regular workflow
 - [run and snippet artifacts](../reference/report-artifacts.md)
@@ -63,13 +47,14 @@ Live backend execution happens only on cache misses.
 - how broad the DSL should become
 - where whole snapshot runs should live outside short local loops
 - how the report should evolve beyond migration review
-- when the raw and enriched APIs should become durable public interfaces
+- when the `checks` API and the future `snapshots` API should become durable
+  public interfaces
 
 ## Limits
 
 - The repository is not yet a full replacement for every legacy data-quality
   rule.
-- Compared runs and enriched application runs still depend on the
+- Compared runs and enriched snapshot application runs still depend on the
   [ReferenceResult](../reference/data-contracts.md#referenceresult) contract
   and the
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)

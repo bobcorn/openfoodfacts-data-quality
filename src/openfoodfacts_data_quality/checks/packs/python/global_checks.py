@@ -21,7 +21,7 @@ from openfoodfacts_data_quality.scalars import as_number
 from openfoodfacts_data_quality.structured_values import is_object_list
 
 if TYPE_CHECKING:
-    from openfoodfacts_data_quality.contracts.context import NormalizedContext
+    from openfoodfacts_data_quality.contracts.context import CheckContext
 
 CHECK_PACK_METADATA = CheckPackMetadata(
     parity_baseline="legacy",
@@ -29,9 +29,12 @@ CHECK_PACK_METADATA = CheckPackMetadata(
 )
 
 
-@check("en:food-groups-${level}-known", requires=("product.food_groups_tags",))
+@check(
+    "en:food-groups-${level}-known",
+    requires=("product.food_groups_tags",),
+)
 def en_food_groups_var_level_known(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Emit one finding for each known food group level."""
     food_groups_tags = context.product.food_groups_tags
@@ -47,9 +50,12 @@ def en_food_groups_var_level_known(
     return emissions
 
 
-@check("en:food-groups-${level}-unknown", requires=("product.food_groups_tags",))
+@check(
+    "en:food-groups-${level}-unknown",
+    requires=("product.food_groups_tags",),
+)
 def en_food_groups_var_level_unknown(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Emit one finding for each missing food group level."""
     food_groups_tags = context.product.food_groups_tags
@@ -70,7 +76,7 @@ def en_food_groups_var_level_unknown(
     requires=("product.serving_quantity", "product.product_quantity"),
 )
 def en_serving_quantity_over_product_quantity(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag servings larger than the whole product quantity."""
     serving_quantity = as_number(context.product.serving_quantity)
@@ -86,10 +92,13 @@ def en_serving_quantity_over_product_quantity(
 
 @check(
     "en:nutriscore-grade-producer-mismatch-nok",
-    requires=("product.nutriscore_grade", "product.nutriscore_grade_producer"),
+    requires=(
+        "product.nutriscore_grade",
+        "product.nutriscore_grade_producer",
+    ),
 )
 def en_nutriscore_grade_producer_mismatch_nok(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag mismatches between producer and computed Nutri-Score grades."""
     producer_grade = context.product.nutriscore_grade_producer
@@ -108,7 +117,7 @@ def en_nutriscore_grade_producer_mismatch_nok(
     requires=("product.serving_quantity", "product.product_quantity"),
 )
 def en_serving_quantity_less_than_product_quantity_divided_by_1000(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag implausibly tiny serving quantities."""
     serving_quantity = as_number(context.product.serving_quantity)
@@ -124,10 +133,13 @@ def en_serving_quantity_less_than_product_quantity_divided_by_1000(
 
 @check(
     "en:ingredients-count-lower-than-expected-for-the-category",
-    requires=("category_props.minimum_number_of_ingredients", "product.ingredients"),
+    requires=(
+        "category_props.minimum_number_of_ingredients",
+        "product.ingredients",
+    ),
 )
 def en_ingredients_count_lower_than_expected_for_the_category(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag products with too few ingredients for their category."""
     minimum = as_number(context.category_props.minimum_number_of_ingredients)
@@ -148,7 +160,7 @@ def en_ingredients_count_lower_than_expected_for_the_category(
     ),
 )
 def en_var_set_id_energy_value_in_var_unit_does_not_match_value_computed_from_other_nutrients(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Emit one finding per nutrient set and energy unit with a computed-value mismatch."""
     if context.flags.ignore_energy_calculated_error is True:
@@ -175,7 +187,7 @@ def en_var_set_id_energy_value_in_var_unit_does_not_match_value_computed_from_ot
     requires=("nutrition.input_sets", "nutrition.aggregated_set"),
 )
 def en_var_set_id_sugars_plus_starch_plus_fiber_greater_than_carbohydrates_total(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Emit one finding per nutrient set whose parts exceed total carbohydrates."""
     emissions: list[CheckEmission] = []
@@ -198,7 +210,7 @@ def en_var_set_id_sugars_plus_starch_plus_fiber_greater_than_carbohydrates_total
     requires=("product.labels_tags", "nutrition.input_sets"),
 )
 def en_source_of_omega_3_label_claim_but_ala_or_sum_of_epa_and_dha_below_limitation(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag omega-3 claims that do not meet the nutrient threshold."""
     label_tags = set(context.product.labels_tags)
@@ -230,7 +242,7 @@ def en_source_of_omega_3_label_claim_but_ala_or_sum_of_epa_and_dha_below_limitat
     requires=("product.labels_tags", "product.ingredients"),
 )
 def en_vegan_label_but_could_not_confirm_for_all_ingredients(
-    context: NormalizedContext,
+    context: CheckContext,
 ) -> list[CheckEmission]:
     """Flag vegan labels whose ingredients cannot be confidently confirmed as vegan."""
     label_tags = set(context.product.labels_tags)

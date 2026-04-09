@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from app.run.models import BatchStageTimings
+
 LOGGER = logging.getLogger(__name__)
 DEFAULT_HEARTBEAT_INTERVAL_SECONDS = 15.0
 
@@ -42,6 +44,9 @@ class SupportsBatchLog(Protocol):
 
     @property
     def elapsed_seconds(self) -> float: ...
+
+    @property
+    def stage_timings(self) -> BatchStageTimings: ...
 
 
 @dataclass(frozen=True)
@@ -169,7 +174,7 @@ class ExecutionProgressReporter:
     ) -> None:
         """Log the completion of one merged batch."""
         self._logger.info(
-            "[Batch %d] Cache %d hit(s), backend %d product(s), %d reference findings, %d migrated findings, processed %d / %d products in %.1fs (batch %.1fs).",
+            "[Batch %d] Cache %d hit(s), backend %d product(s), %d reference findings, %d migrated findings, processed %d / %d products in %.1fs (batch %.1fs; stages: source %.1fs, reference load %.1fs, reference contexts %.1fs, reference findings %.1fs, migrated %.1fs, parity %.1fs).",
             batch_result.batch_index,
             batch_result.cache_hit_count,
             batch_result.backend_run_count,
@@ -179,4 +184,10 @@ class ExecutionProgressReporter:
             self._config.plan.product_count,
             perf_counter() - self._started_at,
             batch_result.elapsed_seconds,
+            batch_result.stage_timings.source_read_seconds,
+            batch_result.stage_timings.reference_load_seconds,
+            batch_result.stage_timings.reference_check_context_materialization_seconds,
+            batch_result.stage_timings.reference_finding_materialization_seconds,
+            batch_result.stage_timings.migrated_findings_seconds,
+            batch_result.stage_timings.parity_compare_seconds,
         )

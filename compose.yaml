@@ -10,7 +10,7 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     environment:
-      SOURCE_SNAPSHOT_PATH: /work/products.duckdb
+      SOURCE_SNAPSHOT_PATH: /work/source-snapshot
       BATCH_SIZE: "${BATCH_SIZE:-5000}"
       BATCH_WORKERS: "${BATCH_WORKERS:-}"
       LEGACY_BACKEND_WORKERS: "${LEGACY_BACKEND_WORKERS:-4}"
@@ -24,7 +24,7 @@ services:
     volumes:
       - type: bind
         source: ${SOURCE_SNAPSHOT_PATH:?Set SOURCE_SNAPSHOT_PATH in .env}
-        target: /work/products.duckdb
+        target: /work/source-snapshot
         read_only: true
       - type: bind
         source: ./data

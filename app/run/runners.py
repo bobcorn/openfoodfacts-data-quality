@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TYPE_CHECKING
 
 from app.parity.comparator import evaluate_parity
@@ -19,16 +20,17 @@ if TYPE_CHECKING:
 
     from app.run.context_builders import SupportsCheckContextBuilder
     from app.run.models import (
-        SupportsEnrichedSnapshotMaterializer,
+        SupportsReferenceCheckContextMaterializer,
         SupportsReferenceFindingMaterializer,
         SupportsReferenceResultLoader,
     )
+    from app.source.models import ProductDocument
     from openfoodfacts_data_quality.checks.registry import CheckEvaluator
     from openfoodfacts_data_quality.contracts.checks import CheckDefinition
-    from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshotResult
+    from openfoodfacts_data_quality.contracts.context import CheckContext
     from openfoodfacts_data_quality.contracts.observations import ObservedFinding
-    from openfoodfacts_data_quality.contracts.raw import RawProductRow
     from openfoodfacts_data_quality.contracts.run import RunResult
+    from openfoodfacts_data_quality.contracts.source_products import SourceProduct
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,16 +39,18 @@ class NoReferenceRunner:
 
     def resolve(
         self,
-        rows: list[RawProductRow],
+        product_documents: list[ProductDocument],
     ) -> ResolvedReferenceBatch:
         """Return an empty reference-side batch projection."""
-        del rows
+        del product_documents
         return ResolvedReferenceBatch(
-            reference_results=[],
-            enriched_snapshots=[],
+            reference_check_contexts=[],
             reference_findings=(),
             cache_hit_count=0,
             backend_run_count=0,
+            load_seconds=0.0,
+            reference_check_context_materialization_seconds=0.0,
+            reference_finding_materialization_seconds=0.0,
         )
 
 
@@ -55,38 +59,55 @@ class LegacyReferenceRunner:
     """Resolve one batch through the reference path and derived projections."""
 
     reference_result_loader: SupportsReferenceResultLoader
-    enriched_snapshot_materializer: SupportsEnrichedSnapshotMaterializer | None = None
+    reference_check_context_materializer: (
+        SupportsReferenceCheckContextMaterializer | None
+    ) = None
     reference_finding_materializer: SupportsReferenceFindingMaterializer | None = None
 
     def resolve(
         self,
-        rows: list[RawProductRow],
+        product_documents: list[ProductDocument],
     ) -> ResolvedReferenceBatch:
         """Return the reference-side data needed for one batch execution."""
-        loaded = self.reference_result_loader.load_many(rows)
+        loaded = self.reference_result_loader.load_many(product_documents)
         reference_results = loaded.reference_results
+        reference_check_context_materialization_seconds = 0.0
+        reference_finding_materialization_seconds = 0.0
+        reference_check_contexts: list[CheckContext] = []
+        reference_findings: tuple[ObservedFinding, ...] = ()
+
+        if self.reference_check_context_materializer is not None:
+            started = perf_counter()
+            reference_check_contexts = (
+                self.reference_check_context_materializer.materialize(reference_results)
+            )
+            reference_check_context_materialization_seconds = perf_counter() - started
+
+        if self.reference_finding_materializer is not None:
+            started = perf_counter()
+            reference_findings = tuple(
+                self.reference_finding_materializer.materialize(reference_results)
+            )
+            reference_finding_materialization_seconds = perf_counter() - started
+
         return ResolvedReferenceBatch(
-            reference_results=reference_results,
-            enriched_snapshots=(
-                self.enriched_snapshot_materializer.materialize(reference_results)
-                if self.enriched_snapshot_materializer is not None
-                else []
-            ),
-            reference_findings=(
-                tuple(
-                    self.reference_finding_materializer.materialize(reference_results)
-                )
-                if self.reference_finding_materializer is not None
-                else ()
-            ),
+            reference_check_contexts=reference_check_contexts,
+            reference_findings=reference_findings,
             cache_hit_count=loaded.cache_hit_count,
             backend_run_count=loaded.backend_run_count,
+            load_seconds=loaded.load_seconds,
+            reference_check_context_materialization_seconds=(
+                reference_check_context_materialization_seconds
+            ),
+            reference_finding_materialization_seconds=(
+                reference_finding_materialization_seconds
+            ),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class MigratedRunner:
-    """Run migrated checks for one batch on the selected normalized surface."""
+    """Run migrated checks for one batch on the selected context provider."""
 
     check_context_builder: SupportsCheckContextBuilder
     evaluators: dict[str, CheckEvaluator]
@@ -94,8 +115,8 @@ class MigratedRunner:
     def observe_findings(
         self,
         *,
-        rows: list[RawProductRow],
-        enriched_snapshots: list[EnrichedSnapshotResult],
+        rows: list[SourceProduct],
+        reference_check_contexts: list[CheckContext],
     ) -> Iterable[ObservedFinding]:
         """Yield normalized migrated findings for one batch."""
         return (
@@ -103,7 +124,7 @@ class MigratedRunner:
             for finding in iter_check_findings_with_evaluators(
                 self.check_context_builder.iter_contexts(
                     rows=rows,
-                    enriched_snapshots=enriched_snapshots,
+                    reference_check_contexts=reference_check_contexts,
                 ),
                 self.evaluators,
                 options=CheckRunOptions(

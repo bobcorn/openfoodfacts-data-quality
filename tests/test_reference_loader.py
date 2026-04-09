@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 
 import pytest
-from app.legacy_backend.input_projection import LegacyBackendInputProduct
 from app.reference.loader import ReferenceResultLoader
 from app.reference.models import ReferenceResult
-
-from openfoodfacts_data_quality.contracts.raw import RawProductRow
+from app.source.models import ProductDocument
+from app.source.product_documents import validate_product_document
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
@@ -19,9 +18,9 @@ class _RecordingLegacyBackendRunner:
 
     def run(
         self,
-        backend_input_products: list[LegacyBackendInputProduct],
+        backend_input_payloads: Sequence[Mapping[str, object]],
     ) -> list[ReferenceResult]:
-        self.calls.append([product.code for product in backend_input_products])
+        self.calls.append([str(payload["code"]) for payload in backend_input_payloads])
         return self.fresh_results
 
 
@@ -43,8 +42,8 @@ class _RecordingReferenceResultCache:
         self.store_calls.append([result.code for result in reference_results])
 
 
-def _raw_row(code: str) -> RawProductRow:
-    return RawProductRow.model_validate({"code": code})
+def _product_document(code: str) -> ProductDocument:
+    return validate_product_document({"code": code, "product_name": f"Product {code}"})
 
 
 def test_reference_result_loader_uses_cache_without_backend_projection(
@@ -62,11 +61,11 @@ def test_reference_result_loader_uses_cache_without_backend_projection(
         raise AssertionError("Backend projection should not run on a full cache hit.")
 
     monkeypatch.setattr(
-        "app.reference.loader.build_legacy_backend_input_products",
+        "app.reference.loader.build_legacy_backend_input_payloads",
         fail_build_input_products,
     )
 
-    resolved = loader.load_many([_raw_row("123")])
+    resolved = loader.load_many([_product_document("123")])
 
     assert cache.load_calls == [["123"]]
     assert cache.store_calls == []
@@ -87,7 +86,7 @@ def test_reference_result_loader_projects_only_cache_misses(
         reference_result_cache=cache,
     )
 
-    resolved = loader.load_many([_raw_row("123"), _raw_row("456")])
+    resolved = loader.load_many([_product_document("123"), _product_document("456")])
 
     assert cache.load_calls == [["123", "456"]]
     assert cache.store_calls == [["456"]]

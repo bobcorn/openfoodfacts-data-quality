@@ -11,9 +11,9 @@ from openfoodfacts_data_quality.checks.packs.python.global_checks import (
     en_var_set_id_sugars_plus_starch_plus_fiber_greater_than_carbohydrates_total,
     en_vegan_label_but_could_not_confirm_for_all_ingredients,
 )
-from openfoodfacts_data_quality.contracts.context import NormalizedContext
+from openfoodfacts_data_quality.contracts.context import CheckContext
 
-ContextFactory = Callable[..., NormalizedContext]
+ContextFactory = Callable[..., CheckContext]
 
 
 def test_ingredients_count_lower_than_expected_for_category_uses_category_props(

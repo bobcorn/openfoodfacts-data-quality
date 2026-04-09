@@ -8,8 +8,6 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 import pytest
-from app.legacy_backend.contracts import LegacyBackendInputPayload
-from app.legacy_backend.input_projection import LegacyBackendInputProduct
 from app.reference.models import LegacyCheckTags, ReferenceResult
 
 from openfoodfacts_data_quality.checks.catalog import (
@@ -19,15 +17,14 @@ from openfoodfacts_data_quality.checks.catalog import (
 from openfoodfacts_data_quality.contracts.checks import (
     CheckDefinition,
     CheckEmission,
-    CheckInputSurface,
     CheckJurisdiction,
     CheckParityBaseline,
     Severity,
 )
 from openfoodfacts_data_quality.contracts.context import (
     CategoryPropsContext,
+    CheckContext,
     FlagsContext,
-    NormalizedContext,
     NutritionContext,
     ProductContext,
 )
@@ -42,10 +39,6 @@ from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
 Payload = dict[str, Any]
 TEST_DEFAULT_PARITY_BASELINE: CheckParityBaseline = "legacy"
 TEST_DEFAULT_JURISDICTIONS: tuple[CheckJurisdiction, ...] = ("global",)
-TEST_DEFAULT_INPUT_SURFACES: tuple[CheckInputSurface, ...] = (
-    "raw_products",
-    "enriched_products",
-)
 
 
 class ContextFactory(Protocol):
@@ -57,16 +50,7 @@ class ContextFactory(Protocol):
         flags: Payload | None = None,
         category_props: Payload | None = None,
         nutrition: Payload | None = None,
-    ) -> NormalizedContext: ...
-
-
-class LegacyBackendInputProductFactory(Protocol):
-    def __call__(
-        self,
-        *,
-        code: str = "0000000000000",
-        projected_input: Payload | None = None,
-    ) -> LegacyBackendInputProduct: ...
+    ) -> CheckContext: ...
 
 
 class ReferenceResultFactory(Protocol):
@@ -113,9 +97,6 @@ class CheckDefinitionFactory(Protocol):
         *,
         parity_baseline: CheckParityBaseline = TEST_DEFAULT_PARITY_BASELINE,
         jurisdictions: tuple[CheckJurisdiction, ...] = TEST_DEFAULT_JURISDICTIONS,
-        supported_input_surfaces: tuple[CheckInputSurface, ...] = (
-            TEST_DEFAULT_INPUT_SURFACES
-        ),
     ) -> CheckDefinition: ...
 
 
@@ -152,7 +133,7 @@ def context_factory() -> ContextFactory:
         flags: Payload | None = None,
         category_props: Payload | None = None,
         nutrition: Payload | None = None,
-    ) -> NormalizedContext:
+    ) -> CheckContext:
         base_product: Payload = {
             "code": code,
             "lc": "en",
@@ -210,7 +191,7 @@ def context_factory() -> ContextFactory:
         if nutrition:
             base_nutrition.update(nutrition)
 
-        return NormalizedContext(
+        return CheckContext(
             code=code,
             product=ProductContext.model_validate(base_product),
             flags=FlagsContext.model_validate(base_flags),
@@ -228,9 +209,6 @@ def check_definition_factory() -> CheckDefinitionFactory:
         *,
         parity_baseline: CheckParityBaseline = TEST_DEFAULT_PARITY_BASELINE,
         jurisdictions: tuple[CheckJurisdiction, ...] = TEST_DEFAULT_JURISDICTIONS,
-        supported_input_surfaces: tuple[CheckInputSurface, ...] = (
-            TEST_DEFAULT_INPUT_SURFACES
-        ),
     ) -> CheckDefinition:
         return CheckDefinition(
             id=check_id,
@@ -238,7 +216,6 @@ def check_definition_factory() -> CheckDefinitionFactory:
             parity_baseline=parity_baseline,
             jurisdictions=jurisdictions,
             required_context_paths=("product.code",),
-            supported_input_surfaces=supported_input_surfaces,
         )
 
     return factory
@@ -446,24 +423,6 @@ def migration_inventory_factory() -> MigrationInventoryFactory:
                 ]
             )
         return artifact_path, estimation_path
-
-    return factory
-
-
-@pytest.fixture
-def legacy_backend_input_product_factory() -> LegacyBackendInputProductFactory:
-    def factory(
-        *,
-        code: str = "0000000000000",
-        projected_input: Payload | None = None,
-    ) -> LegacyBackendInputProduct:
-        projected_payload: Payload = {"code": code}
-        if projected_input is not None:
-            projected_payload = {key: value for key, value in projected_input.items()}
-        return LegacyBackendInputProduct(
-            code=code,
-            projected_input=LegacyBackendInputPayload.model_validate(projected_payload),
-        )
 
     return factory
 

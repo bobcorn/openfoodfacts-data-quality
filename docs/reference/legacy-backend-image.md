@@ -2,7 +2,7 @@
 
 # Legacy backend image
 
-Compared runs and enriched application runs rely on this image when the
+Compared runs and enriched snapshot application runs rely on this image when the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 needs backend materialization.
 
@@ -76,17 +76,16 @@ produced by the backend.
 
 That includes:
 
-- [`enriched_products`](../explanation/runtime-model.md#input-surfaces) runs,
+- [`enriched_snapshots`](../explanation/runtime-model.md#context-providers) runs,
   because the application reference path materializes
-  [EnrichedSnapshotResult](data-contracts.md#enrichedsnapshotresult) data
-  through the backend
+  `CheckContext` data through the backend
 - compared
-  [`raw_products`](../explanation/runtime-model.md#input-surfaces) runs,
+  [`source_products`](../explanation/runtime-model.md#context-providers) runs,
   because reference findings still come from legacy emitted tags
 
 The reference loader checks the
 [reference result cache](run-configuration-and-artifacts.md#reference-result-cache)
-before it starts backend work. With a warm cache, a compared or enriched run
+before it starts backend work. With a warm cache, a compared or enriched snapshot run
 can reuse cached data instead of starting a backend worker for covered
 products. With a cold cache, materialization still uses this image.
 

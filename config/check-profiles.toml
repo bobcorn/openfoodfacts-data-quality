@@ -3,19 +3,19 @@ default_profile = "full"
 [profiles.full]
 description = "Runs every shipped check across legacy parity and runtime-only baselines."
 mode = "all"
-check_input_surface = "enriched_products"
+check_context_provider = "enriched_snapshots"
 parity_baselines = ["legacy", "none"]
 
-[profiles.raw_products]
-description = "Runs every shipped raw-surface check across legacy parity and runtime-only baselines."
+[profiles.source_products]
+description = "Runs every shipped source-product check across legacy parity and runtime-only baselines."
 mode = "all"
-check_input_surface = "raw_products"
+check_context_provider = "source_products"
 parity_baselines = ["legacy", "none"]
 
 [profiles.focused]
 description = "Runs the current migration workset. Edit check_ids as migration focus changes."
 mode = "include"
-check_input_surface = "enriched_products"
+check_context_provider = "enriched_snapshots"
 parity_baselines = ["legacy", "none"]
 check_ids = [
   "en:serving-quantity-over-product-quantity",
