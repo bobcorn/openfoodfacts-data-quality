@@ -30,7 +30,7 @@ repository.
 1. Run the published image:
 
    ```bash
-   docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality:demo
+   docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality-demo
    ```
 
 2. Open the report at `http://localhost:8000`.

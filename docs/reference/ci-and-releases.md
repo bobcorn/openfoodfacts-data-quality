@@ -37,6 +37,12 @@ for legacy execution.
 The repository pins that base image through the root `Dockerfile`. See
 [Legacy backend image](legacy-backend-image.md).
 
+It publishes a separate GHCR package:
+
+- `ghcr.io/bobcorn/openfoodfacts-data-quality-demo`
+
+Release tags publish `latest`, `1.2.3`, and `1.2`.
+
 ## Google Sheets demo image workflow
 
 `.github/workflows/publish-google-sheets-demo-image.yml` also runs on version
@@ -49,9 +55,11 @@ It:
 - builds `examples/google_sheets_demo/Dockerfile`
 - publishes a multi-architecture image to GHCR
 
-The published image keeps the older `demo` image untouched. It uses the tag
-`google-sheets-demo`, plus versioned tags such as
-`google-sheets-demo-1.2.3`.
+It publishes a separate GHCR package:
+
+- `ghcr.io/bobcorn/openfoodfacts-data-quality-google-sheets-demo`
+
+Release tags publish `latest`, `1.2.3`, and `1.2`.
 
 ## Python release workflow
 

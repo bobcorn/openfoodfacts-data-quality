@@ -78,12 +78,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}-google-sheets-demo
           flavor: latest=false
           tags: |
-            type=raw,value=google-sheets-demo
-            type=semver,pattern={{version}},prefix=google-sheets-demo-
-            type=semver,pattern={{major}}.{{minor}},prefix=google-sheets-demo-
+            type=raw,value=latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
 
       - name: Build And Push Google Sheets Demo Image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
