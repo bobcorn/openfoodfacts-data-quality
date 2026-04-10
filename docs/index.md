@@ -12,8 +12,8 @@ Use these pages based on what you need:
 - [Run the project locally](how-to/run-the-project-locally.md): Start the
   Docker workflow, choose the active dataset and check profiles, and set up
   `.venv` for local tooling.
-- [Run the Google Sheets app](../apps/google_sheets/README.md): Run the local
-  browser app that writes findings to Google Sheets.
+- [Run the Google Sheets demo](../apps/google_sheets/README.md): Run the local
+  browser flow that writes findings to Google Sheets.
 - [Author checks](how-to/author-checks.md): Add a migrated check, choose `dsl`
   or `python`, and validate the change.
 - [Use the Python library](how-to/use-the-python-library.md): Run checks

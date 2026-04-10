@@ -53,6 +53,20 @@ This command adds `mypy`, `vulture`, `pyright`, and `jscpd`.
   or other full
   [migration flow](../explanation/migration-runs.md#run-overview) may still
   need a Docker run in addition to the Python toolchain.
+- Changes that touch a published image should also run the reusable image smoke
+  test script against a local build of that image.
+
+For example:
+
+```bash
+docker build --target demo -t migration-demo:test .
+.venv/bin/python scripts/smoke_test_container_image.py \
+  --image migration-demo:test \
+  --host-port 8000 \
+  --container-port 8000 \
+  --path / \
+  --expect-text "Quality Run Report"
+```
 
 ## Related information
 

@@ -39,6 +39,7 @@ const elements = {
   connectButton: document.querySelector("#connect-button"),
   chooseSpreadsheetButton: document.querySelector("#choose-spreadsheet-button"),
   openSpreadsheetButton: document.querySelector("#open-spreadsheet-button"),
+  clearSpreadsheetButton: document.querySelector("#clear-spreadsheet-button"),
   selectedSheetActions: document.querySelector("#selected-sheet-actions"),
   selectedSheetName: document.querySelector("#selected-sheet-name"),
   selectedSheetMeta: document.querySelector("#selected-sheet-meta"),
@@ -115,15 +116,9 @@ function bindEvents() {
     if (isButtonUnavailable(elements.chooseSpreadsheetButton)) {
       return;
     }
-    const action = state.selectedSpreadsheet
-      ? handleClearSpreadsheetSelection
-      : handleChooseSpreadsheet;
-    const pendingMessage = state.selectedSpreadsheet
-      ? "Clearing spreadsheet selection..."
-      : "Opening Google Drive Picker...";
-    void runWithUiLock(action, {
+    void runWithUiLock(handleChooseSpreadsheet, {
       statusElement: elements.sheetStatus,
-      pendingMessage,
+      pendingMessage: "Opening Google Drive Picker...",
     });
   });
   elements.openSpreadsheetButton.addEventListener("click", () => {
@@ -132,6 +127,15 @@ function bindEvents() {
     }
     const url = currentSpreadsheetUrl();
     window.open(url, "_blank", "noopener,noreferrer");
+  });
+  elements.clearSpreadsheetButton.addEventListener("click", () => {
+    if (isButtonUnavailable(elements.clearSpreadsheetButton)) {
+      return;
+    }
+    void runWithUiLock(handleClearSpreadsheetSelection, {
+      statusElement: elements.sheetStatus,
+      pendingMessage: "Clearing spreadsheet selection...",
+    });
   });
   elements.uploadCsvButton.addEventListener("click", () => {
     if (isButtonUnavailable(elements.uploadCsvButton)) {
@@ -352,41 +356,37 @@ function updateActionAvailability() {
 
   const canChooseSpreadsheet =
     !state.busy && !hasSpreadsheet && hasAuthConfiguration && pickerReady && hasAuth;
-  const canClearSpreadsheet = !state.busy && hasSpreadsheet;
   setExplainableButtonState(elements.chooseSpreadsheetButton, {
-    interactive: hasSpreadsheet ? canClearSpreadsheet : canChooseSpreadsheet,
+    interactive: canChooseSpreadsheet,
     hardDisabled: false,
-    activeTooltip: hasSpreadsheet
-      ? "Forget the current spreadsheet selection in this browser."
-      : "Open Google Picker and choose one spreadsheet.",
-    blockedTooltip: hasSpreadsheet
-      ? "Wait until the current step finishes."
-      : chooseSpreadsheetBlockedTooltip({
-          hasAuthConfiguration,
-          hasPickerConfigurationValues,
-          pickerReady,
-          hasAuth,
-        }),
+    activeTooltip: "Open Google Picker and choose one spreadsheet.",
+    blockedTooltip: chooseSpreadsheetBlockedTooltip({
+      hasAuthConfiguration,
+      hasPickerConfigurationValues,
+      pickerReady,
+      hasAuth,
+    }),
   });
-  elements.chooseSpreadsheetButton.textContent = hasSpreadsheet
-    ? "Clear spreadsheet"
-    : "Choose spreadsheet";
+  elements.chooseSpreadsheetButton.textContent = "Choose spreadsheet";
+  elements.chooseSpreadsheetButton.hidden = hasSpreadsheet;
   elements.chooseSpreadsheetButton.classList.toggle(
     "button--primary",
-    hasAuth && !hasSpreadsheet,
+    hasAuth,
   );
   elements.chooseSpreadsheetButton.classList.toggle(
     "button--secondary",
-    !hasSpreadsheet && !hasAuth,
+    !hasAuth,
   );
-  elements.chooseSpreadsheetButton.classList.toggle(
-    "button--quiet",
-    hasSpreadsheet,
-  );
+  elements.chooseSpreadsheetButton.classList.remove("button--quiet");
   elements.selectedSheetActions.hidden = !hasSpreadsheet;
   setExplainableButtonState(elements.openSpreadsheetButton, {
     interactive: hasSpreadsheet,
     activeTooltip: "Open the selected spreadsheet directly in Google Sheets.",
+    blockedTooltip: "Choose a spreadsheet first.",
+  });
+  setExplainableButtonState(elements.clearSpreadsheetButton, {
+    interactive: !state.busy && hasSpreadsheet,
+    activeTooltip: "Forget the current spreadsheet selection in this browser.",
     blockedTooltip: "Choose a spreadsheet first.",
   });
   updateFlowStepVisibility(flowReady);
@@ -711,8 +711,8 @@ function renderSelectedSpreadsheet() {
   if (!selection) {
     elements.selectedSheetName.textContent = "No spreadsheet selected yet.";
     elements.selectedSheetMeta.textContent = hasUsableGoogleSession()
-      ? "Choose a Sheet from Google Drive to enable the workflow."
-      : "Connect Google, then choose a Sheet to enable the workflow.";
+      ? "Choose a Sheet from Google Drive to enable the demo."
+      : "Connect Google, then choose a Sheet to enable the demo.";
     return;
   }
 
@@ -764,6 +764,11 @@ async function handleValidate() {
     spreadsheetId,
     inputSheetName,
   );
+  if (!sheetProperties) {
+    throw new Error(
+      `Upload a CSV or populate ${describeGoogleSheetsTab(inputSheetName)} before running Validate data.`,
+    );
+  }
   setActionStatus("Running Python checks on the current rows...", "neutral", {
     loading: true,
   });
@@ -802,6 +807,11 @@ async function handleClearValidationOutput() {
     spreadsheetId,
     inputSheetName,
   );
+  if (!sheetProperties) {
+    throw new Error(
+      `${describeGoogleSheetsTab(inputSheetName)} does not exist yet.`,
+    );
+  }
   const clearedTable = stripValidationColumnsInBrowser(table);
   setActionStatus("Removing dq_* columns and clearing row formatting...", "neutral", {
     loading: true,
@@ -843,7 +853,15 @@ async function handlePrepareUploadCandidates() {
       loading: true,
     },
   );
-  const { table } = await readSheetTable(spreadsheetId, inputSheetName);
+  const { table, sheetProperties } = await readSheetTable(
+    spreadsheetId,
+    inputSheetName,
+  );
+  if (!sheetProperties) {
+    throw new Error(
+      `Upload a CSV or populate ${describeGoogleSheetsTab(inputSheetName)} before preparing upload candidates.`,
+    );
+  }
   const candidateTable = prepareUploadCandidatesInBrowser(table);
   setActionStatus(
     `Writing only clean rows into ` +
@@ -1019,7 +1037,7 @@ async function refreshValidationProbe() {
   };
   updateActionAvailability();
   try {
-    const { table } = await readSheetTable(
+    const { table, sheetProperties } = await readSheetTable(
       currentSpreadsheetId(),
       currentInputSheetName(),
     );
@@ -1029,7 +1047,8 @@ async function refreshValidationProbe() {
     state.validationProbe = {
       key,
       status: "ready",
-      hasValidationOutput: table.headers.includes("dq_status"),
+      hasValidationOutput:
+        sheetProperties !== null && table.headers.includes("dq_status"),
     };
   } catch {
     if (validationProbeKey() !== key) {
@@ -1354,7 +1373,13 @@ function buildSpreadsheetUrl(spreadsheetId) {
 }
 
 async function readSheetTable(spreadsheetId, sheetName) {
-  const sheetProperties = await ensureSheet(spreadsheetId, sheetName);
+  const sheetProperties = await findExistingSheet(spreadsheetId, sheetName);
+  if (!sheetProperties) {
+    return {
+      table: { headers: [], rows: [] },
+      sheetProperties: null,
+    };
+  }
   const range = encodeURIComponent(`'${sheetName}'`);
   const response = await googleApiJson(
     `${GOOGLE_SHEETS_API_ROOT}/${spreadsheetId}/values/${range}`,
@@ -1377,6 +1402,11 @@ async function readSheetTable(spreadsheetId, sheetName) {
     },
     sheetProperties,
   };
+}
+
+async function findExistingSheet(spreadsheetId, sheetName) {
+  const metadata = await fetchSpreadsheetMetadataCached(spreadsheetId);
+  return findSheetProperties(metadata, sheetName);
 }
 
 async function replaceSheetTable({

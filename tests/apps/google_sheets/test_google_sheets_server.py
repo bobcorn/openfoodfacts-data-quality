@@ -25,7 +25,7 @@ def test_google_sheets_server_renders_shared_ui_shell() -> None:
     assert '<div class="page-stack">' in decoded_body
     assert '<section class="surface-shell workflow-shell shell">' in decoded_body
     assert '<div class="page-meta">' not in decoded_body
-    assert "Google Sheets Workflow" in decoded_body
+    assert "Google Sheets Demo" in decoded_body
 
 
 def _request(

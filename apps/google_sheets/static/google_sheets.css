@@ -209,6 +209,9 @@
 
 .selected-sheet-card__actions {
   flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .selected-sheet-name {
