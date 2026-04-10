@@ -3,7 +3,7 @@
 # Run the project locally
 
 Use this guide to start the Docker
-[application flow](../explanation/application-runs.md) and set up local Python
+[migration flow](../explanation/migration-runs.md) and set up local Python
 tooling.
 
 ## Before you begin
@@ -12,7 +12,7 @@ tooling.
 - Python 3.14 if you want a local `.venv`
 - a local `.env` file
 
-## Start the application
+## Start the migration tooling
 
 1. Create `.env` from the tracked sample file:
 
@@ -24,14 +24,15 @@ tooling.
    checks run. `SOURCE_DATASET_PROFILE` chooses which rows from the source
    snapshot enter the run.
 
-3. Build and start the local application flow:
+3. Build and start the local migration flow:
 
    ```bash
    docker compose up --build
    ```
 
 4. Open the local report at `http://localhost:8000`, unless you changed
-   `PORT` in `.env`.
+   `MIGRATION_PORT` in `.env`. The local Compose flow binds to `127.0.0.1`
+   by default.
 
 ## Verify the result
 
@@ -59,23 +60,26 @@ recorded run.
   [dataset profiles](../reference/run-configuration-and-artifacts.md#dataset-profiles).
 - `SOURCE_SNAPSHOT_PATH` selects the
   [source snapshot](../reference/glossary.md#source-snapshot). Local
-  application runs require it explicitly.
+  migration runs require it explicitly.
 - `CHECK_PROFILE` chooses the active check profile.
 - `SOURCE_DATASET_PROFILE` chooses the active source dataset profile.
 - `MIGRATION_INVENTORY_PATH` and `MIGRATION_ESTIMATION_SHEET_PATH` point to
-  optional migration planning metadata. The application uses it to filter runs
+  optional migration planning metadata. The migration tooling uses it to filter runs
   by planning data and to show migration coverage in the report.
 - `BATCH_WORKERS` controls batch concurrency.
 - `LEGACY_BACKEND_WORKERS` controls persistent backend workers for cache
   misses.
-- `PORT` changes the published port on the host for the local preview.
+- `MIGRATION_BIND_HOST` changes the host interface used by the local
+  preview. The default is `127.0.0.1`.
+- `MIGRATION_PORT` changes the preview port published on the host and passed to
+  the preview server inside the local Compose flow.
 
 The sample `.env.example` points to the tracked sample JSONL snapshot, so the
 first run succeeds with repository data.
 
 ## Know when Docker is required
 
-Compared runs and enriched snapshot application runs still depend on the
+Compared runs and enriched snapshot migration runs still depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 and the supported [legacy backend environment](../reference/legacy-backend-image.md).
 
@@ -131,7 +135,7 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 - In the default Docker flow, that cache lives in the named
   `reference_result_cache` volume.
 - A warm cache can avoid backend execution for covered products.
-- `artifacts/latest/` is reset on every application run.
+- `artifacts/latest/` is reset on every migration run.
 - The parity store persists across runs and stores review history until you
   delete or replace its DuckDB file.
 - [Source snapshots](../reference/glossary.md#source-snapshot) can include a
@@ -140,7 +144,7 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 
 ## Related information
 
-- [About application runs](../explanation/application-runs.md)
+- [About migration runs](../explanation/migration-runs.md)
 - [Run configuration and artifacts](../reference/run-configuration-and-artifacts.md)
 - [Troubleshoot local runs](troubleshoot-local-runs.md)
 

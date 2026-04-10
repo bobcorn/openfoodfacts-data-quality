@@ -2,21 +2,24 @@
 
 # Run configuration and artifacts
 
-Use this reference for application settings and generated files. It also covers
+Use this reference for migration settings and generated files. It also covers
 the parity store and the cache.
 
 ## Source and execution settings
 
 - `SOURCE_SNAPSHOT_PATH`: Full product
   [source snapshot](glossary.md#source-snapshot). This is required for local
-  application runs. It must point to a JSONL snapshot or a DuckDB snapshot with a
+  migration runs. It must point to a JSONL snapshot or a DuckDB snapshot with a
   `products` table.
 - `SOURCE_SNAPSHOT_ID`: Optional explicit source snapshot id. When unset, the
   runtime uses a sidecar manifest or hashes the source snapshot file.
-- `PORT`: Preview port when you run `app.main` directly. In the default Docker
-  flow, this value controls the published port on the host.
+- `MIGRATION_BIND_HOST`: Host interface used by the repository Compose
+  preview. The default is `127.0.0.1`.
+- `MIGRATION_PORT`: Preview port used by the repository Compose preview. The
+  Compose flow passes this value through to `PORT` inside the container.
+- `PORT`: Preview port when you run `migration.cli` directly.
 - `BATCH_SIZE`: Source batch size.
-- `BATCH_WORKERS`: Concurrent batch workers used by the application run loop.
+- `BATCH_WORKERS`: Concurrent batch workers used by the migration run loop.
 - `LEGACY_BACKEND_WORKERS`: Persistent backend workers used when cache misses
   need backend materialization.
 - `MISMATCH_EXAMPLES_LIMIT`: Retained
@@ -60,22 +63,29 @@ selection preset for one run. It sets the active checks,
 The default profiles are:
 
 - `full`
+- `legacy`
 - `source_products`
 - `focused`
 
-Profiles can also apply migration filters such as target implementation, size,
-or risk when a migration catalog is configured.
+`full` runs every shipped check.
 
-In the default config, `CHECK_PROFILE=focused` uses the explicit include list
-from `config/check-profiles.toml`. None of the default profiles use migration
-filters yet.
+`legacy` keeps only checks that still compare against legacy behavior.
+
+`source_products` keeps the `source_products` provider and the `legacy`
+baseline, so it stays useful for provider-specific parity work.
+
+`focused` uses the explicit include list from `config/check-profiles.toml`.
+
+Profiles can also apply migration filters such as target implementation, size,
+or risk when a migration catalog is configured. None of the shipped profiles
+use those filters yet.
 
 ## Dataset profiles
 
 `config/dataset-profiles.toml` defines named dataset presets for source selection.
 
 A dataset profile controls which product documents from the source snapshot
-enter one application run. It does not change the
+enter one migration run. It does not change the
 [check context provider](../explanation/runtime-model.md#context-provider-and-dataset-profile-are-different).
 
 The default profiles are:
@@ -170,9 +180,15 @@ does not decide whether the assessment is complete.
 
 The repository `compose.yaml` wires these settings into the local Docker flow:
 
+The local stack name is `migration`, and Compose tags the built image as
+`migration:local`.
+
 - `SOURCE_SNAPSHOT_PATH`: selects the source snapshot file on the host that
   Compose mounts at `/work/source-snapshot` inside the container
-- `PORT`: controls the published port on the host
+- `MIGRATION_BIND_HOST`: controls the host interface used by the local
+  preview
+- `MIGRATION_PORT`: controls the preview port on the host and the value
+  Compose passes to `PORT` inside the container
 - `BATCH_SIZE`
 - `BATCH_WORKERS`
 - `LEGACY_BACKEND_WORKERS`
@@ -200,12 +216,12 @@ The repository Compose flow does not mount the source tree into the container.
 Rebuild after code changes.
 
 If a run needs reference results, values of `LEGACY_BACKEND_WORKERS` above
-`BATCH_WORKERS` do not increase useful concurrency. The application logs a
+`BATCH_WORKERS` do not increase useful concurrency. The migration tooling logs a
 warning in that case.
 
 ## Generated artifacts
 
-The application writes run outputs under `artifacts/latest/`.
+The migration tooling writes run outputs under `artifacts/latest/`.
 
 `artifacts/latest/` is recreated on every run. Treat it as ephemeral output,
 not as persistent review history.
@@ -230,7 +246,7 @@ metadata.
 ## Parity store
 
 The parity store is a DuckDB review store for completed
-application runs.
+migration runs.
 
 It stores review history across runs and report data that is not embedded
 in `run.json`, such as batch telemetry and migration metadata.
@@ -249,7 +265,7 @@ source setup costs do not get mixed with batch execution costs.
 For local commands, the default store path is
 `data/parity_store/parity.duckdb`.
 
-When the store is enabled, the application persists:
+When the store is enabled, the migration tooling persists:
 
 - run configuration and status
 - batch telemetry
@@ -272,7 +288,7 @@ database also writes a readable `.meta.json` sidecar with the
 [source snapshot](glossary.md#source-snapshot) id, cache key, schema version,
 and backend fingerprints used for that cache namespace.
 
-By default, `app.main` stores that cache under `data/reference_result_cache/`.
+By default, `migration.cli` stores that cache under `data/reference_result_cache/`.
 The default Docker flow overrides the cache directory to `/cache`, which is
 backed by the named `reference_result_cache` volume in `compose.yaml`.
 
@@ -297,7 +313,7 @@ image. See [Legacy backend image](legacy-backend-image.md).
 
 ## See also
 
-- [About application runs](../explanation/application-runs.md)
+- [About migration runs](../explanation/migration-runs.md)
 - [Report artifacts](report-artifacts.md)
 - [Troubleshoot local runs](../how-to/troubleshoot-local-runs.md)
 

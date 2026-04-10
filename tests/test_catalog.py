@@ -4,26 +4,43 @@ from collections.abc import Callable
 
 import pytest
 
-from openfoodfacts_data_quality.checks.catalog import CheckCatalog
-from openfoodfacts_data_quality.checks.sources import (
-    default_dsl_check_pack_resources,
-    default_python_check_pack_module_names,
+from off_data_quality.catalog import CheckCatalog
+from off_data_quality.contracts.checks import CheckDefinition, CheckSelection
+from off_data_quality.metadata import (
+    packaged_dsl_check_pack_resource_path,
+    packaged_dsl_check_pack_resources,
+    packaged_module_path,
+    packaged_python_check_pack_module_names,
+    packaged_runtime_fingerprint,
 )
-from openfoodfacts_data_quality.contracts.checks import CheckDefinition, CheckSelection
 
 
-def test_default_python_check_pack_module_names_discovers_pack_modules() -> None:
-    assert default_python_check_pack_module_names() == (
-        "openfoodfacts_data_quality.checks.packs.python.canada_checks",
-        "openfoodfacts_data_quality.checks.packs.python.global_checks",
+def test_packaged_python_check_pack_module_names_discovers_pack_modules() -> None:
+    assert packaged_python_check_pack_module_names() == (
+        "off_data_quality.checks.packs.python.canada_checks",
+        "off_data_quality.checks.packs.python.global_checks",
     )
 
 
-def test_default_dsl_check_pack_resources_discovers_pack_files() -> None:
-    assert tuple(resource.name for resource in default_dsl_check_pack_resources()) == (
+def test_packaged_dsl_check_pack_resources_discovers_pack_files() -> None:
+    assert tuple(resource.name for resource in packaged_dsl_check_pack_resources()) == (
         "canada_checks.yaml",
         "global_checks.yaml",
     )
+
+
+def test_packaged_metadata_exposes_wheel_relative_paths_and_runtime_fingerprint() -> (
+    None
+):
+    dsl_resources = packaged_dsl_check_pack_resources()
+
+    assert packaged_module_path(
+        "off_data_quality.checks.packs.python.global_checks"
+    ) == ("off_data_quality/checks/packs/python/global_checks.py")
+    assert packaged_dsl_check_pack_resource_path(dsl_resources[0]).startswith(
+        "off_data_quality/checks/packs/dsl/"
+    )
+    assert len(packaged_runtime_fingerprint()) == 64
 
 
 def _selection_catalog(

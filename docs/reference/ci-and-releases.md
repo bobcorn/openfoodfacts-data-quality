@@ -9,37 +9,34 @@ These GitHub Actions workflows validate, publish, and release the repository.
 `.github/workflows/validate-project.yml` runs on pushes and pull requests. You
 can also start it manually.
 
-It:
-
-- installs the project with app and dev dependencies
-- runs `make check`
-- builds the source and wheel distributions
-- verifies the built wheel and runs a smoke test
+It installs the project with app and dev dependencies, runs `make check`,
+builds the source and wheel distributions, and verifies the built wheel with a
+smoke test.
 
 This workflow is the repository CI gate. See
 [Validate changes](../how-to/validate-changes.md#run-the-ci-gate).
 
-## Demo image workflow
+## Migration demo image workflow
 
-`.github/workflows/publish-demo-image.yml` runs on version tags.
+`.github/workflows/publish-migration-demo-image.yml` runs on version tags.
 
-It:
+It reruns the validation gate, builds the Docker `demo` target, and publishes
+images for amd64 and arm64 to GHCR.
 
-- reruns the validation gate
-- builds the Docker `demo` target
-- publishes an image for multiple architectures to GHCR
-
-The demo image runs the
-[application flow](../explanation/application-runs.md) against the bundled
+The migration demo image runs the
+[migration flow](../explanation/migration-runs.md) against the bundled
 [sample snapshot](glossary.md#source-snapshot) on top of the backend image used
 for legacy execution.
 
 The repository pins that base image through the root `Dockerfile`. See
 [Legacy backend image](legacy-backend-image.md).
 
+This workflow publishes `migration-demo`. The local root Compose flow builds a
+different image from the `runtime` target and tags it as `migration:local`.
+
 It publishes a separate GHCR package:
 
-- `ghcr.io/bobcorn/openfoodfacts-data-quality-demo`
+- `ghcr.io/bobcorn/migration-demo`
 
 Release tags publish `latest`, `1.2.3`, and `1.2`.
 
@@ -48,16 +45,16 @@ Release tags publish `latest`, `1.2.3`, and `1.2`.
 `.github/workflows/publish-google-sheets-demo-image.yml` also runs on version
 tags.
 
-It:
+It reruns the validation gate, checks the Google Sheets app build secrets,
+builds `apps/google_sheets/Dockerfile`, and publishes images for amd64 and
+arm64 to GHCR.
 
-- reruns the validation gate
-- checks that the Google Sheets demo build secrets are configured
-- builds `examples/google_sheets_demo/Dockerfile`
-- publishes a multi-architecture image to GHCR
+The local Google Sheets Compose flow builds the same app image and tags it as
+`google-sheets-demo:local`.
 
 It publishes a separate GHCR package:
 
-- `ghcr.io/bobcorn/openfoodfacts-data-quality-google-sheets-demo`
+- `ghcr.io/bobcorn/google-sheets-demo`
 
 Release tags publish `latest`, `1.2.3`, and `1.2`.
 
@@ -65,13 +62,10 @@ Release tags publish `latest`, `1.2.3`, and `1.2`.
 
 `.github/workflows/publish-python-release.yml` also runs on version tags.
 
-It:
-
-- reruns the validation gate
-- checks that the git tag matches the project version
-- builds the source and wheel distributions
-- verifies the built wheel and runs a smoke test
-- attaches the distributions to the matching GitHub Release
+It reruns the validation gate, checks that the git tag matches the project
+version, builds the source and wheel distributions, verifies the built wheel
+with a smoke test, and attaches the distributions to the matching GitHub
+Release.
 
 The attached wheel is the packaged install artifact for library users because
 the project is not published on PyPI.

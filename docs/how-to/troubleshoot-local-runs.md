@@ -24,10 +24,10 @@ sample `.env.example` points at the tracked
 [source snapshot](../reference/glossary.md#source-snapshot) under
 `examples/data/products.jsonl`.
 
-Local application runs do not use a bundled source snapshot path. If
+Local migration runs do not use a bundled source snapshot path. If
 `SOURCE_SNAPSHOT_PATH` is unset or blank, startup fails and asks you to set it
 explicitly. Use the
-[demo image](../../README.md#run-the-demo) when you want the bundled sample
+[migration demo image](../../README.md#run-the-migration-demo) when you want the bundled sample
 without local configuration.
 
 ## Fix unknown profile names
@@ -62,7 +62,7 @@ For the exact JSON and CSV contracts, see
 
 ## Fix source snapshot input errors
 
-The application source reader accepts JSONL full product documents or a DuckDB
+The migration source reader accepts JSONL full product documents or a DuckDB
 snapshot with a `products` table and a `code` column. It builds
 [ProductDocument](../reference/data-contracts.md#productdocument) for the
 reference path and [SourceProduct](../reference/data-contracts.md#sourceproduct)
@@ -70,19 +70,29 @@ for the migrated runtime.
 
 When the path suffix is not enough, the runtime uses deterministic content
 detection. If a DuckDB snapshot fails, make sure it exposes a `products`
-table with a nonblank `code` column.
+table with a `code` column.
+
+Rows with a missing or blank product code no longer fail the whole run. The
+migration tooling skips them, logs a warning during preparation, and records the
+skipped-row summary in the report and `run.json`.
 
 ## Fix a missing report at the preview URL
 
 `http://localhost:8000` is only the default preview URL.
 
-If the report does not open there, check `PORT` in `.env`. In the default
-Docker flow, that setting controls the published port on the host, so the preview
-URL is `http://localhost:<PORT>`.
+If the report does not open there, check `MIGRATION_PORT` in `.env`. In the
+default Docker flow, that setting controls the published port on the host and
+the preview server inside the container, so the preview URL is
+`http://localhost:<MIGRATION_PORT>`.
 
-If you changed `PORT`, open the report on that port instead of forcing `8000`.
-If you want the default URL back, restore `PORT=8000` in `.env` and restart the
-Docker flow so Compose recreates the published port mapping:
+If you changed `MIGRATION_BIND_HOST`, make sure you open the report on
+that host instead of assuming `localhost`.
+
+If you changed `MIGRATION_PORT`, open the report on that port instead of
+forcing `8000`.
+If you want the default URL back, restore `MIGRATION_BIND_HOST=127.0.0.1`
+and `MIGRATION_PORT=8000` in `.env`, then restart the Docker flow so Compose
+recreates the published port mapping:
 
 ```bash
 docker compose up --build
@@ -100,7 +110,7 @@ local run.
 
 ## Fix missing legacy backend modules
 
-Compared runs and enriched snapshot application runs depend on the
+Compared runs and enriched snapshot migration runs depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists),
 which still needs the
 [legacy backend environment](../reference/legacy-backend-image.md) for cache
@@ -114,7 +124,7 @@ already provides the backend runtime.
 A warm
 [reference result cache](../reference/run-configuration-and-artifacts.md#reference-result-cache)
 can avoid live backend execution for covered products, but the supported
-application flow still assumes that environment is available when reference
+migration flow still assumes that environment is available when reference
 materialization is needed.
 
 ## Fix missing legacy snippets

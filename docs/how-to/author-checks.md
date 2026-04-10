@@ -45,7 +45,7 @@ flowchart TB
    when parity applies.
 7. Keep the final definition in the
    [shared runtime](../explanation/runtime-model.md#why-the-runtime-is-split),
-   not in `app/`.
+   not in `migration/`.
 
 ## Choose the definition language
 
@@ -63,10 +63,10 @@ Use Python when the rule needs:
 
 ## Put the definition in the right pack
 
-- Python checks live under `src/openfoodfacts_data_quality/checks/packs/python/`.
-- DSL checks live under `src/openfoodfacts_data_quality/checks/packs/dsl/`.
+- Python checks live under `src/off_data_quality/checks/packs/python/`.
+- DSL checks live under `src/off_data_quality/checks/packs/dsl/`.
 
-Checks are packaged repository content. Do not hide them in `app/`.
+Checks are packaged repository content. Do not hide them in `migration/`.
 
 ## Set the metadata
 
@@ -104,16 +104,16 @@ Python source.
    make quality
    ```
 
-If the change touches the full application flow, reference loading, strict
+If the change touches the full migration flow, reference loading, strict
 comparison, or report output, also run the Docker
-[application flow](../explanation/application-runs.md#run-overview) before you
+[migration flow](../explanation/migration-runs.md#run-overview) before you
 call the work done.
 
 ## Extend contracts on purpose
 
 Checks depend on stable
 [`CheckContext`](../reference/data-contracts.md#checkcontext) paths,
-not on helper shapes local to `app/`. Helpers may receive leaf values, sections,
+not on helper shapes local to `migration/`. Helpers may receive leaf values, sections,
 or the whole context, but the check decorator still owns the dependency
 contract through `requires`.
 

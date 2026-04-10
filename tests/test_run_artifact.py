@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.report.payloads import build_report_payload
-from app.run.serialization import (
+from migration.report.payloads import build_report_payload
+from migration.run.serialization import (
     RUN_ARTIFACT_KIND,
     RUN_ARTIFACT_SCHEMA_VERSION,
     build_run_artifact,
 )
+from migration.source.models import SkippedSourceRow, SourceInputSummary
 
-from openfoodfacts_data_quality.contracts.run import RunResult
+from off_data_quality.contracts.run import RunResult
 
 RunResultFactory = Callable[[], RunResult]
 
@@ -27,6 +28,11 @@ def test_build_report_payload_adds_ui_fields_without_mutating_run_artifact(
 
     assert run_artifact["kind"] == RUN_ARTIFACT_KIND
     assert run_artifact["schema_version"] == RUN_ARTIFACT_SCHEMA_VERSION
+    assert run_artifact["source_input"] == {
+        "processed_product_count": 0,
+        "skipped_row_count": 0,
+        "skipped_row_examples": [],
+    }
 
     machine_checks_by_id = {
         check["definition"]["id"]: check for check in run_artifact["checks"]
@@ -111,3 +117,34 @@ def test_build_report_payload_keeps_report_only_fields_out_of_run_artifact(
         "expected_missing_count"
         not in report_checks_by_id["en:quantity-not-recognized"]
     )
+
+
+def test_build_run_artifact_includes_source_input_summary(
+    run_result_factory: RunResultFactory,
+) -> None:
+    run_result = run_result_factory()
+
+    run_artifact = build_run_artifact(
+        run_result,
+        source_input_summary=SourceInputSummary(
+            processed_product_count=run_result.product_count,
+            skipped_row_count=2,
+            skipped_row_examples=(
+                SkippedSourceRow(
+                    location="jsonl line 9",
+                    reason="missing or blank code",
+                ),
+            ),
+        ),
+    )
+
+    assert run_artifact["source_input"] == {
+        "processed_product_count": run_result.product_count,
+        "skipped_row_count": 2,
+        "skipped_row_examples": [
+            {
+                "location": "jsonl line 9",
+                "reason": "missing or blank code",
+            }
+        ],
+    }

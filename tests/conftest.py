@@ -8,33 +8,30 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 import pytest
-from app.reference.models import LegacyCheckTags, ReferenceResult
+from migration.reference.models import LegacyCheckTags, ReferenceResult
 
-from openfoodfacts_data_quality.checks.catalog import (
-    CheckCatalog,
-    get_default_check_catalog,
-)
-from openfoodfacts_data_quality.contracts.checks import (
+from off_data_quality.catalog import CheckCatalog, get_default_check_catalog
+from off_data_quality.contracts.checks import (
     CheckDefinition,
     CheckEmission,
     CheckJurisdiction,
     CheckParityBaseline,
     Severity,
 )
-from openfoodfacts_data_quality.contracts.context import (
+from off_data_quality.contracts.context import (
     CategoryPropsContext,
     CheckContext,
     FlagsContext,
     NutritionContext,
     ProductContext,
 )
-from openfoodfacts_data_quality.contracts.enrichment import EnrichedSnapshot
-from openfoodfacts_data_quality.contracts.findings import Finding
-from openfoodfacts_data_quality.contracts.observations import (
+from off_data_quality.contracts.enrichment import EnrichedSnapshot
+from off_data_quality.contracts.findings import Finding
+from off_data_quality.contracts.observations import (
     ObservationSide,
     ObservedFinding,
 )
-from openfoodfacts_data_quality.contracts.run import RunCheckResult, RunResult
+from off_data_quality.contracts.run import RunCheckResult, RunResult
 
 Payload = dict[str, Any]
 TEST_DEFAULT_PARITY_BASELINE: CheckParityBaseline = "legacy"

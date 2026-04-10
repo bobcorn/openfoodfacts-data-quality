@@ -14,7 +14,8 @@ Run the minimum validation pass from the repository root:
 make check
 ```
 
-This command runs format checks, linting, and the test suite with coverage.
+This command runs format checks, linting, import boundary contracts, and the
+test suite with coverage.
 
 ## Run the full local sweep
 
@@ -50,13 +51,13 @@ This command adds `mypy`, `vulture`, `pyright`, and `jscpd`.
 - `make quality` is the default finish line for substantive changes.
 - Changes that touch reference loading, strict comparison, report generation,
   or other full
-  [application flow](../explanation/application-runs.md#run-overview) may still
+  [migration flow](../explanation/migration-runs.md#run-overview) may still
   need a Docker run in addition to the Python toolchain.
 
 ## Related information
 
 - [Author checks](author-checks.md)
 - [Run the project locally](run-the-project-locally.md)
-- [About application runs](../explanation/application-runs.md)
+- [About migration runs](../explanation/migration-runs.md)
 
 [Back to documentation index](../index.md)

@@ -5,9 +5,9 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from app.source.datasets import SourceSelection
-from app.source.models import SourceSnapshotFormat
-from app.source.product_documents import (
+from migration.source.datasets import SourceSelection
+from migration.source.models import SourceSnapshotFormat
+from migration.source.product_documents import (
     count_source_products,
     iter_source_batches,
     resolve_source_snapshot_format,
@@ -130,15 +130,23 @@ def test_jsonl_source_snapshot_count_validates_product_documents(
 ) -> None:
     jsonl_path = tmp_path / "products.jsonl"
     jsonl_path.write_text(
-        json.dumps({"product_name": "Missing code"}),
+        "\n".join(
+            [
+                json.dumps({"product_name": "Missing code"}),
+                json.dumps({"code": "0001", "product_name": "Valid product"}),
+            ]
+        ),
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="string 'code' field"):
-        count_source_products(jsonl_path)
+    assert count_source_products(jsonl_path) == 1
+    batches = list(iter_source_batches(jsonl_path, batch_size=10))
+    assert [[row.source_product.code for row in batch] for batch in batches] == [
+        ["0001"]
+    ]
 
 
-def test_duckdb_source_snapshot_requires_nonblank_product_codes(
+def test_duckdb_source_snapshot_skips_rows_without_nonblank_product_codes(
     tmp_path: Path,
 ) -> None:
     db_path = tmp_path / "products.duckdb"
@@ -146,15 +154,21 @@ def test_duckdb_source_snapshot_requires_nonblank_product_codes(
     try:
         connection.execute("create table products (code VARCHAR, product_name VARCHAR)")
         connection.execute("insert into products values (?, ?)", [None, "Missing code"])
+        connection.execute(
+            "insert into products values (?, ?)", ["0001", "Valid product"]
+        )
         connection.execute("checkpoint")
     finally:
         connection.close()
 
-    with pytest.raises(ValueError, match="without a non-empty code"):
-        count_source_products(db_path)
+    assert count_source_products(db_path) == 1
+    batches = list(iter_source_batches(db_path, batch_size=10))
+    assert [[row.source_product.code for row in batch] for batch in batches] == [
+        ["0001"]
+    ]
 
 
-def test_jsonl_stable_sample_does_not_skip_invalid_product_documents(
+def test_jsonl_stable_sample_skips_rows_with_missing_codes(
     tmp_path: Path,
 ) -> None:
     jsonl_path = tmp_path / "products.jsonl"
@@ -163,11 +177,13 @@ def test_jsonl_stable_sample_does_not_skip_invalid_product_documents(
             [
                 json.dumps({"code": "001", "product_name": "First"}),
                 json.dumps({"product_name": "Missing code"}),
+                json.dumps({"code": "002", "product_name": "Second"}),
             ]
         ),
         encoding="utf-8",
     )
     selection = SourceSelection(kind="stable_sample", sample_size=1, seed=42)
 
-    with pytest.raises(ValueError, match="string 'code' field"):
-        list(iter_source_batches(jsonl_path, batch_size=10, selection=selection))
+    assert count_source_products(jsonl_path, selection=selection) == 1
+    batches = list(iter_source_batches(jsonl_path, batch_size=10, selection=selection))
+    assert sum(len(batch) for batch in batches) == 1

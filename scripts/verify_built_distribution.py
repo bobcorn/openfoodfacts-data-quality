@@ -7,7 +7,7 @@ from importlib import metadata
 from importlib.resources import files
 
 DIST_NAME = "openfoodfacts-data-quality"
-PACKAGE_NAME = "openfoodfacts_data_quality"
+PACKAGE_NAME = "off_data_quality"
 REQUIRED_RESOURCE_PATHS = (
     "py.typed",
     "checks/packs/dsl/global_checks.yaml",

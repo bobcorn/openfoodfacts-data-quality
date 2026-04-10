@@ -8,13 +8,13 @@ show how that definition is used in packaged checks and check profiles.
 ## Packaged checks
 
 Checks are packaged repository content under
-`src/openfoodfacts_data_quality/checks/`.
+`src/off_data_quality/checks/`.
 
 A packaged check includes evaluator logic plus the metadata that tells the
 runtime where the rule can run and how it should be selected.
 
-The catalog loads packaged checks for library calls and application runs. A
-check hidden inside `app/` would not use the
+The catalog loads packaged checks for library calls and migration runs. A
+check hidden inside `migration/` would not use the
 [shared runtime](runtime-model.md#why-the-runtime-is-split) and would exist
 only for one orchestration path.
 
@@ -90,7 +90,7 @@ For the exact field list and selection inputs, see
 
 ## Check profiles
 
-A check profile is a named application preset from `config/check-profiles.toml`.
+A check profile is a named migration preset from `config/check-profiles.toml`.
 
 Profiles do not define checks. They select a run from the checks that already
 exist in the packaged catalog.
@@ -103,10 +103,10 @@ Profiles can narrow the active checks by:
 - jurisdiction
 - explicit check ids in profiles with `mode = "include"`
 - optional migration metadata filters such as target implementation, size, or
-  risk when the application has a migration catalog
+  risk when migration tooling has a migration catalog
 
 Those migration filters live on the profile, not on the check definition. They
-let one application run focus on a planning subset without changing the
+let one migration run focus on a planning subset without changing the
 underlying packaged checks.
 
 For example, one profile can select only checks whose matched migration family
@@ -118,7 +118,7 @@ without forking the check catalog itself.
 The check model keeps rule logic, rule metadata, and run selection explicit.
 
 That separation supports reusable library execution,
-[application runs](application-runs.md), [parity comparison](reference-data-and-parity.md#strict-comparison),
+[migration runs](migration-runs.md), [parity comparison](reference-data-and-parity.md#strict-comparison),
 checks that run without comparison, migration planning subsets, and short
 local validation loops without redefining checks for each environment.
 

@@ -6,8 +6,8 @@ import pytest
 
 import off_data_quality
 from off_data_quality import checks, snapshots
-from openfoodfacts_data_quality.checks.catalog import CheckCatalog
-from openfoodfacts_data_quality.contracts.checks import CheckDefinition, CheckEmission
+from off_data_quality.catalog import CheckCatalog
+from off_data_quality.contracts.checks import CheckDefinition, CheckEmission
 
 
 def _library_test_catalog() -> CheckCatalog:

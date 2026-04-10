@@ -4,7 +4,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
-from app.migration.catalog import load_migration_catalog
+from migration.planning import load_migration_catalog
 
 
 def test_load_migration_catalog_joins_inventory_and_estimation_sheet(

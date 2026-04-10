@@ -38,15 +38,15 @@ The catalog selects checks by:
 - jurisdictions
 - optional explicit check ids
 
-Application [check profiles](../explanation/migrated-checks.md#check-profiles)
+Migration [check profiles](../explanation/migrated-checks.md#check-profiles)
 use these filters, then apply provider capability from the selected
 [context provider](../explanation/runtime-model.md#context-providers). The public
 library APIs use the same context-path capability check on the selected runtime
 provider.
 
-## Application profile extras
+## Migration profile extras
 
-Application check profiles add selection behavior that is separate from the
+Migration check profiles add selection behavior that is separate from the
 check definition itself:
 
 - `mode`: `all` or `include`
@@ -55,7 +55,7 @@ check definition itself:
 - `migration_sizes`
 - `migration_risks`
 
-The migration fields filter profiles. They only work when the application
+The migration fields filter profiles. They only work when migration tooling
 loads a migration catalog, and they are applied after the base catalog
 selection succeeds.
 

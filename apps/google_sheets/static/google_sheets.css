@@ -1,0 +1,357 @@
+.workflow-shell {
+  overflow: hidden;
+}
+
+.workflow-panel {
+  padding: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.surface-shell > .workflow-panel:first-child {
+  border-top: 0;
+}
+
+.workflow-step {
+  max-height: 1200px;
+  transition:
+    opacity 170ms ease,
+    transform 170ms ease,
+    max-height 180ms ease,
+    margin-top 180ms ease,
+    padding-top 180ms ease,
+    padding-bottom 180ms ease,
+    border-top-width 180ms ease;
+}
+
+.workflow-step--hidden {
+  opacity: 0;
+  transform: translateY(-6px);
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.workflow-panel--quiet {
+  padding-top: 18px;
+}
+
+.workflow-panel h2,
+.workflow-panel h3,
+.selected-sheet-name,
+.summary-grid dt,
+.summary-grid dd,
+.disclosure summary,
+.section-copy,
+.helper-copy,
+.selected-sheet-meta,
+.disclosure-body p,
+.status,
+.field span {
+  margin: 0;
+}
+
+.workflow-panel h2 {
+  font-size: 1.02rem;
+}
+
+.helper-copy,
+.selected-sheet-meta,
+.disclosure-body p {
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.workflow-panel .section-copy {
+  margin-top: 8px;
+}
+
+.helper-copy {
+  margin-top: 14px;
+}
+
+.field,
+.field-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.field--file {
+  margin-top: 16px;
+}
+
+.field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.field span {
+  color: var(--muted-strong);
+  font-size: 0.87rem;
+  font-weight: 600;
+}
+
+.field input[type="text"],
+.field input[type="file"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field input[type="text"]:focus,
+.field input[type="file"]:focus {
+  outline: 3px solid rgb(2 122 72 / 16%);
+  outline-offset: 2px;
+}
+
+.compact-grid {
+  margin-top: 18px;
+}
+
+.workflow-panel .button-row {
+  margin-top: 16px;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.status {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  color: var(--muted-strong);
+  font-size: 0.94rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.status[hidden] {
+  display: none;
+}
+
+.status.is-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status.is-loading::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid rgb(102 112 133 / 22%);
+  border-top-color: var(--muted-strong);
+  border-radius: 999px;
+  animation: spin 900ms linear infinite;
+}
+
+.status-neutral {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+  color: var(--muted-strong);
+}
+
+.status-success {
+  border-color: var(--pass-line);
+  background: var(--pass-soft);
+  color: var(--pass);
+}
+
+.status-warning {
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.status-error {
+  border-color: var(--fail-line);
+  background: var(--fail-soft);
+  color: var(--fail);
+}
+
+.selected-sheet-card,
+.summary-grid div {
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.selected-sheet-card {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.selected-sheet-card__copy {
+  min-width: 0;
+  flex: 1 1 300px;
+}
+
+.selected-sheet-card__actions {
+  flex: 0 0 auto;
+}
+
+.selected-sheet-name {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.selected-sheet-meta {
+  margin-top: 8px;
+  font-size: 0.91rem;
+}
+
+.disclosure {
+  margin-top: 14px;
+  border-color: var(--line-strong);
+  background: var(--surface);
+}
+
+.disclosure summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 0.94rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure summary::after {
+  content: "+";
+  float: right;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.disclosure[open] summary::after {
+  content: "-";
+}
+
+.disclosure-body {
+  padding: 0 16px 16px;
+}
+
+.disclosure--quiet {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+}
+
+.disclosure--compact {
+  margin-top: 12px;
+}
+
+.disclosure--compact .disclosure-body {
+  padding-top: 0;
+}
+
+.disclosure--quiet summary {
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+}
+
+.disclosure-body p + p {
+  margin-top: 12px;
+}
+
+.disclosure-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.55;
+}
+
+.disclosure-list li + li {
+  margin-top: 10px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.summary-card {
+  outline: none;
+}
+
+.summary-card:focus-visible {
+  outline: 3px solid rgb(2 122 72 / 16%);
+  outline-offset: 2px;
+}
+
+.summary-card--pass {
+  border-color: var(--pass-line);
+  background: var(--pass-soft);
+}
+
+.summary-card--fail {
+  border-color: var(--fail-line);
+  background: var(--fail-soft);
+}
+
+.summary-grid dt {
+  color: var(--muted);
+  font-size: 0.77rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-grid dd {
+  margin-top: 10px;
+  font-size: 1.42rem;
+  font-weight: 700;
+}
+
+code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: var(--muted-strong);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (width <= 860px) {
+  .workflow-panel {
+    padding: 20px;
+  }
+
+  .field-grid,
+  .action-grid,
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

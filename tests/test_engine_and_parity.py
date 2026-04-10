@@ -3,22 +3,19 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 import pytest
-from app.parity.comparator import evaluate_parity
-from app.run.accumulator import RunResultAccumulator
+from migration.parity.comparator import evaluate_parity
+from migration.run.accumulator import RunResultAccumulator
 
-from openfoodfacts_data_quality.checks.catalog import (
-    CheckCatalog,
-    get_default_check_catalog,
-)
-from openfoodfacts_data_quality.checks.engine import (
+from off_data_quality.catalog import CheckCatalog, get_default_check_catalog
+from off_data_quality.contracts.checks import CheckDefinition
+from off_data_quality.contracts.context import CheckContext
+from off_data_quality.contracts.findings import Finding
+from off_data_quality.contracts.observations import ObservedFinding
+from off_data_quality.contracts.run import RunMetadata, RunResult
+from off_data_quality.execution import (
     CheckRunOptions,
     run_checks_with_evaluators,
 )
-from openfoodfacts_data_quality.contracts.checks import CheckDefinition
-from openfoodfacts_data_quality.contracts.context import CheckContext
-from openfoodfacts_data_quality.contracts.findings import Finding
-from openfoodfacts_data_quality.contracts.observations import ObservedFinding
-from openfoodfacts_data_quality.contracts.run import RunMetadata, RunResult
 
 _QUANTITY_CHECK_ID = "en:quantity-not-recognized"
 

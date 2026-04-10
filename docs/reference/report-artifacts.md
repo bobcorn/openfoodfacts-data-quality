@@ -20,7 +20,7 @@ outputs for download.
 ## HTML report
 
 The HTML report is the review summary for one
-[application run](../explanation/application-runs.md).
+[migration run](../explanation/migration-runs.md).
 
 It lists compared checks that match. It also lists compared checks with
 missing or extra findings, runtime only checks, and product codes in retained
@@ -30,6 +30,10 @@ The page header always includes the run id and source snapshot id.
 
 The report is a summary view. It does not inline every finding from the
 run.
+
+When the source snapshot contains rows that were skipped before execution, the
+report also shows a source-input warning with the skipped-row count and example
+locations.
 
 ## Summary counters
 
@@ -64,7 +68,7 @@ Retained mismatch examples are capped by `MISMATCH_EXAMPLES_LIMIT`.
 ## run.json
 
 `run.json` is the canonical structured output of the
-[application run model](data-contracts.md#runresult).
+[migration run model](data-contracts.md#runresult).
 
 Use `run.json` for:
 
@@ -82,6 +86,9 @@ fit inside the configured cap. It omits UI fields used only by the report:
 - `run_outcome`
 - snippet panel payloads
 - snippet warning messages
+
+The root payload also includes `source_input`, which records source-boundary
+diagnostics such as skipped-row counts and example locations.
 
 ## snippets.json
 
@@ -117,7 +124,7 @@ check output.
 ## See also
 
 - [Review a run report](../how-to/review-a-run-report.md)
-- [About application runs](../explanation/application-runs.md)
+- [About migration runs](../explanation/migration-runs.md)
 - [Run configuration and artifacts](run-configuration-and-artifacts.md)
 
 [Back to documentation index](../index.md)

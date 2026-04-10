@@ -58,7 +58,7 @@ when the debugging scope grows.
 
 The repository depends on a clean
 [split](../explanation/system-architecture.md) between reusable runtime
-contracts, application behavior used only for parity, and support workflows.
+contracts, migration behavior used only for parity, and support workflows.
 That split is present in the codebase and still needs careful maintenance as
 the project grows.
 

@@ -4,15 +4,15 @@ import json
 from importlib.resources import files
 from typing import get_args
 
-from openfoodfacts_data_quality.checks.dsl.ast import Operator
-from openfoodfacts_data_quality.context.paths import PATH_SPECS
+from off_data_quality.checks.dsl.ast import Operator
+from off_data_quality.context import PATH_SPECS
 
 
 def test_dsl_capabilities_manifest_matches_supported_operators_and_context_roots() -> (
     None
 ):
     payload = json.loads(
-        files("openfoodfacts_data_quality.checks.dsl")
+        files("off_data_quality.checks.dsl")
         .joinpath("capabilities.json")
         .read_text(encoding="utf-8")
     )

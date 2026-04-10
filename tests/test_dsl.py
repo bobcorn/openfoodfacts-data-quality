@@ -1,32 +1,31 @@
 from __future__ import annotations
 
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import pytest
 from jsonschema import ValidationError
 
-from openfoodfacts_data_quality.checks.catalog import get_default_check_catalog
-from openfoodfacts_data_quality.checks.dsl.ast import (
+from off_data_quality.catalog import get_default_check_catalog
+from off_data_quality.checks.dsl.ast import (
     All,
     AnyOf,
     Atom,
     DSLDefinition,
     Not,
 )
-from openfoodfacts_data_quality.checks.dsl.evaluator import evaluate_expression
-from openfoodfacts_data_quality.checks.dsl.parser import load_dsl_definitions
-from openfoodfacts_data_quality.checks.dsl.resources import dsl_check_pack_resources
-from openfoodfacts_data_quality.checks.dsl.semantic import (
+from off_data_quality.checks.dsl.evaluator import evaluate_expression
+from off_data_quality.checks.dsl.parser import load_dsl_definitions
+from off_data_quality.checks.dsl.resources import dsl_check_pack_resources
+from off_data_quality.checks.dsl.semantic import (
     collect_required_paths,
     validate_dsl_definitions,
 )
-from openfoodfacts_data_quality.context.paths import (
+from off_data_quality.context import (
     MISSING,
+    context_availability_for_provider,
     is_blank,
     resolve_path,
-)
-from openfoodfacts_data_quality.context.providers import (
-    context_availability_for_provider,
     validate_context_provider,
 )
 
@@ -42,17 +41,17 @@ CANADA_DSL_CHECK_IDS = [
 ]
 
 
-def _global_dsl_pack_resource() -> Path:
+def _global_dsl_pack_resource() -> Traversable:
     return next(
-        Path(str(resource))
+        resource
         for resource in dsl_check_pack_resources()
         if resource.name == "global_checks.yaml"
     )
 
 
-def _canada_dsl_pack_resource() -> Path:
+def _canada_dsl_pack_resource() -> Traversable:
     return next(
-        Path(str(resource))
+        resource
         for resource in dsl_check_pack_resources()
         if resource.name == "canada_checks.yaml"
     )
@@ -74,9 +73,7 @@ def test_validate_dsl_definitions_rejects_helper_shaped_path() -> None:
     checks = _replace_when(
         load_dsl_definitions(_global_dsl_pack_resource()),
         "en:quantity-not-recognized",
-        Atom(
-            field="openfoodfacts_data_quality_helpers.is_european_product", op="is_true"
-        ),
+        Atom(field="off_data_quality_helpers.is_european_product", op="is_true"),
     )
 
     with pytest.raises(ValueError, match="Unknown check context field"):
