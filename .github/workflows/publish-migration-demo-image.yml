@@ -42,6 +42,16 @@ jobs:
       - name: Run Repository Check
         run: make check
 
+      - name: Smoke Test Migration Demo Image
+        run: |
+          docker build --target demo -t migration-demo:test .
+          python scripts/smoke_test_container_image.py \
+            --image migration-demo:test \
+            --host-port 8000 \
+            --container-port 8000 \
+            --path / \
+            --expect-text "Quality Run Report"
+
       - name: Set Up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 

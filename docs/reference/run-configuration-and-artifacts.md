@@ -228,8 +228,9 @@ not as persistent review history.
 
 [Source snapshots](glossary.md#source-snapshot) can also include a sidecar
 `<name>.<suffix>.snapshot.json` manifest with an explicit `source_snapshot_id`.
-Refresh scripts write that manifest for generated sample snapshots, and the
-runtime writes it when it has to hash a source snapshot file directly.
+The repository does not ship those sidecars for the bundled example snapshots.
+The runtime reads the sidecar when it exists and writes one when it has to hash
+the source snapshot file directly.
 
 Main generated files:
 

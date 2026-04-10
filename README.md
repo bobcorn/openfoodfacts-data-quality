@@ -20,9 +20,9 @@ You can use the repository in three ways:
   needs it. It also handles
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
   stored review data, and [report artifacts](docs/reference/report-artifacts.md).
-- Use the Google Sheets app in `apps/google_sheets/` when you want a browser
-  workflow that writes findings back to Google Sheets. See
-  [Run the Google Sheets app](apps/google_sheets/README.md).
+- Use the Google Sheets demo in `apps/google_sheets/` when you want a browser
+  flow that writes findings back to Google Sheets. See
+  [Run the Google Sheets demo](apps/google_sheets/README.md).
 
 ## Run the migration demo
 

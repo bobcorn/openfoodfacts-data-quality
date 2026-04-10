@@ -65,6 +65,21 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke Test Google Sheets Demo Image
+        run: |
+          docker build -f apps/google_sheets/Dockerfile -t google-sheets-demo:test . \
+            --build-arg GOOGLE_SHEETS_CLIENT_ID="${GOOGLE_SHEETS_CLIENT_ID}" \
+            --build-arg GOOGLE_SHEETS_API_KEY="${GOOGLE_SHEETS_API_KEY}" \
+            --build-arg GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER="${GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER}"
+          python scripts/smoke_test_container_image.py \
+            --image google-sheets-demo:test \
+            --host-port 8501 \
+            --container-port 8501 \
+            --path / \
+            --expect-text "Google Sheets Demo" \
+            --secondary-path /healthz \
+            --secondary-expect-text ok
+
       - name: Set Up QEMU
         uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
