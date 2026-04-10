@@ -41,7 +41,7 @@ FROM runtime-base AS demo
 
 COPY examples /opt/openfoodfacts-data-quality/examples
 
-ENV SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products.duckdb" \
+ENV SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products.jsonl" \
     PORT="8000" \
     BATCH_SIZE="1000" \
     BATCH_WORKERS="1" \

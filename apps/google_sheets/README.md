@@ -1,6 +1,6 @@
-# Google Sheets App
+# Google Sheets Demo
 
-This is a small local web app packaged as one Docker image.
+This is a small local web demo packaged as one Docker image.
 
 The browser owns the Google login and talks to Google Sheets directly. The
 Python server stays focused on CSV parsing and data quality checks. Cleanup
@@ -38,7 +38,7 @@ flowchart LR
     LIB --> API
 ```
 
-The app is packaged as one local image and uses the same Python library that a
+The demo is packaged as one local image and uses the same Python library that a
 separate deployment would install.
 
 ## Scope
@@ -145,7 +145,7 @@ docker compose up --build
 By default the Compose file binds the app only to `127.0.0.1`, not the whole
 local network.
 
-Compose builds the same app image locally and tags it as
+Compose builds the same demo image locally and tags it as
 `google-sheets-demo:local`.
 
 To build one distributable image locally with the Google client ID baked in:

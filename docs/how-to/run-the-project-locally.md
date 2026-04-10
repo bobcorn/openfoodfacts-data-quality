@@ -139,8 +139,8 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 - The parity store persists across runs and stores review history until you
   delete or replace its DuckDB file.
 - [Source snapshots](../reference/glossary.md#source-snapshot) can include a
-  `.snapshot.json` sidecar. The runtime writes it automatically when it has to
-  hash the source snapshot file.
+  `.snapshot.json` sidecar. The tracked example snapshots do not ship one. The
+  runtime writes it automatically when it has to hash the source snapshot file.
 
 ## Related information
 

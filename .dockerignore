@@ -6,6 +6,7 @@ artifacts
 build/
 dist/
 data/
+examples/data/*.snapshot.json
 htmlcov/
 *.egg-info/
 .mypy_cache/

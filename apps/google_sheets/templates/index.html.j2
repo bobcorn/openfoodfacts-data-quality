@@ -2,7 +2,7 @@
 {% from "macros/layout.j2" import page_hero %}
 {% from "macros/icons.j2" import icon %}
 
-{% block title %}Open Food Facts Data Quality - Google Sheets Workflow{% endblock %}
+{% block title %}Open Food Facts Data Quality - Google Sheets Demo{% endblock %}
 
 {% block favicon_href %}/favicon.ico{% endblock %}
 
@@ -18,7 +18,7 @@
       <div class="page-stack">
         {{ page_hero(
           "Data Quality Monitoring",
-          "Google Sheets Workflow",
+          "Google Sheets Demo",
           "Choose a Google Sheet, load a CSV, run the Python checks, and prepare clean rows for upload.",
         ) }}
 
@@ -63,12 +63,20 @@
           >
             <button
               id="open-spreadsheet-button"
-              class="button button--quiet has-tooltip"
+              class="button button--secondary has-tooltip"
               type="button"
               data-tooltip="Open the selected spreadsheet directly in Google Sheets."
             >
               <span class="button__label">Open in Google Sheets</span>
               {{ icon("external-link") }}
+            </button>
+            <button
+              id="clear-spreadsheet-button"
+              class="button button--quiet has-tooltip"
+              type="button"
+              data-tooltip="Forget the current spreadsheet selection in this browser."
+            >
+              Clear spreadsheet
             </button>
           </div>
         </div>
@@ -84,7 +92,7 @@
           <summary>Google Sheets tab settings</summary>
           <div class="disclosure-body">
             <p>
-              Change the input and output Google Sheets tab names for this workflow.
+              Change the input and output Google Sheets tab names for this demo.
             </p>
             <div class="field-grid compact-grid">
               <label class="field">
