@@ -1,0 +1,49 @@
+{% extends "base.html.j2" %}
+
+{% block title %}Open Food Facts Data Quality - Quality Run Report{% endblock %}
+
+{% block favicon_href %}favicon.ico{% endblock %}
+
+{% block head_assets %}
+    <style>
+{% include "shared_ui.css" %}
+{% include "partials/report_styles.j2" %}
+    </style>
+{% endblock %}
+
+{% block main_class %}page-frame{% endblock %}
+
+{% block before_content %}
+{% include "partials/page_meta.j2" %}
+{% endblock %}
+
+{% block main_content %}
+      <div class="page-stack">
+{% include "partials/overview.j2" %}
+
+        <section class="surface-shell checks-shell shell">
+{% include "partials/checks_header.j2" %}
+
+          <section class="checks">
+            {% for check in report.checks %}
+{% include "partials/check_card.j2" %}
+            {% endfor %}
+          </section>
+
+          <section class="empty-state" id="empty-state" hidden>
+            <h3>{{ terms.empty_state.title }}</h3>
+            <p>{{ terms.empty_state.body }}</p>
+          </section>
+        </section>
+      </div>
+{% endblock %}
+
+{% block after_main %}
+    <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+{% include "partials/report_scripts.j2" %}
+    </script>
+{% endblock %}

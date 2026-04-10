@@ -14,9 +14,10 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from app.run.orchestrator import ApplicationRunner
-from app.run.settings import configured_run_spec
-from app.storage import load_recorded_run_benchmark_summary
+from migration.logging_config import configure_cli_logging
+from migration.run.orchestrator import MigrationRunner
+from migration.run.settings import configured_run_spec
+from migration.storage import load_recorded_run_benchmark_summary
 
 LOGGER = logging.getLogger(__name__)
 BENCHMARK_ARTIFACT_KIND = "openfoodfacts_data_quality.run_benchmark"
@@ -24,7 +25,7 @@ BENCHMARK_ARTIFACT_SCHEMA_VERSION = 1
 
 
 def main() -> int:
-    configure_logging()
+    configure_cli_logging()
     args = parse_args()
     benchmark_root = (ROOT / "artifacts" / "benchmarks").resolve()
     reference_cache_dir = (
@@ -68,7 +69,7 @@ def main() -> int:
             run_spec.dataset_profile_name or "default",
         )
         started = perf_counter()
-        executed = ApplicationRunner(run_spec, logger=LOGGER).execute()
+        executed = MigrationRunner(run_spec, logger=LOGGER).execute()
         wall_seconds = perf_counter() - started
         if run_spec.parity_store_path is None:
             raise RuntimeError("Benchmark runs require a parity store path.")
@@ -157,16 +158,6 @@ def parse_args() -> argparse.Namespace:
     if args.repeat <= 0:
         parser.error("--repeat must be a positive integer.")
     return args
-
-
-def configure_logging() -> None:
-    """Configure the benchmark logger with the same compact format as the app."""
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.addHandler(handler)
-    root_logger.setLevel(logging.INFO)
 
 
 if __name__ == "__main__":

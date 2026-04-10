@@ -11,7 +11,7 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from openfoodfacts_data_quality.source_product_preparation import (
+from off_data_quality.checks import (
     OFF_PRODUCT_EXPORT_COLUMNS,
 )
 

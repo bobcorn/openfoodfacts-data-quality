@@ -35,27 +35,28 @@ For execution details, see
 - `checks`
   public library namespace for checks on loaded rows
 - `off_data_quality`
-  public import namespace for library callers
+  public import namespace for the Python library and shared runtime modules
+- `openfoodfacts_data_quality`
+  distribution name used by wheel files and release artifacts; library callers
+  still import `off_data_quality`
 - `snapshots`
   reserved public namespace for a future enrichment-focused library API
-- `openfoodfacts_data_quality`
-  implementation package root for the shared runtime and contracts
 - `source_products`
   context provider consumed directly from source products
 - `enriched_snapshots`
   enriched snapshot context provider consumed from stable enriched data; in the
-  app reference path this arrives as `CheckContext`, while direct
+  migration reference path this arrives as `CheckContext`, while direct
   library usage accepts `EnrichedSnapshotRecord`
 - `context provider`
   current library bridge that defines which check context paths a provider
   can expose
 - `check context provider`
-  application or config selection axis used to choose the context provider for
+  run or config selection axis used to choose the context provider for
   one run
 - `check context`
   Python runtime contract used by migrated checks
 - `dataset profile`
-  named application preset that selects which products from the source snapshot
+  named migration preset that selects which products from the source snapshot
   enter one run
 - `source selection`
   explicit selection contract resolved from one dataset profile
@@ -63,13 +64,13 @@ For execution details, see
 ### Runs
 
 - `run`
-  one execution of the application against one source snapshot, one dataset
+  one execution of migration tooling against one source snapshot, one dataset
   profile, and one active check profile
 - `run spec`
-  explicit application configuration resolved before orchestration starts; in
+  explicit migration configuration resolved before orchestration starts; in
   code, the canonical model is `RunSpec`
 - `run result`
-  overall application summary for one run; in code, the canonical model is
+  overall migration summary for one run; in code, the canonical model is
   `RunResult`
 - `check profile`
   named run preset loaded from `config/check-profiles.toml`
@@ -84,9 +85,9 @@ For execution details, see
 
 - `layer`
   major structural split of the repository, such as the shared runtime layer or
-  the application layer
+  the migration tooling
 - `shared runtime`
-  reusable execution layer under `src/openfoodfacts_data_quality/`
+  reusable execution layer under `src/off_data_quality/`
 
 ### Parity
 
@@ -108,7 +109,7 @@ For execution details, see
 ### Migration planning
 
 - `migration catalog`
-  application-owned view of legacy families plus optional planning metadata
+  migration-owned view of legacy families plus optional planning metadata
 - `migration family`
   one legacy emission family joined with optional assessment fields such as
   target implementation, size, and risk
@@ -134,8 +135,8 @@ For execution details, see
 ### Source snapshot
 
 - `source snapshot`
-  versioned full product dataset used as input for one application run. The
-  current run application supports JSONL snapshots and DuckDB snapshots with a
+  versioned full product dataset used as input for one migration run. The
+  current migration tooling supports JSONL snapshots and DuckDB snapshots with a
   `products` table.
 - `source_snapshot_id`
   stable identifier of a source snapshot
@@ -143,7 +144,7 @@ For execution details, see
 ### Report and storage
 
 - `parity store`
-  DuckDB store kept by the application for run telemetry, mismatches,
+  DuckDB store kept by migration tooling for run telemetry, mismatches,
   governance summaries, dataset metadata, migration metadata, and a serialized
   run artifact
 - `recorded run snapshot`

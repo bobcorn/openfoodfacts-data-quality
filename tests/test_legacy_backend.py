@@ -9,22 +9,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
 import pytest
-from app.legacy_backend.contracts import (
+from migration.legacy_backend.contracts import (
     LEGACY_BACKEND_RESULT_CONTRACT_KIND,
     LEGACY_BACKEND_RESULT_CONTRACT_VERSION,
 )
-from app.legacy_backend.runner import (
+from migration.legacy_backend.runner import (
     LazyLegacyBackendRunner,
     LegacyBackendSession,
     LegacyBackendSessionPool,
 )
-from app.reference.findings import iter_reference_findings
-from app.reference.models import ReferenceResult
+from migration.reference.findings import iter_reference_findings
+from migration.reference.models import ReferenceResult
 
-from openfoodfacts_data_quality.checks.catalog import get_default_check_catalog
+from off_data_quality.catalog import get_default_check_catalog
 
 if TYPE_CHECKING:
-    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
+    from off_data_quality.contracts.observations import ObservedFinding
 
 _EOF = object()
 
@@ -252,7 +252,7 @@ def _patch_fake_popen(
         created_processes.append(process)
         return process
 
-    monkeypatch.setattr("app.legacy_backend.runner.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("migration.legacy_backend.runner.subprocess.Popen", fake_popen)
     return created_processes
 
 
@@ -365,7 +365,7 @@ def test_legacy_backend_session_runs_one_batch_through_streaming_session(
     def fake_popen(*args: object, **kwargs: object) -> _FakeProcess:
         return _FakeProcess(stderr_lines=["backend warning\n"])
 
-    monkeypatch.setattr("app.legacy_backend.runner.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("migration.legacy_backend.runner.subprocess.Popen", fake_popen)
 
     with LegacyBackendSession(stderr_path=stderr_path) as session:
         backend_results = session.run(
@@ -414,7 +414,9 @@ def test_legacy_backend_session_logs_slow_first_output_warning(
     monkeypatch.setattr(session, "_require_process", lambda: fake_process)
 
     timings = iter([0.0, 15.0, 31.0])
-    monkeypatch.setattr("app.legacy_backend.runner.perf_counter", lambda: next(timings))
+    monkeypatch.setattr(
+        "migration.legacy_backend.runner.perf_counter", lambda: next(timings)
+    )
     caplog.set_level(logging.WARNING)
 
     line = session.next_stdout_line(batch_size=250, received_count=0)
@@ -452,7 +454,7 @@ def test_legacy_backend_session_rejects_unsupported_contract_kind(
 def test_legacy_backend_wrapper_contract_constants_match_python_contract() -> None:
     wrapper_text = (
         Path(__file__).resolve().parents[1]
-        / "app"
+        / "migration"
         / "legacy_backend"
         / "off_runtime.pl"
     ).read_text(encoding="utf-8")

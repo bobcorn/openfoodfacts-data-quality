@@ -1,0 +1,102 @@
+{% from "macros/layout.j2" import page_hero %}
+{% from "macros/icons.j2" import icon %}
+{% set hero_actions %}
+        <div class="export-shell">
+          <button class="button button--quiet toolbar-button hero-action" id="export-toggle" type="button" aria-expanded="false" aria-controls="export-panel">
+            <span>{{ terms.hero.export_as }}</span>
+            {{ icon("chevron-down") }}
+          </button>
+
+          <div class="export-panel" id="export-panel" role="menu" aria-label="{{ terms.hero.export_as }}">
+            <button class="export-panel__action" id="export-html" type="button" role="menuitem">{{ terms.hero.export_html }}</button>
+            <button class="export-panel__action" id="export-pdf" type="button" role="menuitem">{{ terms.hero.export_pdf }}</button>
+            <button class="export-panel__action" id="export-json" type="button" role="menuitem">{{ terms.hero.export_json }}</button>
+          </div>
+        </div>
+{% endset %}
+{% call page_hero(
+  terms.hero.eyebrow,
+  terms.hero.title,
+  terms.hero.subtitle,
+  actions_markup=hero_actions,
+) %}
+        <div class="stats-grid">
+          <button class="stat stat--interactive stat--hero stat--detail {% if failing_checks %}stat--fail{% else %}stat--pass{% endif %}" type="button" data-kind-filter="fail" aria-pressed="false">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.mismatching_tooltip }}">{{ terms.stats.mismatching_label }}</span></span>
+            <strong class="stat__value">{{ failing_checks }} / {{ compared_checks }}</strong>
+          </button>
+
+          <div class="stat stat--hero stat--detail stat--missing {% if missing_findings %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.missing_in_migrated_tooltip }}">{{ terms.stats.missing_in_migrated_label }}</span></span>
+            <strong class="stat__value">{{ missing_findings }}</strong>
+          </div>
+
+          <div class="stat stat--hero stat--detail stat--extra {% if extra_findings %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.extra_in_migrated_tooltip }}">{{ terms.stats.extra_in_migrated_label }}</span></span>
+            <strong class="stat__value">{{ extra_findings }}</strong>
+          </div>
+
+          <div class="stat stat--hero stat--detail {% if affected_products %}stat--fail{% else %}stat--pass{% endif %}">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.affected_products_tooltip }}">{{ terms.stats.affected_products_label }}</span></span>
+            <strong class="stat__value">{{ affected_products }} / {{ report.product_count }}</strong>
+          </div>
+
+          <div class="stat stat--hero stat--detail">
+            <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.runtime_only_checks_tooltip }}">{{ terms.stats.runtime_only_checks_label }}</span></span>
+            <strong class="stat__value">{{ runtime_only_checks }}</strong>
+          </div>
+        </div>
+
+        {% if report.source_input.skipped_row_count %}
+        <section class="source-input-summary shell" aria-label="{{ terms.stats.skipped_source_rows_label }}">
+          <div class="source-input-summary__head">
+            <div>
+              <span class="term" data-tooltip="{{ terms.stats.skipped_source_rows_tooltip }}">{{ terms.stats.skipped_source_rows_label }}</span>
+              <strong class="source-input-summary__count">{{ report.source_input.skipped_row_count }}</strong>
+            </div>
+            <span class="source-input-summary__detail">{{ report.product_count }} processed</span>
+          </div>
+          {% if report.source_input.skipped_row_examples %}
+          <ul class="source-input-summary__list">
+            {% for row in report.source_input.skipped_row_examples %}
+            <li class="source-input-summary__item">
+              <code>{{ row.location }}</code>
+              <span>{{ row.reason }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </section>
+        {% endif %}
+
+        <div class="composition">
+          <div class="composition-header">
+            <div class="composition-label">
+              <span class="term" data-tooltip="{{ terms.composition.tooltip }}">{{ terms.composition.title }}</span>
+            </div>
+          </div>
+          <div class="composition-bar" role="group" aria-label="Run composition across active checks">
+            {% for segment in composition_segments %}
+            {% if segment.count %}
+            <button
+              class="composition-segment composition-segment--{{ segment.id }}"
+              type="button"
+              data-kind-filter="{{ segment.id }}"
+              style="width: {{ '%.4f' | format(segment.percentage) }}%;"
+              title="{{ segment.label }}: {{ segment.count }}"
+              aria-label="{{ segment.label }}: {{ segment.count }}"
+            ></button>
+            {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="composition-legend">
+            {% for segment in composition_segments %}
+            <div class="composition-item">
+              <span class="composition-dot composition-dot--{{ segment.id }}"></span>
+              <span><span class="term" data-tooltip="{{ segment.tooltip }}">{{ segment.label }}</span> <strong>{{ segment.count }}</strong></span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+{% endcall %}

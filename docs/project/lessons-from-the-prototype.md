@@ -47,19 +47,19 @@ describes the same boundary. The
 [legacy backend](../reference/glossary.md#legacy-backend) provides reference
 data through a defined interface. The runtime contract remains in Python.
 
-### Reusable runtime behavior and application behavior need separate boundaries
+### Reusable runtime behavior and migration behavior need separate boundaries
 
-A reusable library and an application run flow serve different purposes. The
+A reusable library and a migration run flow serve different purposes. The
 library needs a compact provider and dependable contracts, while the
-application needs orchestration and review support. When these concerns share
+migration tooling needs orchestration and review support. When these concerns share
 one layer, it
 becomes harder to decide where a change belongs and which interface it should
 preserve.
 
 In this repository, relevant references are the split between
-`src/openfoodfacts_data_quality/` and `app/`.
+`src/off_data_quality/` and `migration/`.
 [About the system architecture](../explanation/system-architecture.md) and
-[About application runs](../explanation/application-runs.md) describe the same
+[About migration runs](../explanation/migration-runs.md) describe the same
 boundary.
 
 ### Tooling affects what the project can maintain
@@ -83,7 +83,7 @@ gives stored results a defined purpose.
 
 In this repository, relevant references are
 [report artifacts](../reference/report-artifacts.md) and the parity store. The
-application layer also separates run execution from report building.
+migration tooling also separates run execution from report building.
 
 ## Related information
 

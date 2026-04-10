@@ -3,8 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import duckdb
-from app.source.datasets import SourceSelection, load_dataset_profile
-from app.source.product_documents import count_source_products, iter_source_batches
+from migration.source.datasets import SourceSelection, load_dataset_profile
+from migration.source.product_documents import (
+    count_source_products,
+    iter_source_batches,
+)
 
 
 def test_load_dataset_profile_supports_stable_sample_and_code_lists(

@@ -10,7 +10,7 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from app.source.snapshots import source_snapshot_id_for
+from migration.source.snapshots import source_snapshot_id_for
 
 DEFAULT_SOURCE_JSONL = ROOT / "data" / "products.jsonl"
 DEFAULT_OUTPUT_JSONL = ROOT / "examples" / "data" / "products.jsonl"

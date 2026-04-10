@@ -2,23 +2,21 @@ from __future__ import annotations
 
 import pytest
 
-from openfoodfacts_data_quality.context.builder import build_source_product_contexts
-from openfoodfacts_data_quality.context.paths import (
+from off_data_quality.context import (
+    ENRICHED_SNAPSHOTS_PROVIDER,
     MISSING,
     PATH_SPECS,
+    SOURCE_PRODUCTS_PROVIDER,
+    build_source_product_contexts,
+    context_availability_for_provider,
     path_spec_for,
     resolve_path,
 )
-from openfoodfacts_data_quality.context.providers import (
-    ENRICHED_SNAPSHOTS_PROVIDER,
-    SOURCE_PRODUCTS_PROVIDER,
-    context_availability_for_provider,
-)
-from openfoodfacts_data_quality.contracts.context import (
+from off_data_quality.contracts.context import (
     CheckContext,
     ProductContext,
 )
-from openfoodfacts_data_quality.contracts.source_products import (
+from off_data_quality.contracts.source_products import (
     validate_source_product,
 )
 

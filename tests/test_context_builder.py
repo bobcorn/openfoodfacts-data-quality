@@ -4,23 +4,20 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from app.legacy_backend.input_payloads import build_legacy_backend_input_payloads
-from app.reference.models import (
+from migration.legacy_backend.input_payloads import build_legacy_backend_input_payloads
+from migration.reference.models import (
     ReferenceResult,
     reference_check_contexts_from_reference_results,
 )
-from app.run.context_builders import check_context_builder_for
-from app.source.models import ProductDocument
-from app.source.product_documents import validate_product_document
+from migration.run.context_builders import check_context_builder_for
+from migration.source.models import ProductDocument
+from migration.source.product_documents import validate_product_document
 
-from openfoodfacts_data_quality.context.builder import build_source_product_contexts
-from openfoodfacts_data_quality.context.providers import ContextProviderId
-from openfoodfacts_data_quality.contracts.source_products import (
+from off_data_quality.checks import prepare_source_products
+from off_data_quality.context import ContextProviderId, build_source_product_contexts
+from off_data_quality.contracts.source_products import (
     SourceProduct,
     validate_source_product,
-)
-from openfoodfacts_data_quality.source_product_preparation import (
-    prepare_source_products,
 )
 
 ReferenceResultFactory = Callable[..., ReferenceResult]

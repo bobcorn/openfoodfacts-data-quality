@@ -1,31 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import pytest
-from app.migration.catalog import load_migration_catalog
-from app.run.profiles import load_check_profile
+from migration.planning import load_migration_catalog
+from migration.run.profiles import load_check_profile
 
-from openfoodfacts_data_quality.checks.catalog import (
+from off_data_quality.catalog import (
     CheckCatalog,
     get_default_check_catalog,
     load_check_catalog,
 )
-from openfoodfacts_data_quality.checks.dsl.resources import dsl_check_pack_resources
-from openfoodfacts_data_quality.context.providers import (
-    context_availability_for_provider,
-)
-from openfoodfacts_data_quality.contracts.capabilities import resolve_check_capabilities
-from openfoodfacts_data_quality.contracts.checks import (
+from off_data_quality.checks.dsl.resources import dsl_check_pack_resources
+from off_data_quality.context import context_availability_for_provider
+from off_data_quality.contracts.capabilities import resolve_check_capabilities
+from off_data_quality.contracts.checks import (
     LEGACY_PARITY_BASELINES,
     CheckDefinition,
 )
 
 
-def _global_dsl_pack_resource() -> Path:
+def _global_dsl_pack_resource() -> Traversable:
     return next(
-        Path(str(resource))
+        resource
         for resource in dsl_check_pack_resources()
         if resource.name == "global_checks.yaml"
     )
@@ -231,15 +230,28 @@ def test_shipped_full_profile_includes_runtime_only_checks() -> None:
     )
 
 
-def test_shipped_source_products_profile_includes_runtime_only_checks() -> None:
+def test_shipped_legacy_profile_excludes_runtime_only_checks() -> None:
+    profile = load_check_profile(
+        Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
+        profile_name="legacy",
+    )
+
+    assert profile.check_context_provider == "enriched_snapshots"
+    assert profile.parity_baselines == ("legacy",)
+    assert "ca:trans-fat-free-claim-but-nutrition-does-not-meet-conditions" not in (
+        profile.check_ids
+    )
+
+
+def test_shipped_source_products_profile_excludes_runtime_only_checks() -> None:
     profile = load_check_profile(
         Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
         profile_name="source_products",
     )
 
     assert profile.check_context_provider == "source_products"
-    assert profile.parity_baselines == ("legacy", "none")
-    assert "ca:source-of-fibre-claim-but-fibre-below-threshold" in profile.check_ids
+    assert profile.parity_baselines == ("legacy",)
+    assert "ca:source-of-fibre-claim-but-fibre-below-threshold" not in profile.check_ids
 
 
 def test_load_check_catalog_select_evaluators_filters_to_active_check_ids() -> None:

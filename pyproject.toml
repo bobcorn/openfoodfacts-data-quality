@@ -28,6 +28,7 @@ app = [
 dev = [
   "build>=1,<2",
   "coverage[toml]>=7,<8",
+  "import-linter>=2,<3",
   "mypy>=1,<2",
   "pre-commit>=4,<5",
   "pytest>=8,<9",
@@ -44,10 +45,10 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["openfoodfacts_data_quality*", "off_data_quality*"]
+include = ["off_data_quality*"]
 
 [tool.setuptools.package-data]
-openfoodfacts_data_quality = [
+off_data_quality = [
   "py.typed",
   "checks/packs/dsl/*.yaml",
   "checks/dsl/capabilities.json",
@@ -56,7 +57,7 @@ openfoodfacts_data_quality = [
 
 [tool.ruff]
 target-version = "py314"
-src = ["app", "examples", "scripts", "src", "tests"]
+src = ["apps", "migration", "scripts", "src", "tests"]
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "UP"]
@@ -68,7 +69,7 @@ ignore = ["E501"]
 
 [tool.coverage.run]
 branch = true
-source = ["app", "src/openfoodfacts_data_quality"]
+source = ["apps", "migration", "src/off_data_quality"]
 
 [tool.coverage.report]
 fail_under = 80
@@ -81,9 +82,73 @@ python_files = ["test_*.py"]
 pythonpath = [".", "src", "scripts"]
 addopts = "-ra"
 
+[tool.importlinter]
+root_packages = ["apps", "migration", "off_data_quality", "ui"]
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+id = "library-app-boundary"
+name = "Library stays independent from application layers"
+type = "forbidden"
+source_modules = ["off_data_quality"]
+forbidden_modules = ["apps", "migration", "ui"]
+
+[[tool.importlinter.contracts]]
+id = "ui-presentation-boundary"
+name = "UI stays presentation only"
+type = "forbidden"
+source_modules = ["ui"]
+forbidden_modules = ["apps", "migration", "off_data_quality"]
+
+[[tool.importlinter.contracts]]
+id = "google-sheets-migration-boundary"
+name = "Google Sheets app stays separate from migration tooling"
+type = "forbidden"
+source_modules = ["apps.google_sheets"]
+forbidden_modules = ["migration"]
+
+[[tool.importlinter.contracts]]
+id = "google-sheets-wheel-surface"
+name = "Google Sheets app stays on the consumer wheel surface"
+type = "forbidden"
+source_modules = ["apps.google_sheets"]
+allow_indirect_imports = true
+forbidden_modules = [
+  "off_data_quality.catalog",
+  "off_data_quality.context",
+  "off_data_quality.contracts",
+  "off_data_quality.execution",
+  "off_data_quality.metadata",
+]
+
+[[tool.importlinter.contracts]]
+id = "wheel-private-modules"
+name = "Wheel private modules stay inside the wheel"
+type = "protected"
+protected_modules = [
+  "off_data_quality._nutrition",
+  "off_data_quality._provider_api",
+  "off_data_quality._row_checks_api",
+  "off_data_quality._scalars",
+  "off_data_quality._source_product_preparation",
+  "off_data_quality._source_products",
+  "off_data_quality._structured_values",
+  "off_data_quality.checks._catalog",
+  "off_data_quality.checks._check_helpers",
+  "off_data_quality.checks._engine",
+  "off_data_quality.checks._legacy",
+  "off_data_quality.checks._registry",
+  "off_data_quality.checks._sources",
+  "off_data_quality.context._builder",
+  "off_data_quality.context._paths",
+  "off_data_quality.context._projection",
+  "off_data_quality.context._providers",
+]
+allowed_importers = ["off_data_quality"]
+
 [tool.mypy]
 python_version = "3.14"
-files = ["app", "src", "tests", "examples", "scripts"]
+files = ["apps", "migration", "src", "tests", "scripts"]
 mypy_path = ["src", "scripts"]
 explicit_package_bases = true
 strict = true
@@ -92,18 +157,18 @@ show_error_codes = true
 show_error_context = true
 
 [tool.vulture]
-paths = ["app", "examples", "scripts", "src"]
+paths = ["apps", "migration", "scripts", "src"]
 exclude = [
   ".venv/",
   "artifacts/",
   "build/",
   "data/",
   "dist/",
-  "src/openfoodfacts_data_quality/contracts/context.py",
-  "src/openfoodfacts_data_quality/contracts/enrichment.py",
-  "src/openfoodfacts_data_quality/contracts/source_products.py",
-  "src/openfoodfacts_data_quality/contracts/snapshot_fields.py",
-  "src/openfoodfacts_data_quality/contracts/structured.py",
+  "src/off_data_quality/contracts/context.py",
+  "src/off_data_quality/contracts/enrichment.py",
+  "src/off_data_quality/contracts/source_products.py",
+  "src/off_data_quality/contracts/snapshot_fields.py",
+  "src/off_data_quality/contracts/structured.py",
 ]
 ignore_decorators = ["@check", "@model_validator"]
 ignore_names = [

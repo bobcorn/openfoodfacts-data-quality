@@ -5,20 +5,21 @@ from collections.abc import Callable
 from pathlib import Path
 from zipfile import ZipFile
 
-from app.report.downloads import JSON_EXPORT_ARCHIVE_FILENAME
-from app.report.renderer import render_report
-from app.report.snippets import (
+from migration.report.downloads import JSON_EXPORT_ARCHIVE_FILENAME
+from migration.report.renderer import render_report
+from migration.report.snippets import (
     SNIPPETS_ARTIFACT_FILENAME,
     SNIPPETS_ARTIFACT_KIND,
     SNIPPETS_ARTIFACT_SCHEMA_VERSION,
 )
-from app.run.serialization import (
+from migration.run.serialization import (
     RUN_ARTIFACT_FILENAME,
     RUN_ARTIFACT_KIND,
     RUN_ARTIFACT_SCHEMA_VERSION,
 )
+from migration.source.models import SkippedSourceRow, SourceInputSummary
 
-from openfoodfacts_data_quality.contracts.run import RunResult
+from off_data_quality.contracts.run import RunResult
 
 RunResultFactory = Callable[[], RunResult]
 
@@ -49,7 +50,7 @@ def test_render_report_writes_expected_artifacts(
     assert json_archive_path.exists()
     html = index_path.read_text(encoding="utf-8")
     assert "Quality Run Report" in html
-    assert "Strict comparison is shown where a legacy baseline exists" in html
+    assert "Run evaluation for the active Open Food Facts data quality checks." in html
     assert "Mismatching" in html
     assert "Missing Findings" in html
     assert "Extra Findings" in html
@@ -157,3 +158,50 @@ def test_render_report_surfaces_legacy_snippet_warnings_per_check(
         for check_entry in snippet_payload["checks"].values()
         if check_entry["snippets"]
     )
+
+
+def test_render_report_surfaces_skipped_source_rows(
+    tmp_path: Path,
+    run_result_factory: RunResultFactory,
+) -> None:
+    render_report(
+        run_result_factory(),
+        tmp_path,
+        source_input_summary=SourceInputSummary(
+            processed_product_count=2,
+            skipped_row_count=2,
+            skipped_row_examples=(
+                SkippedSourceRow(
+                    location="jsonl line 3",
+                    reason="missing or blank code",
+                ),
+                SkippedSourceRow(
+                    location="jsonl line 8",
+                    reason="missing or blank code",
+                ),
+            ),
+        ),
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    machine_payload = json.loads(
+        (tmp_path / RUN_ARTIFACT_FILENAME).read_text(encoding="utf-8")
+    )
+
+    assert "Skipped Source Rows" in html
+    assert "jsonl line 3" in html
+    assert "missing or blank code" in html
+    assert machine_payload["source_input"] == {
+        "processed_product_count": 2,
+        "skipped_row_count": 2,
+        "skipped_row_examples": [
+            {
+                "location": "jsonl line 3",
+                "reason": "missing or blank code",
+            },
+            {
+                "location": "jsonl line 8",
+                "reason": "missing or blank code",
+            },
+        ],
+    }

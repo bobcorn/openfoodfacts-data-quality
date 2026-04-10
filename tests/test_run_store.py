@@ -6,30 +6,31 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from app.migration.catalog import (
+from migration.planning import (
     ActiveMigrationPlan,
     MigrationAssessment,
     MigrationFamily,
 )
-from app.reference.observers import NoReferenceObserver
-from app.report.renderer import render_report_from_store
-from app.run.context_builders import check_context_builder_for
-from app.run.models import (
+from migration.reference.observers import NoReferenceObserver
+from migration.report.renderer import render_report_from_store
+from migration.run.context_builders import check_context_builder_for
+from migration.run.models import (
     BatchExecutionResult,
     BatchStageTimings,
     PreparedRun,
     RunPreparationTimings,
     RunSpec,
 )
-from app.run.profiles import ActiveCheckProfile
-from app.source.datasets import ActiveDatasetProfile, SourceSelection
-from app.storage import (
+from migration.run.profiles import ActiveCheckProfile
+from migration.source.datasets import ActiveDatasetProfile, SourceSelection
+from migration.source.models import SkippedSourceRow, SourceInputSummary
+from migration.storage import (
     load_recorded_run_benchmark_summary,
     load_recorded_run_snapshot,
 )
-from app.storage.run_store import PARITY_STORE_SCHEMA_VERSION, DuckDBRunRecorder
+from migration.storage.run_store import PARITY_STORE_SCHEMA_VERSION, DuckDBRunRecorder
 
-from openfoodfacts_data_quality.contracts.run import RunResult
+from off_data_quality.contracts.run import RunResult
 
 
 def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
@@ -63,6 +64,16 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
         run_artifact = json.loads(str(run_row[2]))
         assert run_artifact["run_id"] == run_result.run_id
         assert run_artifact["source_snapshot_id"] == run_result.source_snapshot_id
+        assert run_artifact["source_input"] == {
+            "processed_product_count": run_result.product_count,
+            "skipped_row_count": 2,
+            "skipped_row_examples": [
+                {
+                    "location": "jsonl line 4",
+                    "reason": "missing or blank code",
+                }
+            ],
+        }
 
         dataset_row = connection.execute(
             """
@@ -423,6 +434,16 @@ def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedR
         ),
         runtime_only_count=sum(
             1 for check in checks if check.parity_baseline == "none"
+        ),
+        source_input_summary=SourceInputSummary(
+            processed_product_count=run_result.product_count,
+            skipped_row_count=2,
+            skipped_row_examples=(
+                SkippedSourceRow(
+                    location="jsonl line 4",
+                    reason="missing or blank code",
+                ),
+            ),
         ),
         preparation_timings=RunPreparationTimings(
             prepare_run_seconds=0.11,

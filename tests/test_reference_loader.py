@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 import pytest
-from app.reference.loader import ReferenceResultLoader
-from app.reference.models import ReferenceResult
-from app.source.models import ProductDocument
-from app.source.product_documents import validate_product_document
+from migration.reference.loader import ReferenceResultLoader
+from migration.reference.models import ReferenceResult
+from migration.source.models import ProductDocument
+from migration.source.product_documents import validate_product_document
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
@@ -61,7 +61,7 @@ def test_reference_result_loader_uses_cache_without_backend_projection(
         raise AssertionError("Backend projection should not run on a full cache hit.")
 
     monkeypatch.setattr(
-        "app.reference.loader.build_legacy_backend_input_payloads",
+        "migration.reference.loader.build_legacy_backend_input_payloads",
         fail_build_input_products,
     )
 

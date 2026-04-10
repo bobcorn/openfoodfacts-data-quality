@@ -7,17 +7,17 @@ migrated check receives.
 
 ## Why the runtime is split
 
-The shared runtime lives under `src/openfoodfacts_data_quality/`. It owns:
+The shared runtime lives under `src/off_data_quality/`. It owns:
 
 - packaged check definitions
 - the [check catalog](migrated-checks.md#packaged-checks) and check metadata
 - input projection and context building
 - the public [Python library APIs](../how-to/use-the-python-library.md)
 
-The application layer lives under `app/`. It adds the parts that exist only
-for full application runs:
+The migration tooling lives under `migration/`. It adds the parts that exist
+only for full migration runs:
 
-- application source snapshot loading
+- migration source snapshot loading
 - dataset profile selection for one run
 - [reference](reference-data-and-parity.md#why-the-reference-path-exists)
   resolution
@@ -26,8 +26,8 @@ for full application runs:
 - parity store persistence and
   [report artifact generation](../reference/report-artifacts.md)
 
-`app/` builds on the shared runtime. The shared runtime does not depend on
-`app/`.
+`migration/` builds on the shared runtime. The shared runtime does not depend
+on `migration/`.
 
 ## Context providers
 
@@ -47,7 +47,7 @@ that can be built from those records.
 ### Enriched snapshot runs
 
 `enriched_snapshots` means the check depends on stable enriched data that is not
-present in source products. In application runs, that data is materialized
+present in source products. In migration runs, that data is materialized
 through the [reference path](reference-data-and-parity.md#why-the-reference-path-exists)
 and projected directly into `CheckContext` before the migrated
 checks run.
@@ -56,7 +56,7 @@ The selected provider changes:
 
 - which required context paths are available to checks
 - which data the runtime must prepare
-- whether an application run needs the
+- whether a migration run needs the
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)
 
 ```mermaid
@@ -64,7 +64,7 @@ flowchart TB
     subgraph CALLERS["Entry Points"]
         A["Checks API"]
         B["Snapshots API Placeholder"]
-        C["Application Layer"]
+        C["Migration Tooling"]
     end
 
     subgraph INPUTS["Runtime Inputs"]
@@ -93,7 +93,7 @@ internal provider ids remain `source_products` and `enriched_snapshots`.
 
 ## Context provider and dataset profile are different
 
-The application uses two independent selection axes:
+Migration tooling uses two independent selection axes:
 
 - the check context provider, which decides which context paths the provider exposes
 - the dataset profile, which decides which products from the source snapshot

@@ -12,12 +12,12 @@ Use these pages based on what you need:
 - [Run the project locally](how-to/run-the-project-locally.md): Start the
   Docker workflow, choose the active dataset and check profiles, and set up
   `.venv` for local tooling.
-- [Run the Google Sheets demo](../examples/google_sheets_demo/README.md): Run
-  the local browser demo that writes findings to Google Sheets.
+- [Run the Google Sheets app](../apps/google_sheets/README.md): Run the local
+  browser app that writes findings to Google Sheets.
 - [Author checks](how-to/author-checks.md): Add a migrated check, choose `dsl`
   or `python`, and validate the change.
 - [Use the Python library](how-to/use-the-python-library.md): Run checks
-  directly from Python without the application layer.
+  directly from Python without the migration tooling.
 - [Review a run report](how-to/review-a-run-report.md): Read the HTML report,
   interpret governed mismatches, and move to structured artifacts when you need
   more detail.
@@ -33,12 +33,13 @@ Use these pages based on what you need:
 - [About the runtime model](explanation/runtime-model.md): Shared runtime
   boundaries, context providers, and `CheckContext`.
 - [About migrated checks](explanation/migrated-checks.md): Packaged checks,
-  definition languages, metadata, and application check profiles.
+  definition languages, metadata, and migration check profiles.
 - [About reference and parity](explanation/reference-data-and-parity.md):
   Reference loading, cache reuse, strict comparison, and mismatch governance.
 - [About the system architecture](explanation/system-architecture.md):
-  Repository ownership boundaries and the split between `src/` and `app/`.
-- [About application runs](explanation/application-runs.md): The full run flow
+  Repository ownership boundaries across `src/`, `migration/`, `apps/`, and
+  `ui/`.
+- [About migration runs](explanation/migration-runs.md): The full run flow
   from source snapshot input and dataset selection to parity store data and
   report artifacts.
 
@@ -47,7 +48,7 @@ Use these pages based on what you need:
 - [Data contracts](reference/data-contracts.md): Input, runtime, reference, run,
   and review contracts loaded from stored runs.
 - [Check metadata and selection](reference/check-metadata-and-selection.md):
-  Executable metadata fields, catalog filters, and application profile
+  Executable metadata fields, catalog filters, and migration profile
   selection.
 - [Run configuration and artifacts](reference/run-configuration-and-artifacts.md):
   Environment variables, check and dataset profiles, parity store settings,

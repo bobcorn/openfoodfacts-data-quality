@@ -14,14 +14,14 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from app.legacy_source import (
+from migration.legacy_source import (
     LegacySubroutineRecord,
     collect_legacy_subroutine_records,
     resolve_legacy_module_paths,
     resolve_legacy_source_root,
 )
 
-from openfoodfacts_data_quality.checks.legacy import (
+from off_data_quality.catalog import (
     legacy_code_template_key,
     legacy_code_template_placeholders,
 )

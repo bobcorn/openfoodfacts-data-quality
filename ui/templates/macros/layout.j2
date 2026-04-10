@@ -1,0 +1,29 @@
+{% macro page_meta(entries) -%}
+      <div class="page-meta">
+        {% for label, value in entries %}
+        <span><span class="page-meta__label">{{ label }}</span><code>{{ value }}</code></span>
+        {% endfor %}
+      </div>
+{%- endmacro %}
+
+{% macro page_hero(eyebrow, title, intro, actions_markup="", hero_class="") -%}
+      <header class="hero shell{% if hero_class %} {{ hero_class }}{% endif %}">
+        <div class="hero-top">
+          <div class="hero-copy">
+            {% if eyebrow %}
+            <p class="eyebrow">{{ eyebrow }}</p>
+            {% endif %}
+            <h1>{{ title }}</h1>
+          </div>
+          {% if actions_markup | trim %}
+          <div class="hero-actions">{{ actions_markup | safe }}</div>
+          {% endif %}
+        </div>
+        {% if intro %}
+        <p class="intro">{{ intro }}</p>
+        {% endif %}
+        {% if caller is defined %}
+{{ caller() }}
+        {% endif %}
+      </header>
+{%- endmacro %}
