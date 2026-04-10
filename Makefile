@@ -6,18 +6,19 @@ PYTEST ?= $(if $(VENV_BIN),$(VENV_BIN)/pytest,pytest)
 RUFF ?= $(if $(VENV_BIN),$(VENV_BIN)/ruff,ruff)
 MYPY ?= $(if $(VENV_BIN),$(VENV_BIN)/mypy,mypy)
 VULTURE ?= $(if $(VENV_BIN),$(VENV_BIN)/vulture,vulture)
+IMPORT_LINTER ?= $(if $(VENV_BIN),$(VENV_BIN)/lint-imports,lint-imports)
 PYRIGHT ?= npm exec --yes --package pyright@1.1.408 -- pyright --project pyrightconfig.json
 JSCPD ?= npm exec --yes --package jscpd@4.0.8 -- jscpd
 
-PYTHON_TARGETS := app examples scripts src tests
-VULTURE_TARGETS := app examples scripts src
-JSCPD_TARGETS := app examples scripts src tests
-COVERAGE_ARGS := --cov=src/openfoodfacts_data_quality --cov=app --cov-report=term-missing:skip-covered --cov-report=xml
+PYTHON_TARGETS := apps migration scripts src tests
+VULTURE_TARGETS := apps migration scripts src
+JSCPD_TARGETS := apps migration scripts src tests
+COVERAGE_ARGS := --cov=src/off_data_quality --cov=migration --cov=apps --cov-report=term-missing:skip-covered --cov-report=xml
 CLEAN_DIRS := .mypy_cache .pytest_cache .ruff_cache .scannerwork artifacts build dist htmlcov src/openfoodfacts_data_quality.egg-info
 CLEAN_FILES := .coverage coverage.xml
 CACHE_DIRS := data/reference_result_cache
 
-.PHONY: build check clean clean-cache coverage deadcode distclean dupcheck format format-check install-hooks lint pyright quality test typecheck
+.PHONY: build check clean clean-cache coverage deadcode distclean dupcheck format format-check importlint install-hooks lint pyright quality test typecheck
 
 format:
 	$(RUFF) check --fix $(PYTHON_TARGETS)
@@ -29,6 +30,9 @@ format-check:
 lint:
 	$(RUFF) check $(PYTHON_TARGETS)
 
+importlint:
+	$(IMPORT_LINTER) --config pyproject.toml
+
 test:
 	$(PYTEST) -q
 
@@ -38,6 +42,7 @@ coverage:
 check:
 	$(MAKE) format-check
 	$(MAKE) lint
+	$(MAKE) importlint
 	$(MAKE) coverage
 
 typecheck:

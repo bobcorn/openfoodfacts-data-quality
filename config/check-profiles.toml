@@ -1,19 +1,25 @@
 default_profile = "full"
 
 [profiles.full]
-description = "Runs every shipped check across legacy parity and runtime-only baselines."
+description = "Runs every shipped check."
 mode = "all"
 check_context_provider = "enriched_snapshots"
 parity_baselines = ["legacy", "none"]
 
+[profiles.legacy]
+description = "Runs shipped checks that still compare against legacy behavior."
+mode = "all"
+check_context_provider = "enriched_snapshots"
+parity_baselines = ["legacy"]
+
 [profiles.source_products]
-description = "Runs every shipped source-product check across legacy parity and runtime-only baselines."
+description = "Runs shipped source product checks that still compare against legacy behavior."
 mode = "all"
 check_context_provider = "source_products"
-parity_baselines = ["legacy", "none"]
+parity_baselines = ["legacy"]
 
 [profiles.focused]
-description = "Runs the current migration workset. Edit check_ids as migration focus changes."
+description = "Runs the current migration workset. Edit check_ids as focus changes."
 mode = "include"
 check_context_provider = "enriched_snapshots"
 parity_baselines = ["legacy", "none"]

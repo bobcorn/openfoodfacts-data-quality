@@ -1,0 +1,8 @@
+{% from "macros/layout.j2" import page_meta %}
+{{ page_meta(
+  [
+    ("Run", report.run_id),
+    ("Source Snapshot", report.source_snapshot_id),
+    ("Generated", generated_at),
+  ]
+) }}

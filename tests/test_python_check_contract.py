@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from openfoodfacts_data_quality.checks.catalog import (
+from off_data_quality.catalog import (
     CheckCatalog,
     get_default_check_catalog,
     load_check_catalog,
 )
-from openfoodfacts_data_quality.checks.registry import CheckBinding, check_bindings
+from off_data_quality.checks import CheckBinding, check_bindings
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -72,9 +72,9 @@ def test_catalog_uses_python_declared_context_paths_as_the_contract(
         tmp_path,
         module_name="temp_declared_context_path_checks",
         source="""
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import CheckContext
+from off_data_quality.checks import check
+from off_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from off_data_quality.contracts.context import CheckContext
 
 CHECK_PACK_METADATA = CheckPackMetadata(
     parity_baseline="legacy",
@@ -106,9 +106,9 @@ def test_catalog_rejects_unknown_python_context_path(tmp_path: Path) -> None:
             tmp_path,
             module_name="temp_unknown_context_path_checks",
             source="""
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import CheckContext
+from off_data_quality.checks import check
+from off_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from off_data_quality.contracts.context import CheckContext
 
 CHECK_PACK_METADATA = CheckPackMetadata(
     parity_baseline="legacy",
@@ -137,9 +137,9 @@ def test_catalog_rejects_python_check_pack_without_pack_metadata(
             tmp_path,
             module_name="temp_missing_pack_metadata_checks",
             source="""
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission
-from openfoodfacts_data_quality.contracts.context import CheckContext
+from off_data_quality.checks import check
+from off_data_quality.contracts.checks import CheckEmission
+from off_data_quality.contracts.context import CheckContext
 
 @check("en:contract-test", requires=("product.product_name",))
 def en_contract_test(context: CheckContext) -> list[CheckEmission]:
@@ -167,9 +167,9 @@ def test_catalog_rejects_duplicate_canonical_legacy_identity_mappings(
             tmp_path,
             module_name="temp_duplicate_legacy_identity_checks",
             source="""
-from openfoodfacts_data_quality.checks.registry import check
-from openfoodfacts_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
-from openfoodfacts_data_quality.contracts.context import CheckContext
+from off_data_quality.checks import check
+from off_data_quality.contracts.checks import CheckEmission, CheckPackMetadata
+from off_data_quality.contracts.context import CheckContext
 
 CHECK_PACK_METADATA = CheckPackMetadata(
     parity_baseline="legacy",
@@ -223,8 +223,8 @@ def _loaded_temp_check_catalog(
 
 def _bindings_for_default_python_packs() -> tuple[CheckBinding, ...]:
     module_names = (
-        "openfoodfacts_data_quality.checks.packs.python.canada_checks",
-        "openfoodfacts_data_quality.checks.packs.python.global_checks",
+        "off_data_quality.checks.packs.python.canada_checks",
+        "off_data_quality.checks.packs.python.global_checks",
     )
     return tuple(
         binding

@@ -1,0 +1,329 @@
+{% extends "base.html.j2" %}
+{% from "macros/layout.j2" import page_hero %}
+{% from "macros/icons.j2" import icon %}
+
+{% block title %}Open Food Facts Data Quality - Google Sheets Workflow{% endblock %}
+
+{% block favicon_href %}/favicon.ico{% endblock %}
+
+{% block head_assets %}
+    <link rel="stylesheet" href="/static/shared-ui.css">
+    <link rel="stylesheet" href="/static/google-sheets.css">
+    <script src="https://accounts.google.com/gsi/client" async></script>
+    <script src="https://apis.google.com/js/api.js" async></script>
+    <script src="/static/app.js" type="module"></script>
+{% endblock %}
+
+{% block main_content %}
+      <div class="page-stack">
+        {{ page_hero(
+          "Data Quality Monitoring",
+          "Google Sheets Workflow",
+          "Choose a Google Sheet, load a CSV, run the Python checks, and prepare clean rows for upload.",
+        ) }}
+
+        <section class="surface-shell workflow-shell shell">
+          <section class="workflow-panel">
+        <h2>1. Connect Google and choose a spreadsheet</h2>
+        <p class="section-copy">
+          Connect Google first, then choose the Sheet to read and update.
+        </p>
+        <div class="button-row">
+          <button
+            id="connect-button"
+            class="button button--primary has-tooltip"
+            type="button"
+            data-tooltip="Open Google sign in for this browser tab."
+          >
+            Connect Google
+          </button>
+          <button
+            id="choose-spreadsheet-button"
+            class="button button--secondary has-tooltip"
+            type="button"
+            data-tooltip="Connect Google first."
+            aria-disabled="true"
+          >
+            Choose spreadsheet
+          </button>
+        </div>
+        <div class="selected-sheet-card" aria-live="polite">
+          <div class="selected-sheet-card__copy">
+            <p id="selected-sheet-name" class="selected-sheet-name">
+              No spreadsheet selected yet.
+            </p>
+            <p id="selected-sheet-meta" class="selected-sheet-meta">
+              Connect Google, then choose a Sheet to enable the actions.
+            </p>
+          </div>
+          <div
+            id="selected-sheet-actions"
+            class="selected-sheet-card__actions"
+            hidden
+          >
+            <button
+              id="open-spreadsheet-button"
+              class="button button--quiet has-tooltip"
+              type="button"
+              data-tooltip="Open the selected spreadsheet directly in Google Sheets."
+            >
+              <span class="button__label">Open in Google Sheets</span>
+              {{ icon("external-link") }}
+            </button>
+          </div>
+        </div>
+        <p
+          id="sheet-status"
+          class="status status-neutral"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        ></p>
+        <details class="disclosure">
+          <summary>Google Sheets tab settings</summary>
+          <div class="disclosure-body">
+            <p>
+              Change the input and output Google Sheets tab names for this workflow.
+            </p>
+            <div class="field-grid compact-grid">
+              <label class="field">
+                <span>Input Google Sheets tab name</span>
+                <input id="input-sheet-name" type="text" autocomplete="off">
+              </label>
+              <label class="field">
+                <span>Output Google Sheets tab name</span>
+                <input id="output-sheet-name" type="text" autocomplete="off">
+              </label>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section id="load-panel" class="workflow-panel workflow-step workflow-step--hidden">
+        <h2>2. Load data</h2>
+        <p class="section-copy">
+          Load a local CSV into the Google Sheets
+          <code data-sheet-name-ref="input"></code> tab.
+        </p>
+        <label class="field field--file">
+          <input
+            id="csv-file-input"
+            type="file"
+            accept=".csv"
+            aria-label="CSV file"
+          >
+        </label>
+        <p
+          id="data-file-status"
+          class="status status-neutral"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        ></p>
+        <div class="button-row">
+          <button
+            id="upload-csv-button"
+            class="button button--secondary has-tooltip"
+            type="button"
+            data-tooltip="Replace the current input Google Sheets tab with the selected CSV file."
+          >
+            <span class="button__label">
+              Upload CSV to <span data-sheet-name-ref="input"></span>
+            </span>
+          </button>
+        </div>
+        <p
+          id="data-status"
+          class="status status-neutral"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        ></p>
+        <details class="disclosure disclosure--quiet disclosure--compact">
+          <summary>About this CSV format</summary>
+          <div class="disclosure-body">
+            <p>
+              Use the Open Food Facts food CSV export from the official
+              <a
+                href="https://world.openfoodfacts.org/data"
+                target="_blank"
+                rel="noopener noreferrer"
+                >data page</a
+              >. When you choose a file, the app shows how many
+              library-supported columns it includes. Missing the required
+              <code>code</code> column is an error.
+            </p>
+          </div>
+        </details>
+      </section>
+
+      <section id="actions-panel" class="workflow-panel workflow-step workflow-step--hidden">
+        <h2>3. Run actions</h2>
+        <p class="section-copy">
+          Run checks and manage the derived output.
+        </p>
+        <div class="action-grid">
+          <button
+            id="validate-button"
+            class="button button--primary has-tooltip"
+            type="button"
+            data-tooltip="Run Python checks. The app writes dq_* columns and row colors."
+          >
+            Validate data
+          </button>
+          <button
+            id="clear-button"
+            class="button button--secondary has-tooltip"
+            type="button"
+            data-tooltip="Remove dq_* columns and clear row formatting."
+          >
+            Clear validation output
+          </button>
+          <button
+            id="prepare-button"
+            class="button button--secondary has-tooltip"
+            type="button"
+            data-tooltip="Copy rows with dq_status = ok to the output Google Sheets tab and remove dq_* columns."
+          >
+            Prepare upload candidates
+          </button>
+          <button
+            id="upload-off-button"
+            class="button button--secondary has-tooltip"
+            type="button"
+            data-tooltip="Run Prepare upload candidates first."
+            aria-disabled="true"
+          >
+            Upload to Open Food Facts
+          </button>
+        </div>
+        <p
+          id="action-status"
+          class="status status-neutral"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          hidden
+        ></p>
+      </section>
+
+      <section id="summary-panel" class="workflow-panel workflow-step workflow-step--hidden">
+        <h2>4. Current validation status</h2>
+        <p class="section-copy">
+          Green rows passed. Warm colors mark rows that still need review.
+        </p>
+        <dl class="summary-grid">
+          <div
+            class="summary-card summary-card--pass has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows processed by the latest validation run."
+          >
+            <dt>Rows checked</dt>
+            <dd id="summary-validated">0</dd>
+          </div>
+          <div
+            class="summary-card summary-card--fail has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows where validation found at least one issue."
+          >
+            <dt>Rows with findings</dt>
+            <dd id="summary-issues">0</dd>
+          </div>
+          <div
+            class="summary-card has-tooltip"
+            tabindex="0"
+            data-tooltip="Rows where validation returned an error instead of a normal result."
+          >
+            <dt>Rows with errors</dt>
+            <dd id="summary-errors">0</dd>
+          </div>
+        </dl>
+      </section>
+
+        </section>
+
+        <section class="surface-shell shell">
+          <section class="workflow-panel">
+            <h2>Reference</h2>
+            <p class="section-copy">
+              Read the current limits and see how the demo handles data.
+            </p>
+            <details class="disclosure disclosure--quiet">
+              <summary>About current demo limits</summary>
+              <div class="disclosure-body">
+                <ul class="disclosure-list">
+                  <li>
+                    The UI loads CSV files into the
+                    <code data-sheet-name-ref="input"></code> Google Sheets tab and does not support JSONL.
+                  </li>
+                  <li>
+                    Validation runs the global checks used in this demo. It does
+                    not include Canada rules.
+                  </li>
+                  <li>
+                    Findings are shown per row, not at the exact cell level.
+                  </li>
+                  <li>
+                    <code>Prepare upload candidates</code> only keeps rows whose
+                    <code>dq_status</code> is <code>ok</code> and writes them into
+                    the <code data-sheet-name-ref="output"></code> Google Sheets tab
+                    without the derived validation columns.
+                  </li>
+                  <li>
+                    <code>Upload to Open Food Facts</code> is not implemented yet.
+                    The button only shows the planned next step.
+                  </li>
+                  <li>
+                    Gemini is not controlled by this app. If it is available in
+                    Google Sheets, you can use it in the side panel while this demo
+                    runs validation.
+                  </li>
+                  <li>
+                    The app reads and writes the full Google Sheets tab for its main actions.
+                    Large sheets will feel slower than the 1,000 row demo file.
+                  </li>
+                </ul>
+              </div>
+            </details>
+            <details class="disclosure disclosure--quiet">
+              <summary>About data handling</summary>
+              <div class="disclosure-body">
+                <p>
+                  This demo runs in Docker on your machine. Google login and sheet
+                  access stay in the browser and are limited to the spreadsheet
+                  you choose.
+                </p>
+                <p>
+                  When you upload a CSV, the file content goes to the local demo
+                  server on <code>localhost</code> so it can parse the table. When
+                  you run validation, the current sheet rows go to that same local
+                  server so the Python library can run the checks. The Google
+                  access token is used only for browser requests to Google and is
+                  not sent to the local Python server.
+                </p>
+                <p>
+                  Steps that only reshape sheet data, such as clearing
+                  <code>dq_*</code> columns or preparing upload candidates, run in
+                  the browser before the updated data is written back to Google
+                  Sheets. The selected spreadsheet ID is stored in the browser so
+                  the page can remember it. The Google access token is kept only
+                  for the current browser session.
+                </p>
+                <p>
+                  This demo does not send sheet rows to Open Food Facts because the
+                  upload button is still a placeholder. Outside Google services,
+                  the only backend is the local container on your machine.
+                </p>
+              </div>
+            </details>
+          </section>
+        </section>
+      </div>
+{% endblock %}
+
+{% block after_main %}
+    <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+{% endblock %}

@@ -15,14 +15,18 @@ permissions:
   contents: read
   packages: write
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: google-sheets-demo
+
 jobs:
   publish-google-sheets-demo-image:
     name: Build And Push Google Sheets Demo Image
     runs-on: ubuntu-latest
     env:
-      GOOGLE_SHEETS_DEMO_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_SHEETS_DEMO_GOOGLE_CLIENT_ID }}
-      GOOGLE_SHEETS_DEMO_GOOGLE_API_KEY: ${{ secrets.GOOGLE_SHEETS_DEMO_GOOGLE_API_KEY }}
-      GOOGLE_SHEETS_DEMO_GOOGLE_CLOUD_PROJECT_NUMBER: ${{ secrets.GOOGLE_SHEETS_DEMO_GOOGLE_CLOUD_PROJECT_NUMBER }}
+      GOOGLE_SHEETS_CLIENT_ID: ${{ secrets.GOOGLE_SHEETS_CLIENT_ID }}
+      GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
+      GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER: ${{ secrets.GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER }}
 
     steps:
       - name: Check Out Repository
@@ -42,14 +46,14 @@ jobs:
       - name: Run Repository Check
         run: make check
 
-      - name: Verify Demo Build Secrets
+      - name: Verify App Build Secrets
         shell: bash
         run: |
           missing=()
           for name in \
-            GOOGLE_SHEETS_DEMO_GOOGLE_CLIENT_ID \
-            GOOGLE_SHEETS_DEMO_GOOGLE_API_KEY \
-            GOOGLE_SHEETS_DEMO_GOOGLE_CLOUD_PROJECT_NUMBER
+            GOOGLE_SHEETS_CLIENT_ID \
+            GOOGLE_SHEETS_API_KEY \
+            GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER
           do
             if [[ -z "${!name}" ]]; then
               missing+=("$name")
@@ -70,15 +74,15 @@ jobs:
       - name: Log In To GHCR
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Demo Image Metadata
+      - name: Extract App Image Metadata
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
         with:
-          images: ghcr.io/${{ github.repository }}-google-sheets-demo
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           flavor: latest=false
           tags: |
             type=raw,value=latest
@@ -89,14 +93,14 @@ jobs:
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
         with:
           context: .
-          file: examples/google_sheets_demo/Dockerfile
+          file: apps/google_sheets/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          cache-from: type=gha,scope=google-sheets-demo-image
-          cache-to: type=gha,mode=max,scope=google-sheets-demo-image
+          cache-from: type=gha,scope=google-sheets-image
+          cache-to: type=gha,mode=max,scope=google-sheets-image
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            GOOGLE_SHEETS_DEMO_GOOGLE_CLIENT_ID=${{ env.GOOGLE_SHEETS_DEMO_GOOGLE_CLIENT_ID }}
-            GOOGLE_SHEETS_DEMO_GOOGLE_API_KEY=${{ env.GOOGLE_SHEETS_DEMO_GOOGLE_API_KEY }}
-            GOOGLE_SHEETS_DEMO_GOOGLE_CLOUD_PROJECT_NUMBER=${{ env.GOOGLE_SHEETS_DEMO_GOOGLE_CLOUD_PROJECT_NUMBER }}
+            GOOGLE_SHEETS_CLIENT_ID=${{ env.GOOGLE_SHEETS_CLIENT_ID }}
+            GOOGLE_SHEETS_API_KEY=${{ env.GOOGLE_SHEETS_API_KEY }}
+            GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER=${{ env.GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER }}

@@ -19,11 +19,12 @@ COPY src /opt/openfoodfacts-data-quality/src
 RUN /root/.local/bin/uv venv --seed --python ${PYTHON_VERSION} /opt/openfoodfacts-data-quality/.venv \
     && /opt/openfoodfacts-data-quality/.venv/bin/pip install --no-cache-dir '/opt/openfoodfacts-data-quality[app]'
 
-COPY app /opt/openfoodfacts-data-quality/app
+COPY migration /opt/openfoodfacts-data-quality/migration
+COPY ui /opt/openfoodfacts-data-quality/ui
 COPY config /opt/openfoodfacts-data-quality/config
 COPY scripts /opt/openfoodfacts-data-quality/scripts
 
-RUN chmod +x /opt/openfoodfacts-data-quality/app/legacy_backend/off_runtime.pl \
+RUN chmod +x /opt/openfoodfacts-data-quality/migration/legacy_backend/off_runtime.pl \
     && mkdir -p /opt/openfoodfacts-data-quality/data
 
 ENV PYTHONUNBUFFERED=1 \
@@ -34,7 +35,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 EXPOSE 8000
 
-CMD ["/opt/openfoodfacts-data-quality/.venv/bin/python", "-m", "app.main"]
+CMD ["/opt/openfoodfacts-data-quality/.venv/bin/python", "-m", "migration.cli"]
 
 FROM runtime-base AS demo
 

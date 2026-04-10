@@ -3,7 +3,7 @@
 # Review a run report
 
 Use this guide when you need to understand the outcome of one
-[application run](../explanation/application-runs.md).
+[migration run](../explanation/migration-runs.md).
 
 ## Before you begin
 

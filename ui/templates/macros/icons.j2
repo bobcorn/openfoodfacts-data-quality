@@ -1,0 +1,5 @@
+{% macro icon(name, class_name="button__icon") -%}
+        <svg class="{{ class_name }}" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <use href="#icon-{{ name }}"></use>
+        </svg>
+{%- endmacro %}

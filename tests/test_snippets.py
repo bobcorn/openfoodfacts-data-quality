@@ -4,8 +4,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from app.legacy_source import LegacySourceIndex, resolve_legacy_module_paths
-from app.report.snippets import (
+import migration.legacy_source as legacy_source_module
+import pytest
+from migration.legacy_source import (
+    LegacySourceIndex,
+    resolve_legacy_module_paths,
+    resolve_legacy_source_root,
+)
+from migration.report.snippets import (
     SNIPPETS_ARTIFACT_KIND,
     SNIPPETS_ARTIFACT_SCHEMA_VERSION,
     SnippetArtifact,
@@ -14,7 +20,7 @@ from app.report.snippets import (
     build_snippet_artifact,
 )
 
-from openfoodfacts_data_quality.checks.catalog import CheckCatalog
+from off_data_quality.catalog import CheckCatalog
 
 
 def test_build_code_snippet_panels_renders_from_structured_snippet_artifact() -> None:
@@ -73,7 +79,7 @@ def test_build_snippet_artifact_is_machine_readable(
     assert implementation_snippet["definition_language"] == "python"
     assert (
         implementation_snippet["path"]
-        == "src/openfoodfacts_data_quality/checks/packs/python/global_checks.py"
+        == "off_data_quality/checks/packs/python/global_checks.py"
     )
     assert isinstance(implementation_snippet["start_line"], int)
     assert isinstance(implementation_snippet["end_line"], int)
@@ -181,3 +187,27 @@ def test_build_snippet_artifact_degrades_without_legacy_source_for_legacy_checks
     assert issues[0]["severity"] == "warning"
     assert issues[0]["check_ids"] == ["en:serving-quantity-over-product-quantity"]
     assert {snippet["origin"] for snippet in snippet_list} == {"implementation"}
+
+
+def test_resolve_legacy_source_root_finds_sibling_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "workspace" / "openfoodfacts-data-quality"
+    app_dir = project_root / "app"
+    fake_module_path = app_dir / "legacy_source.py"
+    fake_module_path.parent.mkdir(parents=True)
+    fake_module_path.write_text("# stub\n", encoding="utf-8")
+
+    legacy_root = project_root.parent / "openfoodfacts-server"
+    product_opener_dir = legacy_root / "lib" / "ProductOpener"
+    product_opener_dir.mkdir(parents=True)
+    (product_opener_dir / "DataQualityFood.pm").write_text(
+        "package ProductOpener::DataQualityFood;\n1;\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.delenv("LEGACY_SOURCE_ROOT", raising=False)
+    monkeypatch.setattr(legacy_source_module, "__file__", str(fake_module_path))
+
+    assert resolve_legacy_source_root() == legacy_root

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from openfoodfacts_data_quality.checks.legacy import (
+from off_data_quality.catalog import (
     legacy_code_template_key,
     matches_legacy_check_code,
 )

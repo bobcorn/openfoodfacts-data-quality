@@ -3,7 +3,7 @@
 # Use the Python library
 
 Use the Python library when you already have loaded rows and want findings
-without application source loading, reference caching, or report rendering.
+without migration source loading, reference caching, or report rendering.
 
 ## Install the package
 
@@ -21,6 +21,9 @@ To install it without a source checkout:
    python -m pip install /path/to/openfoodfacts_data_quality-<VERSION>-py3-none-any.whl
    ```
 
+The wheel file uses the distribution name `openfoodfacts_data_quality`. After
+installation, import the library from `off_data_quality`.
+
 If you already have a source checkout, you can install the package from the
 repository root instead:
 
@@ -30,7 +33,7 @@ python -m pip install .
 
 ## Import the API
 
-The current public entry point is:
+The main public entry point is:
 
 - `off_data_quality.checks`
 
@@ -39,11 +42,11 @@ It exposes:
 - `checks.list(...)`
 - `checks.run(...)`
 
-Import the public library from `off_data_quality`. The shared implementation
-and contracts live under `openfoodfacts_data_quality/` inside `src/`.
+Import the public library from `off_data_quality`. In a source checkout, the
+shared implementation and contracts live under `src/off_data_quality/`.
 
-`off_data_quality.snapshots` exists as a placeholder namespace for a future
-direct enrichment API, but it does not expose runnable entry points yet.
+`off_data_quality.snapshots` remains reserved for a future direct enrichment
+API, but it does not expose runnable entry points yet.
 
 ## Run on loaded rows
 
@@ -114,16 +117,16 @@ The public library does not include:
 - report generation
 - artifact serialization
 - [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)
-  orchestration in the application
+  orchestration in migration tooling
 
-Those responsibilities stay in the application layer.
+Those responsibilities stay in the migration tooling.
 
-## Choose the library or the application
+## Choose the library or migration tooling
 
 Use the library for programmatic findings inside Python callers.
 
-Use the application when you need
-[source loading](../explanation/application-runs.md#run-overview),
+Use migration tooling when you need
+[source loading](../explanation/migration-runs.md#run-overview),
 [reference](../explanation/reference-data-and-parity.md),
 [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison),
 or the [HTML report](../reference/report-artifacts.md#html-report).

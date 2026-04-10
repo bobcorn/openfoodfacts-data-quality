@@ -9,28 +9,31 @@ This repository is a framework prototype for migrating Open Food Facts data qual
 
 ## Use the repository
 
-You can use the repository in two ways:
+You can use the repository in three ways:
 
-- Use the shared runtime in `src/openfoodfacts_data_quality/` to run checks
+- Use the shared runtime in `src/off_data_quality/` to run checks
   directly from Python. See
   [About the runtime model](docs/explanation/runtime-model.md).
-- Use the application layer in `app/` for complete runs. It loads a full-product
-  source snapshot and resolves
-  [reference data](docs/explanation/reference-data-and-parity.md) when the run
+- Use the migration tooling in `migration/` for complete runs. It loads a full
+  product source snapshot and resolves
+  [reference](docs/explanation/reference-data-and-parity.md) when the run
   needs it. It also handles
   [strict comparison](docs/explanation/reference-data-and-parity.md#strict-comparison),
   stored review data, and [report artifacts](docs/reference/report-artifacts.md).
+- Use the Google Sheets app in `apps/google_sheets/` when you want a browser
+  workflow that writes findings back to Google Sheets. See
+  [Run the Google Sheets app](apps/google_sheets/README.md).
 
-## Run the demo
+## Run the migration demo
 
-Use the demo image to inspect the full
-[application flow](docs/explanation/application-runs.md) without cloning the
+Use the migration demo image to inspect the full
+[migration flow](docs/explanation/migration-runs.md) without cloning the
 repository.
 
 1. Run the published image:
 
    ```bash
-   docker run --rm -p 8000:8000 ghcr.io/bobcorn/openfoodfacts-data-quality-demo
+   docker run --rm -p 8000:8000 ghcr.io/bobcorn/migration-demo
    ```
 
 2. Open the report at `http://localhost:8000`.
@@ -38,7 +41,7 @@ repository.
 The container loads the bundled sample snapshot, runs the shipped checks,
 writes the report artifacts, and serves the generated site on port `8000`.
 
-## Run the application locally
+## Run the migration tooling locally
 
 Use this procedure when you work in the repository.
 
@@ -55,14 +58,15 @@ Use this procedure when you work in the repository.
    cp .env.example .env
    ```
 
-3. Build and start the application:
+3. Build and start the migration tooling:
 
    ```bash
    docker compose up --build
    ```
 
 4. Open the report at `http://localhost:8000`, unless you changed
-   `PORT` in `.env`.
+   `MIGRATION_PORT` in `.env`. The local Compose flow binds to `127.0.0.1`
+   by default.
 
 For local run details, see
 [Run the project locally](docs/how-to/run-the-project-locally.md).
@@ -90,7 +94,7 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
    make quality
    ```
 
-Use Docker for application runs that need reference results and for local
+Use Docker for migration runs that need reference results and for local
 preview.
 
 ## Use the Python library

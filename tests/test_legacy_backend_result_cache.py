@@ -6,13 +6,13 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from app.reference.cache import (
+from migration.reference.cache import (
     LEGACY_BACKEND_FINGERPRINT_ENV_VAR,
     LEGACY_BACKEND_FINGERPRINT_PATHS,
     LEGACY_SOURCE_ROOT_ENV_VAR,
+    REFERENCE_RESULT_APPLICATION_FINGERPRINT_PATHS,
     REFERENCE_RESULT_CACHE_DIR_ENV_VAR,
     REFERENCE_RESULT_CACHE_SALT_ENV_VAR,
-    REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS,
     ReferenceResultCache,
     ReferenceResultCacheIdentity,
     ReferenceResultCacheMetadata,
@@ -21,7 +21,9 @@ from app.reference.cache import (
     reference_result_cache_key,
     reference_result_cache_manifest_path,
 )
-from app.reference.models import REFERENCE_RESULT_SCHEMA_VERSION, ReferenceResult
+from migration.reference.models import REFERENCE_RESULT_SCHEMA_VERSION, ReferenceResult
+
+from off_data_quality.metadata import packaged_runtime_fingerprint
 
 ReferenceResultFactory = Callable[..., ReferenceResult]
 
@@ -42,7 +44,7 @@ def _prepare_local_backend_result_execution(
     project_root = tmp_path / "project"
     _write_fingerprint_inputs(
         project_root,
-        REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS,
+        REFERENCE_RESULT_APPLICATION_FINGERPRINT_PATHS,
     )
 
     backend_root = tmp_path / "openfoodfacts-server"
@@ -121,7 +123,9 @@ def test_reference_result_cache_key_prefers_explicit_legacy_backend_fingerprint(
     digest = hashlib.sha256()
     digest.update(f"schema:{REFERENCE_RESULT_SCHEMA_VERSION}".encode())
     digest.update(b"env:backend-image:demo")
-    for relative_path in REFERENCE_RESULT_EXECUTION_FINGERPRINT_PATHS:
+    digest.update(packaged_runtime_fingerprint().encode("utf-8"))
+    for relative_path in REFERENCE_RESULT_APPLICATION_FINGERPRINT_PATHS:
+        digest.update(str(relative_path).encode("utf-8"))
         digest.update((project_root / relative_path).read_bytes())
     assert cache_key == digest.hexdigest()[:12]
 
@@ -152,7 +156,7 @@ def test_reference_result_cache_key_changes_when_backend_input_payloads_change(
         monkeypatch,
     )
     first_key = reference_result_cache_key(project_root)
-    (project_root / "app/legacy_backend/input_payloads.py").write_text(
+    (project_root / "migration/legacy_backend/input_payloads.py").write_text(
         "payloads = 'changed'\n",
         encoding="utf-8",
     )

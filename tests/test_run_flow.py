@@ -5,76 +5,77 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, Protocol, TypeVar
 
-import app.application as application_module
-import app.run.execution as execution_module
-import app.run.orchestrator as orchestrator_module
-import app.run.preparation as preparation_module
-import app.run.runners as runners_module
-import app.run.settings as settings_module
+import migration.run.execution as execution_module
+import migration.run.orchestrator as orchestrator_module
+import migration.run.preparation as preparation_module
+import migration.run.runners as runners_module
+import migration.run.settings as settings_module
+import migration.site_builder as site_builder_module
 import pytest
-from app.artifacts import (
-    ApplicationArtifacts,
+from migration.artifacts import (
+    ArtifactWorkspace,
     display_path,
-    prepare_application_artifacts,
+    prepare_artifact_workspace,
 )
-from app.migration.catalog import MigrationCatalog
-from app.reference.materializers import (
+from migration.planning import MigrationCatalog
+from migration.reference.materializers import (
     ReferenceCheckContextMaterializer,
     ReferenceFindingMaterializer,
 )
-from app.reference.models import ReferenceResult
-from app.reference.observers import NoReferenceObserver
-from app.run.context_builders import check_context_builder_for
-from app.run.execution import run_batches
-from app.run.models import (
+from migration.reference.models import ReferenceResult
+from migration.reference.observers import NoReferenceObserver
+from migration.run.context_builders import check_context_builder_for
+from migration.run.execution import run_batches
+from migration.run.models import (
     BatchExecutionContext,
     BatchExecutionResult,
     BatchRunPlan,
-    ExecutedApplicationRun,
+    ExecutedMigrationRun,
     PreparedRun,
     ResolvedReferenceResults,
     RunSpec,
     ScheduledBatch,
 )
-from app.run.preparation import prepare_run
-from app.run.profiles import ActiveCheckProfile
-from app.run.runners import (
+from migration.run.preparation import prepare_run
+from migration.run.profiles import ActiveCheckProfile
+from migration.run.runners import (
     LegacyReferenceRunner,
     MigratedRunner,
     NoReferenceRunner,
     ParityRunner,
 )
-from app.run.scheduler import BatchScheduler
-from app.source.datasets import (
+from migration.run.scheduler import BatchScheduler
+from migration.source.datasets import (
     ActiveDatasetProfile,
     SourceSelection,
     default_dataset_profile,
 )
-from app.source.models import (
+from migration.source.models import (
     ProductDocument,
     SourceBatchRecord,
+    SourceInputSummary,
 )
-from app.source.product_documents import source_batch_record_from_document
+from migration.source.product_documents import source_batch_record_from_document
 
-from openfoodfacts_data_quality.context.providers import (
+from off_data_quality.context import (
     ContextProviderId,
     context_availability_for_provider,
 )
-from openfoodfacts_data_quality.contracts.capabilities import (
+from off_data_quality.contracts.capabilities import (
     resolve_check_capabilities,
 )
-from openfoodfacts_data_quality.contracts.checks import LEGACY_PARITY_BASELINES
+from off_data_quality.contracts.checks import LEGACY_PARITY_BASELINES
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
 
-    from openfoodfacts_data_quality.checks.catalog import CheckCatalog
-    from openfoodfacts_data_quality.contracts.checks import CheckParityBaseline
-    from openfoodfacts_data_quality.contracts.context import CheckContext
-    from openfoodfacts_data_quality.contracts.findings import Finding
-    from openfoodfacts_data_quality.contracts.observations import ObservedFinding
-    from openfoodfacts_data_quality.contracts.run import RunResult
-    from openfoodfacts_data_quality.contracts.source_products import SourceProduct
+    from off_data_quality.catalog import CheckCatalog
+    from off_data_quality.contracts.checks import CheckParityBaseline
+    from off_data_quality.contracts.context import CheckContext
+    from off_data_quality.contracts.findings import Finding
+    from off_data_quality.contracts.observations import ObservedFinding
+    from off_data_quality.contracts.run import RunResult
+    from off_data_quality.contracts.source_products import SourceProduct
 
 
 class RunResultFactory(Protocol):
@@ -356,12 +357,12 @@ def _batch_execution_result(
     )
 
 
-def test_prepare_application_artifacts_recreates_latest_tree(tmp_path: Path) -> None:
+def test_prepare_artifact_workspace_recreates_latest_tree(tmp_path: Path) -> None:
     stale_file = tmp_path / "artifacts" / "latest" / "stale.txt"
     stale_file.parent.mkdir(parents=True)
     stale_file.write_text("stale", encoding="utf-8")
 
-    artifacts = prepare_application_artifacts(tmp_path)
+    artifacts = prepare_artifact_workspace(tmp_path)
 
     assert artifacts.artifacts_dir == tmp_path / "artifacts" / "latest"
     assert artifacts.site_dir == artifacts.artifacts_dir / "site"
@@ -429,13 +430,15 @@ def test_prepare_run_collects_profile_and_definition_counts(
     def fake_source_snapshot_id_for(_: Path) -> str:
         return "snapshot-123"
 
-    def fake_count_source_products(
+    source_input_summary = SourceInputSummary(processed_product_count=42)
+
+    def fake_summarize_source_input(
         _: Path,
         *,
         selection: SourceSelection | None = None,
-    ) -> int:
+    ) -> SourceInputSummary:
         assert selection == active_dataset_profile.selection
-        return 42
+        return source_input_summary
 
     def fake_get_default_check_catalog() -> CheckCatalog:
         return default_check_catalog
@@ -470,8 +473,8 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     monkeypatch.setattr(
         preparation_module,
-        "count_source_products",
-        fake_count_source_products,
+        "summarize_source_input",
+        fake_summarize_source_input,
     )
     monkeypatch.setattr(
         preparation_module,
@@ -528,6 +531,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     assert prepared.runtime_only_count == sum(
         1 for check in active_profile.checks if check.parity_baseline == "none"
     )
+    assert prepared.source_input_summary == source_input_summary
     assert prepared.active_dataset_profile == active_dataset_profile
     assert prepared.active_migration_plan.family_count == 0
     assert prepared.requires_reference_check_contexts is False
@@ -637,7 +641,7 @@ def test_configured_source_dataset_profile_name_normalizes_blank_values(
 
 def test_build_site_requires_existing_source_snapshot_path(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="Source snapshot not found"):
-        application_module.build_site(
+        site_builder_module.build_site(
             RunSpec(
                 project_root=tmp_path,
                 db_path=tmp_path / "data" / "missing.duckdb",
@@ -651,7 +655,7 @@ def test_build_site_requires_existing_source_snapshot_path(tmp_path: Path) -> No
         )
 
 
-def test_application_site_builder_prefers_store_backed_rendering(
+def test_report_site_builder_prefers_store_backed_rendering(
     monkeypatch: pytest.MonkeyPatch,
     run_result_factory: RunResultFactory,
     tmp_path: Path,
@@ -660,11 +664,11 @@ def test_application_site_builder_prefers_store_backed_rendering(
     render_calls: list[tuple[str, Path]] = []
 
     def fake_execute(
-        _: orchestrator_module.ApplicationRunner,
-    ) -> ExecutedApplicationRun:
-        return ExecutedApplicationRun(
+        _: orchestrator_module.MigrationRunner,
+    ) -> ExecutedMigrationRun:
+        return ExecutedMigrationRun(
             run_result=run_result_factory(),
-            artifacts=ApplicationArtifacts(
+            artifact_workspace=ArtifactWorkspace(
                 artifacts_dir=tmp_path / "artifacts" / "latest",
                 site_dir=site_dir,
                 legacy_backend_stderr_path=(
@@ -688,19 +692,19 @@ def test_application_site_builder_prefers_store_backed_rendering(
             "in-memory renderer should not be used when a store exists"
         )
 
-    monkeypatch.setattr(orchestrator_module.ApplicationRunner, "execute", fake_execute)
+    monkeypatch.setattr(orchestrator_module.MigrationRunner, "execute", fake_execute)
     monkeypatch.setattr(
-        application_module,
+        site_builder_module,
         "render_report_from_store",
         fake_render_report_from_store,
     )
     monkeypatch.setattr(
-        application_module,
+        site_builder_module,
         "render_report",
         unexpected_render_report,
     )
 
-    site_path = application_module.ApplicationSiteBuilder(
+    site_path = site_builder_module.ReportSiteBuilder(
         RunSpec(
             project_root=tmp_path,
             db_path=tmp_path / "data" / "products.duckdb",
@@ -718,27 +722,29 @@ def test_application_site_builder_prefers_store_backed_rendering(
     assert render_calls == [("store", site_dir)]
 
 
-def test_application_site_builder_uses_in_memory_rendering_without_store(
+def test_report_site_builder_uses_in_memory_rendering_without_store(
     monkeypatch: pytest.MonkeyPatch,
     run_result_factory: RunResultFactory,
     tmp_path: Path,
 ) -> None:
     site_dir = tmp_path / "artifacts" / "latest" / "site"
     run_result = run_result_factory()
-    render_calls: list[tuple[object, Path]] = []
+    source_input_summary = SourceInputSummary(processed_product_count=2)
+    render_calls: list[tuple[object, Path, SourceInputSummary]] = []
 
     def fake_execute(
-        _: orchestrator_module.ApplicationRunner,
-    ) -> ExecutedApplicationRun:
-        return ExecutedApplicationRun(
+        _: orchestrator_module.MigrationRunner,
+    ) -> ExecutedMigrationRun:
+        return ExecutedMigrationRun(
             run_result=run_result,
-            artifacts=ApplicationArtifacts(
+            artifact_workspace=ArtifactWorkspace(
                 artifacts_dir=tmp_path / "artifacts" / "latest",
                 site_dir=site_dir,
                 legacy_backend_stderr_path=(
                     tmp_path / "artifacts" / "latest" / "legacy-backend-stderr.log"
                 ),
             ),
+            source_input_summary=source_input_summary,
         )
 
     def fake_render_report(
@@ -746,26 +752,28 @@ def test_application_site_builder_uses_in_memory_rendering_without_store(
         output_dir: Path,
         *,
         legacy_source_root: Path | None = None,
+        source_input_summary: SourceInputSummary | None = None,
     ) -> None:
         del legacy_source_root
-        render_calls.append((resolved_run_result, output_dir))
+        assert source_input_summary is not None
+        render_calls.append((resolved_run_result, output_dir, source_input_summary))
 
     def unexpected_render_report_from_store(*_: object, **__: object) -> None:
         raise AssertionError("store-backed renderer should not be used without a store")
 
-    monkeypatch.setattr(orchestrator_module.ApplicationRunner, "execute", fake_execute)
+    monkeypatch.setattr(orchestrator_module.MigrationRunner, "execute", fake_execute)
     monkeypatch.setattr(
-        application_module,
+        site_builder_module,
         "render_report",
         fake_render_report,
     )
     monkeypatch.setattr(
-        application_module,
+        site_builder_module,
         "render_report_from_store",
         unexpected_render_report_from_store,
     )
 
-    site_path = application_module.ApplicationSiteBuilder(
+    site_path = site_builder_module.ReportSiteBuilder(
         RunSpec(
             project_root=tmp_path,
             db_path=tmp_path / "data" / "products.duckdb",
@@ -779,7 +787,7 @@ def test_application_site_builder_uses_in_memory_rendering_without_store(
     ).build()
 
     assert site_path == site_dir
-    assert render_calls == [(run_result, site_dir)]
+    assert render_calls == [(run_result, site_dir, source_input_summary)]
 
 
 def test_warns_when_legacy_backend_workers_exceed_batch_workers(

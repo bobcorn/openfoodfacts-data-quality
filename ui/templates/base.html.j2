@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="icon" href="{% block favicon_href %}/favicon.ico{% endblock %}" sizes="any">
+{% block head_assets %}{% endblock %}
+  </head>
+  <body{% block body_attributes %}{% endblock %}>
+{% include "partials/icon_sprite.j2" %}
+    <main class="{% block main_class %}page-frame{% endblock %}">
+{% block before_content %}{% endblock %}
+{% block main_content %}{% endblock %}
+    </main>
+{% block after_main %}{% endblock %}
+{% block scripts %}{% endblock %}
+  </body>
+</html>

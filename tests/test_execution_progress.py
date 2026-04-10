@@ -4,8 +4,8 @@ import logging
 from dataclasses import dataclass
 
 import pytest
-from app.run.models import BatchStageTimings
-from app.run.progress import (
+from migration.run.models import BatchStageTimings
+from migration.run.progress import (
     ExecutionProgressConfig,
     ExecutionProgressReporter,
     build_execution_plan,
@@ -98,7 +98,7 @@ def test_execution_progress_reporter_logs_heartbeat(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     reporter = _progress_reporter()
-    monkeypatch.setattr("app.run.progress.perf_counter", lambda: 15.0)
+    monkeypatch.setattr("migration.run.progress.perf_counter", lambda: 15.0)
     caplog.set_level(logging.INFO)
 
     reporter.log_heartbeat(
@@ -118,7 +118,7 @@ def test_execution_progress_reporter_logs_completed_batch_with_stage_timings(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     reporter = _progress_reporter()
-    monkeypatch.setattr("app.run.progress.perf_counter", lambda: 12.0)
+    monkeypatch.setattr("migration.run.progress.perf_counter", lambda: 12.0)
     caplog.set_level(logging.INFO)
 
     reporter.log_batch_completed(

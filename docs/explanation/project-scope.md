@@ -11,10 +11,10 @@ run locally, and evolve.
 ## Why the repository is split
 
 The repository keeps reusable runtime logic in
-`src/openfoodfacts_data_quality/` and application orchestration in `app/`.
+`src/off_data_quality/` and migration orchestration in `migration/`.
 
-Python callers can use the shared runtime without the application layer.
-Compared runs and enriched snapshot application runs still depend on the legacy backend
+Python callers can use the shared runtime without the migration tooling.
+Compared runs and enriched snapshot migration runs still depend on the legacy backend
 through the
 [reference path](reference-data-and-parity.md#why-the-reference-path-exists).
 Live backend execution happens only on cache misses.
@@ -38,7 +38,7 @@ For the repository map and the architecture overview diagram, see
 - the shared [runtime contracts](../reference/data-contracts.md)
 - the [`CheckContext`](runtime-model.md#checkcontext) model
 - the packaged [check catalog](../reference/check-metadata-and-selection.md)
-- [application runs](application-runs.md) as a regular workflow
+- [migration runs](migration-runs.md) as a regular workflow
 - [run and snippet artifacts](../reference/report-artifacts.md)
 - review data from one completed run in the parity store
 
@@ -54,7 +54,7 @@ For the repository map and the architecture overview diagram, see
 
 - The repository is not yet a full replacement for every legacy data-quality
   rule.
-- Compared runs and enriched snapshot application runs still depend on the
+- Compared runs and enriched snapshot migration runs still depend on the
   [ReferenceResult](../reference/data-contracts.md#referenceresult) contract
   and the
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)
@@ -66,7 +66,7 @@ For the repository map and the architecture overview diagram, see
 ## Related information
 
 - [About the system architecture](system-architecture.md)
-- [About application runs](application-runs.md)
+- [About migration runs](migration-runs.md)
 - [Roadmap and open questions](../project/roadmap-and-open-questions.md)
 
 [Back to documentation index](../index.md)

@@ -7,11 +7,11 @@ from pathlib import Path
 
 from _bootstrap import SRC_ROOT, bootstrap_paths
 
-PACKAGE_ROOT = SRC_ROOT / "openfoodfacts_data_quality"
+PACKAGE_ROOT = SRC_ROOT / "off_data_quality"
 
 bootstrap_paths()
 
-from openfoodfacts_data_quality.checks.dsl.parser import load_dsl_definitions
+from off_data_quality.checks.dsl.parser import load_dsl_definitions
 
 
 def main() -> int:

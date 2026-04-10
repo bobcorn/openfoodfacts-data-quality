@@ -26,7 +26,7 @@ flowchart TB
         F --> G
     end
 
-    subgraph APP["Application contracts"]
+    subgraph APP["Migration contracts"]
         H["ObservedFinding"]
         I["RunCheckResult"]
         J["RunResult"]
@@ -61,36 +61,37 @@ input is not supported.
 
 Reference points:
 
-- Canonical model: `src/openfoodfacts_data_quality/contracts/source_products.py`
+- Canonical model: `src/off_data_quality/contracts/source_products.py`
 - `checks` API: `src/off_data_quality/checks/__init__.py`
 - Related runtime provider: `source_products`
 
-`off_data_quality` is the public import namespace. The shared implementation
-and contracts live under `openfoodfacts_data_quality/`.
+`off_data_quality` is the public import namespace. In a source checkout, the
+shared implementation and contracts live under `src/off_data_quality/`. Wheel
+files use the distribution name `openfoodfacts_data_quality`.
 
 Checks that only need source product fields can stay on this provider and avoid
-enriched snapshots. In application runs, checks on this provider can still need
+enriched snapshots. In migration runs, checks on this provider can still need
 the [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 when strict comparison requires reference findings.
 
-Application runs load full product documents into the app-owned
+Migration runs load full product documents into the migration-owned
 `ProductDocument` contract and project a `SourceProduct` view for the migrated
 runtime.
 
 ### ProductDocument
 
-`ProductDocument` is the app-owned full product contract for parity runs. It is
+`ProductDocument` is the migration-owned full product contract for parity runs. It is
 not part of the public library API.
 
-Application source adapters build `ProductDocument` values from JSONL source
+Migration source adapters build `ProductDocument` values from JSONL source
 snapshots or DuckDB snapshots with a `products` table. The reference path sends
 that full document to the legacy backend. The migrated runtime receives a
 derived `SourceProduct` view from the same batch record.
 
 Reference point:
 
-- Contract: `app/source/models.py`
-- Application source adapters: `app/source/product_documents.py`
+- Contract: `migration/source/models.py`
+- Migration source adapters: `migration/source/product_documents.py`
 
 ### EnrichedSnapshotRecord
 
@@ -103,7 +104,7 @@ It wraps:
 - an `enriched_snapshot` payload with structured `product`, `flags`,
   `category_props`, and `nutrition` sections
 
-In [application runs](../explanation/application-runs.md), the legacy backend
+In [migration runs](../explanation/migration-runs.md), the legacy backend
 emits a versioned result envelope whose stable payload includes
 `ReferenceResult.enriched_snapshot`. The repository also keeps
 `off_data_quality.snapshots` reserved as the future public namespace for direct
@@ -122,12 +123,12 @@ It includes:
 - `contract_version`
 - `reference_result`
 
-Python validates this envelope before the application uses the underlying
+Python validates this envelope before migration tooling uses the underlying
 `ReferenceResult` payload.
 
 ### ReferenceResult
 
-The application
+The migration tooling
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 returns `ReferenceResult`.
 
@@ -138,7 +139,7 @@ Fields:
 - `legacy_check_tags`
 
 This contract is owned by the Python runtime even when the legacy backend
-produces the payload. The application then derives:
+produces the payload. The migration tooling then derives:
 
 - `CheckContext` for `enriched_snapshots` migrated-check input
 - normalized reference findings for strict comparison
@@ -160,7 +161,7 @@ The chosen provider changes:
   must run
 - which check context fields are available
 
-The application also has
+The migration tooling also has
 [dataset profiles](run-configuration-and-artifacts.md#dataset-profiles), but
 those profiles change which rows are selected for one run, not the runtime
 contract itself.
@@ -178,8 +179,6 @@ providers share one execution model. It also defines the dotted paths used by
 [DSL](../explanation/migrated-checks.md#definition-languages) and capability
 resolution.
 
-## Context providers
-
 ## Output and review contracts
 
 ### Finding
@@ -195,7 +194,7 @@ comparison.
 
 ### RunCheckResult
 
-`RunCheckResult` is the application result for one check. It records the check
+`RunCheckResult` is the migration result for one check. It records the check
 definition, whether the check is `compared` or `runtime_only`, migrated counts,
 reference counts, exact mismatch totals, and retained mismatch examples.
 
@@ -203,7 +202,7 @@ The retained examples are capped by the configured mismatch example budget.
 
 ### RunResult
 
-`RunResult` is the canonical application summary for one run. It drives the
+`RunResult` is the canonical migration summary for one run. It drives the
 [HTML report](report-artifacts.md#html-report),
 [`run.json`](report-artifacts.md#runjson),
 [snippet artifacts](report-artifacts.md#snippetsjson), and JSON download
@@ -224,8 +223,8 @@ It wraps:
 - recorded dataset profile metadata
 - active migration family metadata
 
-This model belongs to the application review layer. It is not part of the reusable
-library surface.
+This model belongs to the migration review layer. It is not part of the
+reusable library surface.
 
 ## Stability
 

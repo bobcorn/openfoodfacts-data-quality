@@ -17,13 +17,13 @@ consumes. Python validates the backend envelope and then works with
 
 ## Why the reference path exists
 
-The reference path is the flow in the application that resolves the data needed
+The reference path is the flow in migration tooling that resolves the data needed
 for one run or one batch.
 
 It exists because:
 
 - compared checks need reference findings for strict comparison
-- enriched snapshot application runs need
+- enriched snapshot migration runs need
   [`CheckContext`](../reference/data-contracts.md#checkcontext) values projected
   from [ReferenceResult](../reference/data-contracts.md#referenceresult)
 
@@ -32,7 +32,7 @@ It exists because:
 The reference path checks the
 [reference result cache](../reference/run-configuration-and-artifacts.md#reference-result-cache)
 first. On a cache hit, the run reuses an existing `ReferenceResult`. On a cache
-miss, the application projects the needed input into the legacy backend
+miss, migration tooling projects the needed input into the legacy backend
 boundary, gets a backend result, validates it, and stores the resulting
 reference payload in the cache namespace for that run contract.
 
@@ -115,7 +115,7 @@ findings instead of assuming the migrated implementation is already correct.
 ## Related information
 
 - [About migrated checks](migrated-checks.md)
-- [About application runs](application-runs.md)
+- [About migration runs](migration-runs.md)
 - [Data contracts](../reference/data-contracts.md)
 
 [Back to documentation index](../index.md)

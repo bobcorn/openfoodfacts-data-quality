@@ -1,15 +1,16 @@
-name: openfoodfacts-data-quality
+name: migration
 
 services:
-  run_app:
-    image: openfoodfacts-data-quality:local
+  app:
+    image: migration:local
     build:
       context: .
       target: runtime
     init: true
     ports:
-      - "${PORT:-8000}:8000"
+      - "${MIGRATION_BIND_HOST:-127.0.0.1}:${MIGRATION_PORT:-8000}:${MIGRATION_PORT:-8000}"
     environment:
+      PORT: "${MIGRATION_PORT:-8000}"
       SOURCE_SNAPSHOT_PATH: /work/source-snapshot
       BATCH_SIZE: "${BATCH_SIZE:-5000}"
       BATCH_WORKERS: "${BATCH_WORKERS:-}"

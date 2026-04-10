@@ -2,7 +2,7 @@
 
 # Legacy backend image
 
-Compared runs and enriched snapshot application runs rely on this image when the
+Compared runs and enriched snapshot migration runs rely on this image when the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 needs backend materialization.
 
@@ -77,7 +77,7 @@ produced by the backend.
 That includes:
 
 - [`enriched_snapshots`](../explanation/runtime-model.md#context-providers) runs,
-  because the application reference path materializes
+  because the migration reference path materializes
   `CheckContext` data through the backend
 - compared
   [`source_products`](../explanation/runtime-model.md#context-providers) runs,
@@ -95,7 +95,7 @@ reference findings, and no enriched snapshots.
 ## Local checkout
 
 A local checkout of `openfoodfacts-server` is not required for the normal
-[Docker application flow](../how-to/run-the-project-locally.md).
+[Docker migration flow](../how-to/run-the-project-locally.md).
 
 The container already embeds the backend runtime and sets
 `LEGACY_BACKEND_FINGERPRINT` from the pinned image reference.

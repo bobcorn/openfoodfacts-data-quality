@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from openfoodfacts_data_quality.contracts.capabilities import (
+from off_data_quality.contracts.capabilities import (
     CheckCapability,
     CheckCapabilityReport,
     ContextAvailability,
@@ -8,7 +8,7 @@ from openfoodfacts_data_quality.contracts.capabilities import (
     resolve_check_capabilities,
     supports_context_paths,
 )
-from openfoodfacts_data_quality.contracts.checks import CheckDefinition
+from off_data_quality.contracts.checks import CheckDefinition
 
 
 def _check_definition(
