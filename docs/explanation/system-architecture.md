@@ -107,7 +107,6 @@ code.
   loading, envelope validation, and projection onto reference findings plus
   reference check contexts
 - [RunResult](../reference/data-contracts.md#runresult) accumulation
-- migration catalog loading for planning metadata and profile filtering
 - [strict comparison](reference-data-and-parity.md#strict-comparison)
 - parity store persistence for run telemetry, mismatches, and review metadata
 - [report rendering](../reference/report-artifacts.md#html-report), snippet

@@ -42,22 +42,6 @@ def main() -> None:
         if run_spec.parity_store_path is not None
         else "disabled",
     )
-    LOGGER.info(
-        "[Config] Legacy inventory artifact: %s",
-        (
-            run_spec.legacy_inventory_artifact_path
-            if run_spec.legacy_inventory_artifact_path is not None
-            else "disabled"
-        ),
-    )
-    LOGGER.info(
-        "[Config] Legacy estimation sheet: %s",
-        (
-            run_spec.legacy_estimation_sheet_path
-            if run_spec.legacy_estimation_sheet_path is not None
-            else "disabled"
-        ),
-    )
     site_dir = build_site(run_spec)
     url = f"http://localhost:{preview_settings.port}/"
     LOGGER.info("[Preview] Report ready.")

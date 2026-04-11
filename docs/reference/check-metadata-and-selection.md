@@ -44,26 +44,6 @@ use these filters, then apply provider capability from the selected
 library APIs use the same context-path capability check on the selected runtime
 provider.
 
-## Migration profile extras
-
-Migration check profiles add selection behavior that is separate from the
-check definition itself:
-
-- `mode`: `all` or `include`
-- `check_ids`: explicit ids for profiles with `mode = "include"`
-- `migration_target_impls`
-- `migration_sizes`
-- `migration_risks`
-
-The migration fields filter profiles. They only work when migration tooling
-loads a migration catalog, and they are applied after the base catalog
-selection succeeds.
-
-`migration_target_impls = ["dsl"]` selects only checks whose active migration
-family is planned for `dsl`.
-
-The reusable library APIs do not use those migration filters.
-
 ## Parity baseline
 
 `parity_baseline` answers one question: should this check participate in parity

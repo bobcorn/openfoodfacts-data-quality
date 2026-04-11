@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from off_data_quality.contracts.observations import ObservedFinding
     from off_data_quality.contracts.run import RunCheckResult, RunResult
 
-PARITY_STORE_SCHEMA_VERSION = 1
+PARITY_STORE_SCHEMA_VERSION = 2
 
 
 class NoopRunRecorder(AbstractContextManager["NoopRunRecorder"]):
@@ -99,7 +99,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         self._ensure_store_schema()
         self._register_run()
         self._snapshot_dataset_profile()
-        self._snapshot_migration_families()
 
     def record_batch(self, batch_result: BatchExecutionResult) -> None:
         """Persist one merged batch and its concrete mismatches."""
@@ -376,11 +375,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 active_dataset_profile_name varchar,
                 active_dataset_selection_kind varchar,
                 active_dataset_selection_fingerprint varchar,
-                active_migration_family_count integer,
-                assessed_migration_family_count integer,
-                unmatched_migration_check_count integer,
-                legacy_inventory_artifact_path varchar,
-                legacy_estimation_sheet_path varchar,
                 compared_check_count integer,
                 reference_total integer,
                 compared_migrated_total integer,
@@ -461,42 +455,8 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         )
         connection.execute(
             """
-            create table if not exists run_active_migration_families (
-                run_id varchar not null,
-                check_id varchar not null,
-                template_key varchar not null,
-                code_templates_json text not null,
-                placeholder_names_json text not null,
-                placeholder_count integer not null,
-                has_loop boolean not null,
-                has_branching boolean not null,
-                has_arithmetic boolean not null,
-                helper_calls_json text not null,
-                source_files_count integer not null,
-                source_subroutines_count integer not null,
-                unsupported_data_quality_emission_count_total integer not null,
-                line_span_max integer not null,
-                statement_count_max integer not null,
-                target_impl varchar,
-                size varchar,
-                risk varchar,
-                estimated_hours varchar,
-                rationale text,
-                is_assessed boolean not null,
-                primary key (run_id, check_id)
-            )
-            """
-        )
-        connection.execute(
-            """
             create index if not exists run_mismatches_by_run_check
             on run_mismatches (run_id, check_id)
-            """
-        )
-        connection.execute(
-            """
-            create index if not exists run_active_migration_families_by_run
-            on run_active_migration_families (run_id, check_id)
             """
         )
 
@@ -537,11 +497,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 active_dataset_profile_name,
                 active_dataset_selection_kind,
                 active_dataset_selection_fingerprint,
-                active_migration_family_count,
-                assessed_migration_family_count,
-                unmatched_migration_check_count,
-                legacy_inventory_artifact_path,
-                legacy_estimation_sheet_path,
                 compared_check_count,
                 reference_total,
                 compared_migrated_total,
@@ -551,7 +506,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 failure_type,
                 failure_message
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 self.prepared_run.run_id,
@@ -589,19 +544,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                 self.prepared_run.active_dataset_profile.name,
                 self.prepared_run.active_dataset_profile.selection.kind,
                 self.prepared_run.active_dataset_profile.selection.fingerprint,
-                self.prepared_run.active_migration_plan.family_count,
-                self.prepared_run.active_migration_plan.assessed_family_count,
-                len(self.prepared_run.active_migration_plan.missing_check_ids),
-                (
-                    str(self.run_spec.legacy_inventory_artifact_path)
-                    if self.run_spec.legacy_inventory_artifact_path is not None
-                    else None
-                ),
-                (
-                    str(self.run_spec.legacy_estimation_sheet_path)
-                    if self.run_spec.legacy_estimation_sheet_path is not None
-                    else None
-                ),
                 None,
                 None,
                 None,
@@ -639,66 +581,6 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
                     dataset_profile.selection.as_payload(),
                     ensure_ascii=False,
                 ),
-            ],
-        )
-
-    def _snapshot_migration_families(self) -> None:
-        """Persist the active migration-family metadata for this run."""
-        connection = self._require_connection()
-        if not self.prepared_run.active_migration_plan.families:
-            return
-        connection.executemany(
-            """
-            insert into run_active_migration_families (
-                run_id,
-                check_id,
-                template_key,
-                code_templates_json,
-                placeholder_names_json,
-                placeholder_count,
-                has_loop,
-                has_branching,
-                has_arithmetic,
-                helper_calls_json,
-                source_files_count,
-                source_subroutines_count,
-                unsupported_data_quality_emission_count_total,
-                line_span_max,
-                statement_count_max,
-                target_impl,
-                size,
-                risk,
-                estimated_hours,
-                rationale,
-                is_assessed
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                [
-                    self.prepared_run.run_id,
-                    family.check_id,
-                    family.template_key,
-                    json.dumps(list(family.code_templates), ensure_ascii=False),
-                    json.dumps(list(family.placeholder_names), ensure_ascii=False),
-                    family.placeholder_count,
-                    family.has_loop,
-                    family.has_branching,
-                    family.has_arithmetic,
-                    json.dumps(list(family.helper_calls), ensure_ascii=False),
-                    family.source_files_count,
-                    family.source_subroutines_count,
-                    family.unsupported_data_quality_emission_count_total,
-                    family.line_span_max,
-                    family.statement_count_max,
-                    family.target_impl,
-                    family.size,
-                    family.risk,
-                    family.estimated_hours,
-                    family.rationale,
-                    family.is_assessed,
-                ]
-                for family in self.prepared_run.active_migration_plan.families
             ],
         )
 

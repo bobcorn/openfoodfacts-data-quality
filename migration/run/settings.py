@@ -19,8 +19,6 @@ CHECK_PROFILE_ENV_VAR = "CHECK_PROFILE"
 SOURCE_DATASET_PROFILE_ENV_VAR = "SOURCE_DATASET_PROFILE"
 PORT_ENV_VAR = "PORT"
 PARITY_STORE_PATH_ENV_VAR = "PARITY_STORE_PATH"
-MIGRATION_INVENTORY_PATH_ENV_VAR = "MIGRATION_INVENTORY_PATH"
-MIGRATION_ESTIMATION_SHEET_PATH_ENV_VAR = "MIGRATION_ESTIMATION_SHEET_PATH"
 
 DEFAULT_BATCH_SIZE = 5_000
 DEFAULT_MISMATCH_EXAMPLES_LIMIT = 20
@@ -40,8 +38,6 @@ def configured_run_spec(
     check_profile_name: str | None = None,
     parity_store_path: Path | None = None,
     dataset_profile_name: str | None = None,
-    legacy_inventory_artifact_path: Path | None = None,
-    legacy_estimation_sheet_path: Path | None = None,
 ) -> RunSpec:
     """Return the explicit run spec for one local migration execution."""
     return RunSpec(
@@ -82,16 +78,6 @@ def configured_run_spec(
             if parity_store_path is None
             else parity_store_path.expanduser().resolve()
         ),
-        legacy_inventory_artifact_path=(
-            configured_migration_inventory_path(project_root)
-            if legacy_inventory_artifact_path is None
-            else legacy_inventory_artifact_path.expanduser().resolve()
-        ),
-        legacy_estimation_sheet_path=(
-            configured_migration_estimation_sheet_path(project_root)
-            if legacy_estimation_sheet_path is None
-            else legacy_estimation_sheet_path.expanduser().resolve()
-        ),
     )
 
 
@@ -108,40 +94,6 @@ def configured_check_profile_name() -> str | None:
 def configured_source_dataset_profile_name() -> str | None:
     """Return the selected source dataset profile, if explicitly configured."""
     return _configured_optional_name(SOURCE_DATASET_PROFILE_ENV_VAR)
-
-
-def configured_migration_inventory_path(project_root: Path) -> Path | None:
-    """Return the optional migration inventory artifact used for run metadata."""
-    configured = os.environ.get(MIGRATION_INVENTORY_PATH_ENV_VAR)
-    if configured is not None:
-        normalized = configured.strip()
-        if not normalized:
-            return None
-        return Path(normalized).expanduser().resolve()
-
-    default_path = (
-        project_root / "artifacts" / "legacy_inventory" / "legacy_families.json"
-    ).resolve()
-    if default_path.exists():
-        return default_path
-    return None
-
-
-def configured_migration_estimation_sheet_path(project_root: Path) -> Path | None:
-    """Return the optional estimation sheet used for migration planning metadata."""
-    configured = os.environ.get(MIGRATION_ESTIMATION_SHEET_PATH_ENV_VAR)
-    if configured is not None:
-        normalized = configured.strip()
-        if not normalized:
-            return None
-        return Path(normalized).expanduser().resolve()
-
-    default_path = (
-        project_root / "artifacts" / "legacy_inventory" / "estimation_sheet.csv"
-    ).resolve()
-    if default_path.exists():
-        return default_path
-    return None
 
 
 def _configured_optional_name(env_var: str) -> str | None:

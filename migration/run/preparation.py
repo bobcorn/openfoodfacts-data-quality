@@ -6,7 +6,6 @@ from pathlib import Path
 from time import perf_counter
 
 from migration.artifacts import display_path
-from migration.planning import load_migration_catalog
 from migration.reference.observers import reference_observer_for
 from migration.run.context_builders import check_context_builder_for
 from migration.run.models import PreparedRun, RunPreparationTimings, RunSpec
@@ -60,15 +59,10 @@ def prepare_run(
             source_input_summary.skipped_row_count,
         )
     check_catalog = get_default_check_catalog()
-    migration_catalog = load_migration_catalog(
-        artifact_path=run_spec.legacy_inventory_artifact_path,
-        estimation_sheet_path=run_spec.legacy_estimation_sheet_path,
-    )
     active_check_profile = load_check_profile(
         run_spec.profile_config_path,
         run_spec.check_profile_name,
         catalog=check_catalog,
-        migration_catalog=migration_catalog,
     )
     evaluators = check_catalog.select_evaluators(active_check_profile.check_ids)
     python_count = sum(
@@ -108,9 +102,6 @@ def prepare_run(
             source_row_count_seconds=source_row_count_seconds,
         ),
         active_dataset_profile=active_dataset_profile,
-        active_migration_plan=migration_catalog.active_plan_for_check_ids(
-            active_check_profile.check_ids
-        ),
     )
 
 
@@ -142,12 +133,6 @@ def log_run_configuration(
         "[Checks] Legacy parity backed checks: %d. Runtime-only checks: %d.",
         run.legacy_parity_count,
         run.runtime_only_count,
-    )
-    logger.info(
-        "[Migration] Active families: %d matched, %d assessed, %d unmatched checks.",
-        run.active_migration_plan.family_count,
-        run.active_migration_plan.assessed_family_count,
-        len(run.active_migration_plan.missing_check_ids),
     )
     logger.info(
         "[Reference Path] Result cache: %s",

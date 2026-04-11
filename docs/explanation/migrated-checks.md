@@ -102,16 +102,6 @@ Profiles can narrow the active checks by:
 - [parity baseline](reference-data-and-parity.md#parity-baselines)
 - jurisdiction
 - explicit check ids in profiles with `mode = "include"`
-- optional migration metadata filters such as target implementation, size, or
-  risk when migration tooling has a migration catalog
-
-Those migration filters live on the profile, not on the check definition. They
-let one migration run focus on a planning subset without changing the
-underlying packaged checks.
-
-For example, one profile can select only checks whose matched migration family
-is planned for `dsl` or marked as low risk. This creates a planning subset
-without forking the check catalog itself.
 
 ## Why this split matters
 

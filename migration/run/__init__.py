@@ -3,8 +3,6 @@
 from migration.run.models import ExecutedMigrationRun, PreviewSettings, RunSpec
 from migration.run.settings import (
     configured_check_profile_name,
-    configured_migration_estimation_sheet_path,
-    configured_migration_inventory_path,
     configured_parity_store_path,
     configured_preview_settings,
     configured_run_spec,
@@ -17,8 +15,6 @@ __all__ = [
     "PreviewSettings",
     "RunSpec",
     "configured_check_profile_name",
-    "configured_migration_estimation_sheet_path",
-    "configured_migration_inventory_path",
     "configured_parity_store_path",
     "configured_preview_settings",
     "configured_source_dataset_profile_name",

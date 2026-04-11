@@ -36,7 +36,6 @@ This command adds `mypy`, `vulture`, `pyright`, and `jscpd`.
   evaluation
 - [check profile](../explanation/migrated-checks.md#check-profiles) and dataset
   profile selection
-- migration catalog loading and planning filters
 - [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
   loading and caching behavior
 - [strict comparison](../explanation/reference-data-and-parity.md#strict-comparison)

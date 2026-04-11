@@ -17,7 +17,6 @@ from migration.artifacts import (
     display_path,
     prepare_artifact_workspace,
 )
-from migration.planning import MigrationCatalog
 from migration.reference.materializers import (
     ReferenceCheckContextMaterializer,
     ReferenceFindingMaterializer,
@@ -451,19 +450,15 @@ def test_prepare_run_collects_profile_and_definition_counts(
         assert profile_name == "smoke"
         return active_dataset_profile
 
-    loaded_migration_catalog = MigrationCatalog()
-
     def fake_load_check_profile(
         config_path: Path,
         profile_name: str | None = None,
         *,
         catalog: CheckCatalog | None = None,
-        migration_catalog: MigrationCatalog | None = None,
     ) -> ActiveCheckProfile:
         assert config_path == tmp_path / "config" / "check-profiles.toml"
         assert profile_name == "ignored"
         assert catalog is default_check_catalog
-        assert migration_catalog is loaded_migration_catalog
         return active_profile
 
     monkeypatch.setattr(
@@ -490,15 +485,6 @@ def test_prepare_run_collects_profile_and_definition_counts(
         preparation_module,
         "load_check_profile",
         fake_load_check_profile,
-    )
-
-    def fake_load_migration_catalog(**_: object) -> MigrationCatalog:
-        return loaded_migration_catalog
-
-    monkeypatch.setattr(
-        preparation_module,
-        "load_migration_catalog",
-        fake_load_migration_catalog,
     )
 
     prepared = prepare_run(
@@ -533,7 +519,6 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     assert prepared.source_input_summary == source_input_summary
     assert prepared.active_dataset_profile == active_dataset_profile
-    assert prepared.active_migration_plan.family_count == 0
     assert prepared.requires_reference_check_contexts is False
     assert prepared.requires_reference_findings is True
     assert prepared.requires_reference_results is True
@@ -579,14 +564,6 @@ def test_configured_run_spec_collects_runtime_configuration(
     monkeypatch.setenv("CHECK_PROFILE", "focused")
     monkeypatch.setenv("SOURCE_DATASET_PROFILE", "smoke")
     monkeypatch.setenv("PARITY_STORE_PATH", str(parity_store_path))
-    monkeypatch.setenv(
-        "MIGRATION_INVENTORY_PATH",
-        str(tmp_path / "legacy" / "legacy_families.json"),
-    )
-    monkeypatch.setenv(
-        "MIGRATION_ESTIMATION_SHEET_PATH",
-        str(tmp_path / "legacy" / "estimation_sheet.csv"),
-    )
 
     run_spec = settings_module.configured_run_spec(tmp_path)
 
@@ -599,14 +576,6 @@ def test_configured_run_spec_collects_runtime_configuration(
     assert run_spec.check_profile_name == "focused"
     assert run_spec.dataset_profile_name == "smoke"
     assert run_spec.parity_store_path == parity_store_path.resolve()
-    assert (
-        run_spec.legacy_inventory_artifact_path
-        == (tmp_path / "legacy" / "legacy_families.json").resolve()
-    )
-    assert (
-        run_spec.legacy_estimation_sheet_path
-        == (tmp_path / "legacy" / "estimation_sheet.csv").resolve()
-    )
     assert (
         run_spec.reference_result_cache_dir
         == (tmp_path / "data" / "reference_result_cache").resolve()

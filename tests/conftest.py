@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import csv
-import json
 from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
@@ -103,10 +101,6 @@ class CatalogWithChecksFactory(Protocol):
 
 class LegacySourceRootFactory(Protocol):
     def __call__(self, tmp_path: Path) -> Path: ...
-
-
-class MigrationInventoryFactory(Protocol):
-    def __call__(self, tmp_path: Path) -> tuple[Path, Path]: ...
 
 
 @pytest.fixture
@@ -330,96 +324,6 @@ sub check_incompatible_tags ($product_ref) {
             encoding="utf-8",
         )
         return legacy_root
-
-    return factory
-
-
-@pytest.fixture
-def migration_inventory_factory() -> MigrationInventoryFactory:
-    def factory(tmp_path: Path) -> tuple[Path, Path]:
-        artifact_path = tmp_path / "legacy_families.json"
-        estimation_path = tmp_path / "estimation_sheet.csv"
-        artifact_path.write_text(
-            json.dumps(
-                {
-                    "version": 2,
-                    "families": [
-                        {
-                            "check_id": "en:legacy-check-a",
-                            "template_key": "en:legacy-check-a",
-                            "code_templates": ["en:legacy-check-a"],
-                            "placeholder_names": [],
-                            "placeholder_count": 0,
-                            "features": {
-                                "has_loop": False,
-                                "has_branching": False,
-                                "has_arithmetic": False,
-                                "helper_calls": [],
-                                "source_files_count": 1,
-                                "source_subroutines_count": 1,
-                                "unsupported_data_quality_emission_count_total": 0,
-                                "line_span_max": 10,
-                                "statement_count_max": 3,
-                            },
-                        },
-                        {
-                            "check_id": "en:legacy-check-b",
-                            "template_key": "en:legacy-check-b",
-                            "code_templates": ["en:legacy-check-b"],
-                            "placeholder_names": [],
-                            "placeholder_count": 0,
-                            "features": {
-                                "has_loop": False,
-                                "has_branching": False,
-                                "has_arithmetic": False,
-                                "helper_calls": [],
-                                "source_files_count": 1,
-                                "source_subroutines_count": 1,
-                                "unsupported_data_quality_emission_count_total": 0,
-                                "line_span_max": 11,
-                                "statement_count_max": 4,
-                            },
-                        },
-                    ],
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        with estimation_path.open("w", encoding="utf-8", newline="") as csv_file:
-            writer = csv.DictWriter(
-                csv_file,
-                fieldnames=[
-                    "check_id",
-                    "target_impl",
-                    "size",
-                    "risk",
-                    "estimated_hours",
-                    "rationale",
-                ],
-            )
-            writer.writeheader()
-            writer.writerows(
-                [
-                    {
-                        "check_id": "en:legacy-check-a",
-                        "target_impl": "dsl",
-                        "size": "S",
-                        "risk": "low",
-                        "estimated_hours": "1",
-                        "rationale": "Simple DSL migration.",
-                    },
-                    {
-                        "check_id": "en:legacy-check-b",
-                        "target_impl": "python",
-                        "size": "L",
-                        "risk": "high",
-                        "estimated_hours": "8",
-                        "rationale": "Complex helper-heavy migration.",
-                    },
-                ]
-            )
-        return artifact_path, estimation_path
 
     return factory
 
