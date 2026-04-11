@@ -9,7 +9,6 @@ from migration._value_shapes import (
     is_object_list,
     is_string_object_mapping,
 )
-from migration.planning import MigrationCatalog, MigrationFamily
 from off_data_quality.catalog import CheckCatalog, get_default_check_catalog
 from off_data_quality.context import (
     context_availability_for_provider,
@@ -72,9 +71,6 @@ class _RequestedCheckProfile:
     jurisdictions: tuple[CheckJurisdiction, ...] | None
     mode: _ProfileMode
     requested_check_ids: tuple[str, ...]
-    migration_target_impls: tuple[str, ...] | None
-    migration_sizes: tuple[str, ...] | None
-    migration_risks: tuple[str, ...] | None
 
     @property
     def selection(self) -> CheckSelection:
@@ -90,16 +86,11 @@ def load_check_profile(
     profile_name: str | None = None,
     *,
     catalog: CheckCatalog | None = None,
-    migration_catalog: MigrationCatalog | None = None,
 ) -> ActiveCheckProfile:
     """Load and validate one named check profile from TOML config."""
     selected_catalog = catalog or get_default_check_catalog()
     requested_profile = _load_requested_profile(config_path, profile_name)
-    active_checks = _apply_migration_filters(
-        _select_active_checks(selected_catalog, requested_profile),
-        requested_profile=requested_profile,
-        migration_catalog=migration_catalog,
-    )
+    active_checks = _select_active_checks(selected_catalog, requested_profile)
 
     return ActiveCheckProfile(
         name=requested_profile.name,
@@ -128,6 +119,7 @@ def _load_requested_profile(
     parity_baselines = _profile_parity_baselines(selected_profile, selected_name)
     jurisdictions = _profile_jurisdictions(selected_profile, selected_name)
     mode = _profile_mode(selected_profile, selected_name)
+    _reject_removed_migration_profile_fields(selected_profile, selected_name)
     return _RequestedCheckProfile(
         name=selected_name,
         description=description,
@@ -136,21 +128,6 @@ def _load_requested_profile(
         jurisdictions=jurisdictions,
         mode=mode,
         requested_check_ids=_profile_check_ids(selected_profile, selected_name, mode),
-        migration_target_impls=_optional_string_tuple(
-            selected_profile,
-            field="migration_target_impls",
-            profile_name=selected_name,
-        ),
-        migration_sizes=_optional_string_tuple(
-            selected_profile,
-            field="migration_sizes",
-            profile_name=selected_name,
-        ),
-        migration_risks=_optional_string_tuple(
-            selected_profile,
-            field="migration_risks",
-            profile_name=selected_name,
-        ),
     )
 
 
@@ -284,6 +261,28 @@ def _profile_mode(
     )
 
 
+def _reject_removed_migration_profile_fields(
+    selected_profile: StringObjectMapping,
+    selected_name: str,
+) -> None:
+    """Reject profile fields from the removed migration-planning runtime."""
+    removed_fields = [
+        field
+        for field in (
+            "migration_target_impls",
+            "migration_sizes",
+            "migration_risks",
+        )
+        if field in selected_profile
+    ]
+    if removed_fields:
+        raise ValueError(
+            "Invalid check profile config: profile "
+            f"{selected_name} uses removed migration planning fields: "
+            f"{', '.join(removed_fields)}."
+        )
+
+
 def _profile_check_ids(
     selected_profile: StringObjectMapping,
     selected_name: str,
@@ -384,76 +383,6 @@ def _select_checks_available_to_profile(
     )
 
 
-def _apply_migration_filters(
-    checks: tuple[CheckDefinition, ...],
-    *,
-    requested_profile: _RequestedCheckProfile,
-    migration_catalog: MigrationCatalog | None,
-) -> tuple[CheckDefinition, ...]:
-    """Apply optional migration-planning filters after base catalog selection."""
-    if not _profile_uses_migration_filters(requested_profile):
-        return checks
-    if migration_catalog is None or not migration_catalog.families:
-        raise ValueError(
-            f"Invalid check profile config: profile {requested_profile.name} requires migration metadata filters, but no migration catalog is configured."
-        )
-    families_by_check_id = migration_catalog.families_by_check_id
-    filtered_checks = tuple(
-        check
-        for check in checks
-        if _matches_migration_filters(
-            check=check,
-            requested_profile=requested_profile,
-            families_by_check_id=families_by_check_id,
-        )
-    )
-    if filtered_checks:
-        return filtered_checks
-    raise ValueError(
-        f"Invalid check profile config: profile {requested_profile.name} selects no checks after applying migration metadata filters."
-    )
-
-
-def _profile_uses_migration_filters(requested_profile: _RequestedCheckProfile) -> bool:
-    """Return whether this profile constrains checks by migration metadata."""
-    return any(
-        values is not None
-        for values in (
-            requested_profile.migration_target_impls,
-            requested_profile.migration_sizes,
-            requested_profile.migration_risks,
-        )
-    )
-
-
-def _matches_migration_filters(
-    *,
-    check: CheckDefinition,
-    requested_profile: _RequestedCheckProfile,
-    families_by_check_id: Mapping[str, MigrationFamily],
-) -> bool:
-    """Return whether one selected check satisfies the optional planning filters."""
-    family = families_by_check_id.get(check.id)
-    if family is None:
-        return False
-    if (
-        requested_profile.migration_target_impls is not None
-        and family.target_impl not in requested_profile.migration_target_impls
-    ):
-        return False
-    if (
-        requested_profile.migration_sizes is not None
-        and family.size not in requested_profile.migration_sizes
-    ):
-        return False
-    if (
-        requested_profile.migration_risks is not None
-        and family.risk not in requested_profile.migration_risks
-    ):
-        return False
-    return True
-
-
 def _translated_profile_selection_error(
     requested_profile: _RequestedCheckProfile,
     exc: ValueError,
@@ -490,22 +419,3 @@ def _normalize_check_ids(
             f"Invalid check profile config: profile {profile_name} contains no usable check ids."
         )
     return tuple(normalized)
-
-
-def _optional_string_tuple(
-    selected_profile: StringObjectMapping,
-    *,
-    field: str,
-    profile_name: str,
-) -> tuple[str, ...] | None:
-    """Return one optional string tuple field from the selected profile."""
-    raw_values = selected_profile.get(field)
-    if raw_values is None:
-        return None
-    return tuple(
-        _required_string_list(
-            raw_values,
-            field=field,
-            profile_name=profile_name,
-        )
-    )

@@ -6,11 +6,6 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from migration.planning import (
-    ActiveMigrationPlan,
-    MigrationAssessment,
-    MigrationFamily,
-)
 from migration.reference.observers import NoReferenceObserver
 from migration.report.renderer import render_report_from_store
 from migration.run.context_builders import check_context_builder_for
@@ -90,28 +85,6 @@ def test_duckdb_run_recorder_persists_batches_mismatches_and_final_summary(
         assert dataset_row[0] == "validation"
         assert dataset_row[1] == "stable_sample"
         assert str(dataset_row[2]).startswith("sha256:")
-
-        migration_row = connection.execute(
-            """
-            select
-                check_id,
-                target_impl,
-                size,
-                risk,
-                is_assessed
-            from run_active_migration_families
-            where run_id = ?
-            order by check_id
-            """,
-            [run_result.run_id],
-        ).fetchone()
-        assert migration_row == (
-            "en:quantity-not-recognized",
-            "dsl",
-            "S",
-            "low",
-            True,
-        )
 
         mismatch_rows = connection.execute(
             """
@@ -219,15 +192,6 @@ def test_load_recorded_run_snapshot_reads_store_backed_metadata(
     assert snapshot.dataset_profile is not None
     assert snapshot.dataset_profile.name == "validation"
     assert snapshot.dataset_profile.selection_kind == "stable_sample"
-    assert snapshot.active_migration_family_count == 1
-    assert snapshot.assessed_migration_family_count == 1
-    assert snapshot.unmatched_migration_check_count == 1
-    assert (
-        snapshot.migration_families_by_check_id[
-            "en:quantity-not-recognized"
-        ].target_impl
-        == "dsl"
-    )
 
 
 def test_load_recorded_run_benchmark_summary_reads_stage_timings(
@@ -326,7 +290,7 @@ def test_duckdb_run_recorder_recreates_legacy_store_schema(
     run_result_factory: Callable[[], RunResult],
 ) -> None:
     parity_store_path = tmp_path / "parity-store.duckdb"
-    _seed_parity_store_meta(parity_store_path, schema_version=2)
+    _seed_parity_store_meta(parity_store_path, schema_version=1)
 
     run_result = run_result_factory()
     _open_run_recorder_once(
@@ -459,34 +423,6 @@ def _prepared_run_for_result(run_result: RunResult, tmp_path: Path) -> PreparedR
                 sample_size=1000,
                 seed=42,
             ),
-        ),
-        active_migration_plan=ActiveMigrationPlan(
-            families=(
-                MigrationFamily(
-                    check_id="en:quantity-not-recognized",
-                    template_key="en:quantity-not-recognized",
-                    code_templates=("en:quantity-not-recognized",),
-                    placeholder_names=(),
-                    placeholder_count=0,
-                    has_loop=False,
-                    has_branching=False,
-                    has_arithmetic=False,
-                    helper_calls=(),
-                    source_files_count=1,
-                    source_subroutines_count=1,
-                    unsupported_data_quality_emission_count_total=0,
-                    line_span_max=12,
-                    statement_count_max=4,
-                    assessment=MigrationAssessment(
-                        target_impl="dsl",
-                        size="S",
-                        risk="low",
-                        estimated_hours="1",
-                        rationale="Straightforward template migration.",
-                    ),
-                ),
-            ),
-            missing_check_ids=("en:product-name-to-be-completed",),
         ),
     )
 

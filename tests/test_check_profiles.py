@@ -5,7 +5,6 @@ from importlib.resources.abc import Traversable
 from pathlib import Path
 
 import pytest
-from migration.planning import load_migration_catalog
 from migration.run.profiles import load_check_profile
 
 from off_data_quality.catalog import (
@@ -179,23 +178,16 @@ check_context_provider = "source_products"
     assert profile.check_ids == ("en:legacy-check",)
 
 
-def test_load_check_profile_applies_migration_metadata_filters(
+def test_load_check_profile_rejects_removed_migration_metadata_filters(
     tmp_path: Path,
-    check_definition_factory: Callable[..., CheckDefinition],
-    catalog_with_checks_factory: Callable[..., CheckCatalog],
-    migration_inventory_factory: Callable[[Path], tuple[Path, Path]],
 ) -> None:
-    catalog = catalog_with_checks_factory(
-        check_definition_factory("en:legacy-check-a"),
-        check_definition_factory("en:legacy-check-b"),
-    )
     config_path = tmp_path / "check-profiles.toml"
     config_path.write_text(
         """
 default_profile = "dsl_focus"
 
 [profiles.dsl_focus]
-description = "Runs only low-risk DSL migration families."
+description = "Attempts to use removed migration metadata filters."
 mode = "all"
 check_context_provider = "source_products"
 migration_target_impls = ["dsl"]
@@ -203,19 +195,12 @@ migration_risks = ["low"]
 """.strip(),
         encoding="utf-8",
     )
-    artifact_path, estimation_path = migration_inventory_factory(tmp_path)
-    migration_catalog = load_migration_catalog(
-        artifact_path=artifact_path,
-        estimation_sheet_path=estimation_path,
-    )
 
-    profile = load_check_profile(
-        config_path,
-        catalog=catalog,
-        migration_catalog=migration_catalog,
-    )
-
-    assert profile.check_ids == ("en:legacy-check-a",)
+    with pytest.raises(
+        ValueError,
+        match="uses removed migration planning fields",
+    ):
+        load_check_profile(config_path)
 
 
 def test_shipped_full_profile_includes_runtime_only_checks() -> None:

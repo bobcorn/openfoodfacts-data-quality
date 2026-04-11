@@ -11,14 +11,12 @@ report artifacts plus stored review data.
 flowchart TB
     subgraph INPUT["Input"]
         A["JSONL or DuckDB Source Snapshot"]
-        B["Optional Migration Metadata"]
     end
 
     subgraph PREP["Run Preparation"]
         D["Resolve Snapshot Metadata"]
-        E["Load Dataset and Check Profiles"]
-        F["Load Migration Plan and Review Settings"]
-        D --> E --> F
+        E["Load Dataset, Check Profiles, and Review Settings"]
+        D --> E
     end
 
     subgraph SOURCE["Selected Source Batches"]
@@ -60,8 +58,7 @@ flowchart TB
     U["Legacy Backend Runtime"]
 
     A --> D
-    B --> F
-    F --> H
+    E --> H
     H --> I
     H --> L
     U -.-> I
@@ -77,7 +74,7 @@ flowchart TB
 One run moves through these stages:
 
 1. Resolve snapshot metadata. Load the active dataset and check profiles. Load
-   optional migration metadata and review settings.
+   review settings.
 2. Stream ordered source batches from the configured source snapshot using the
    active dataset profile.
 3. Resolve
@@ -106,18 +103,13 @@ The run layer resolves:
 - the
   [reference result cache](../reference/run-configuration-and-artifacts.md#reference-result-cache)
   namespace when selected checks need reference results
-- the optional migration catalog and the active migration family coverage for
-  the selected checks
 - [parity store](../reference/run-configuration-and-artifacts.md#parity-store)
   settings
 
 The [source snapshot id](../reference/glossary.md#source-snapshot) comes from
 `SOURCE_SNAPSHOT_ID` when set, then from a `<name>.<suffix>.snapshot.json`
 sidecar, then from a file hash fallback that writes the sidecar for later runs.
-
-Optional migration metadata comes from `MIGRATION_INVENTORY_PATH` and
-`MIGRATION_ESTIMATION_SHEET_PATH`. Review settings here means the parity store
-path.
+Review settings here means the parity store path.
 
 ## Source batches
 
@@ -291,7 +283,6 @@ The parity store, when enabled, also persists:
 - batch telemetry
 - concrete mismatches
 - dataset profile metadata
-- active migration family metadata
 - a serialized copy of `run.json`
 
 `run.json` and `snippets.json` include root `kind` and `schema_version`

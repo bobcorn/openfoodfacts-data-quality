@@ -40,26 +40,6 @@ Check these settings in `.env`:
 Each one must match a profile defined in `config/check-profiles.toml` or
 `config/dataset-profiles.toml`.
 
-If a check profile uses migration filters, make sure the run also has valid
-`MIGRATION_INVENTORY_PATH` and, when needed,
-`MIGRATION_ESTIMATION_SHEET_PATH` inputs.
-
-## Fix migration metadata input errors
-
-If startup fails while loading migration metadata:
-
-- check that `MIGRATION_INVENTORY_PATH` points to an existing JSON artifact
-- keep the legacy inventory artifact on version `2`
-- check that the estimation sheet has the required columns
-- make sure every estimation-sheet `check_id` exists in the inventory artifact
-
-Local commands look for the default artifact paths when those files
-exist. Set the corresponding environment variable to a blank value if you want
-to disable that lookup for one run.
-
-For the exact JSON and CSV contracts, see
-[Migration metadata inputs](../reference/run-configuration-and-artifacts.md#migration-metadata-inputs).
-
 ## Fix source snapshot input errors
 
 The migration source reader accepts JSONL full product documents or a DuckDB

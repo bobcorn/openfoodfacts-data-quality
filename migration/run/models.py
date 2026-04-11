@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, ParamSpec, Protocol
 
-from migration.planning import ActiveMigrationPlan
 from migration.source.datasets import (
     ActiveDatasetProfile,
     SourceSelection,
@@ -142,9 +141,6 @@ class PreparedRun:
     active_dataset_profile: ActiveDatasetProfile = field(
         default_factory=default_dataset_profile
     )
-    active_migration_plan: ActiveMigrationPlan = field(
-        default_factory=ActiveMigrationPlan
-    )
 
     def with_reference_result_cache(
         self,
@@ -170,7 +166,6 @@ class PreparedRun:
             source_input_summary=self.source_input_summary,
             preparation_timings=self.preparation_timings,
             active_dataset_profile=self.active_dataset_profile,
-            active_migration_plan=self.active_migration_plan,
         )
 
     @property
@@ -215,8 +210,6 @@ class RunSpec:
     check_profile_name: str | None = None
     parity_store_path: Path | None = None
     dataset_profile_name: str | None = None
-    legacy_inventory_artifact_path: Path | None = None
-    legacy_estimation_sheet_path: Path | None = None
 
     @property
     def profile_config_path(self) -> Path:

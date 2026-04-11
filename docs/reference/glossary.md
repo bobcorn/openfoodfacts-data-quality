@@ -106,16 +106,6 @@ For execution details, see
 - `parity`
   strict comparison between reference and migrated findings
 
-### Migration planning
-
-- `migration catalog`
-  migration-owned view of legacy families plus optional planning metadata
-- `migration family`
-  one legacy emission family joined with optional assessment fields such as
-  target implementation, size, and risk
-- `active migration plan`
-  migration family coverage for the active checks in one run
-
 ### Legacy backend
 
 - `legacy backend`

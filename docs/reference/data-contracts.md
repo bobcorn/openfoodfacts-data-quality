@@ -221,7 +221,6 @@ It wraps:
 - the persisted `run.json` payload
 - the validated `RunResult`
 - recorded dataset profile metadata
-- active migration family metadata
 
 This model belongs to the migration review layer. It is not part of the
 reusable library surface.
