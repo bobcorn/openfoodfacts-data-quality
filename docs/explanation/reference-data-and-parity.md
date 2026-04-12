@@ -36,18 +36,18 @@ miss, migration tooling projects the needed input into the legacy backend
 boundary, gets a backend result, validates it, and stores the resulting
 reference payload in the cache namespace for that run contract.
 
-### Compared source product runs still use the reference path
+### Strict parity runs always use the reference path
 
-Compared source product runs still need the reference path. `source_products`
-on the migrated side only means that the migrated context comes from source
-products. The comparison still needs reference findings.
+Strict parity runs always need the reference path. The migrated side now runs
+on `enriched_snapshots` during migration parity, and the comparison still
+needs reference findings from the validated backend payload.
 
 ```mermaid
 flowchart TB
     subgraph COMP["Compared Run"]
         A["Selected Source Batch"]
         B["Reference Path"]
-        C["Migrated Runtime"]
+        C["Migrated Runtime<br/>(enriched snapshots)"]
         D["Reference Findings"]
         E["Migrated Findings"]
         F["Strict Comparison"]
@@ -108,9 +108,10 @@ checks that run without comparison in the same profile.
 The parity model keeps comparison explicit.
 
 Reference data is loaded only when selected checks need it. Checks that run
-without comparison skip that path. Compared runs still preserve fidelity to
-trusted backend behavior because they compare against validated reference
-findings instead of assuming the migrated implementation is already correct.
+without comparison skip that path. Strict parity preserves fidelity to trusted
+backend behavior because it compares migrated findings on enriched snapshots
+against validated reference findings instead of assuming the migrated
+implementation is already correct.
 
 ## Related information
 

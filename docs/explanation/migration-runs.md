@@ -60,7 +60,6 @@ flowchart TB
     A --> D
     E --> H
     H --> I
-    H --> L
     U -.-> I
     K --> L
     J --> O
@@ -113,11 +112,10 @@ Review settings here means the parity store path.
 
 ## Source batches
 
-Source batches come from migration-owned JSONL and DuckDB adapters. Each batch record keeps
-the full [`ProductDocument`](../reference/data-contracts.md#productdocument) for
-the reference path and a projected
-[`SourceProduct`](../reference/data-contracts.md#sourceproduct) for the migrated
-runtime.
+Source batches come from migration-owned JSONL and DuckDB adapters. Each batch
+record keeps the full
+[`ProductDocument`](../reference/data-contracts.md#productdocument) for the
+reference path.
 
 DuckDB source snapshots must expose a `products` table with a `code` column.
 JSONL source snapshots must contain one product document object per nonblank
@@ -156,15 +154,17 @@ If the run does not need reference results, this branch is skipped.
 
 ## Context building and execution
 
-The migrated runtime builds
-[check contexts](runtime-model.md#checkcontext) from:
+The migrated runtime in migration runs builds
+[check contexts](runtime-model.md#checkcontext) from `CheckContext` values
+projected from
+[`ReferenceResult`](../reference/data-contracts.md#referenceresult) for
+`enriched_snapshots`.
+
+In direct library usage, the shared runtime can also build contexts from:
 
 - [source products](../reference/data-contracts.md#sourceproduct) for `source_products`
-- `CheckContext` values projected from
-  [`ReferenceResult`](../reference/data-contracts.md#referenceresult) for
-  `enriched_snapshots` in migration runs
 - [enriched snapshots](../reference/data-contracts.md#enrichedsnapshotrecord)
-  for `enriched_snapshots` in direct library usage
+  for `enriched_snapshots`
 
 The shared engine then loads the selected evaluators and runs them on those
 check contexts. Python and DSL checks use one execution path.
@@ -201,7 +201,6 @@ flowchart TB
     end
 
     A --> B
-    A --> D
     C --> D
     C --> F
     E --> F
@@ -264,7 +263,7 @@ flowchart TB
     end
 
     B --> C
-    B --> D --> E
+    B --> D
     C -- "No parity store" --> F --> H
     C -- "Parity store enabled" --> E --> G --> H
 ```

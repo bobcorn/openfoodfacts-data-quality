@@ -25,6 +25,15 @@ app = [
   "tree-sitter==0.25.2",
   "tree-sitter-language-pack==0.13.0",
 ]
+examples = [
+  "duckdb==1.4.4",
+]
+notebook = [
+  "duckdb==1.4.4",
+  "ipykernel>=6,<7",
+  "jupyterlab>=4,<5",
+  "jupytext>=1.19.1,<2",
+]
 dev = [
   "build>=1,<2",
   "coverage[toml]>=7,<8",
@@ -122,6 +131,15 @@ forbidden_modules = [
 ]
 
 [[tool.importlinter.contracts]]
+id = "migration-snapshots-boundary"
+name = "Migration stays off the reserved snapshots facade"
+type = "protected"
+protected_modules = [
+  "off_data_quality.snapshots",
+]
+allowed_importers = ["off_data_quality"]
+
+[[tool.importlinter.contracts]]
 id = "wheel-private-modules"
 name = "Wheel private modules stay inside the wheel"
 type = "protected"
@@ -130,6 +148,7 @@ protected_modules = [
   "off_data_quality._provider_api",
   "off_data_quality._row_checks_api",
   "off_data_quality._scalars",
+  "off_data_quality._source_input",
   "off_data_quality._source_product_preparation",
   "off_data_quality._source_products",
   "off_data_quality._structured_values",

@@ -2,52 +2,52 @@
 
 # About the system architecture
 
-The repository has one reusable layer in `src/`, one migration tooling in
-`migration/`, one app consumer in `apps/`, and one shared presentation layer in
+The repository has a reusable runtime in `src/`, migration tooling in
+`migration/`, app consumers in `apps/`, and a shared presentation layer in
 `ui/`.
 
 ## Project overview
 
 ```mermaid
-flowchart TB
-    subgraph CHECKS["Shared Check System"]
-        A["Python Check Packs"]
-        B["DSL Check Packs"]
-        C["Check Catalog and Metadata"]
-        D["Shared Check Runtime"]
+flowchart LR
+    subgraph RUNTIME["Shared runtime in src/off_data_quality"]
+        A["Python check packs"]
+        B["DSL check packs"]
+        C["Check catalog and metadata"]
+        D["Runtime and context builders"]
         A --> C
         B --> C
         C --> D
     end
 
-    subgraph LIB["Reusable Python Library"]
-        E["Checks API"]
-        F["Snapshots API"]
+    subgraph LIB["Library surfaces"]
+        E["checks API"]
+        F["snapshots API placeholder"]
     end
 
-    subgraph APP["Migration Tooling"]
-        G["Source and Reference Pipeline"]
-        J["Parity, Artifacts, and Report"]
-        G --> J
+    subgraph MIG["Migration tooling"]
+        G["Source loading and reference path"]
+        H["Strict parity, artifacts, and report"]
+        G --> H
     end
 
-    subgraph CONSUMER["App Consumers"]
-        L["Google Sheets App"]
+    subgraph APPS["App consumers"]
+        I["Google Sheets app"]
     end
 
-    subgraph UI["Shared UI"]
-        M["Templates and Static Assets"]
+    subgraph UI["Shared presentation layer"]
+        J["Templates and static assets"]
     end
 
-    K["Legacy Backend Runtime"]
+    K["Legacy backend runtime"]
 
-    D --> E
-    D -.-> F
-    D --> G
-    E --> L
-    M --> L
-    M --> J
-    K -.-> G
+    D -->|"exposes"| E
+    D -.->|"reserves"| F
+    D -->|"powers"| G
+    E -->|"used by"| I
+    J -->|"shared UI"| I
+    J -->|"renders"| H
+    K -.->|"materializes reference data"| G
 ```
 
 `src/off_data_quality/` owns the

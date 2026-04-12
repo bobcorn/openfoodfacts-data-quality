@@ -76,7 +76,7 @@ first run succeeds with repository data.
 
 ## Know when Docker is required
 
-Compared runs and enriched snapshot migration runs still depend on the
+Strict parity runs still depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 and the supported [legacy backend environment](../reference/legacy-backend-image.md).
 
@@ -120,9 +120,9 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
   `stage_timings`, so you can distinguish source snapshot id and row-count
   costs from batch execution costs.
 - Edit `config/check-profiles.toml` when you need a different set of checks.
-- Keep the tracked sample snapshot for short compared runs.
+- Keep the tracked sample snapshot for short strict-parity runs.
 - Switch to a larger local snapshot when you need wider coverage.
-- Use `.venv` for focused Python loops and Docker for compared validation or
+- Use `.venv` for focused Python loops and Docker for strict-parity validation or
   report preview.
 
 ## Know what persists

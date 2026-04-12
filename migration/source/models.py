@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from off_data_quality.contracts.source_products import SourceProduct
-
 
 class SourceSnapshotFormat(StrEnum):
     """Supported full-document source snapshot formats for migration runs."""
@@ -27,9 +25,8 @@ class ProductDocument:
 
 @dataclass(frozen=True, slots=True)
 class SourceBatchRecord:
-    """One migration source record with migrated and reference-side views."""
+    """One migration source record used by the strict-parity migration runtime."""
 
-    source_product: SourceProduct
     product_document: ProductDocument
 
 

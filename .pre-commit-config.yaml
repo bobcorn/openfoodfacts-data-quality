@@ -4,6 +4,14 @@ default_install_hook_types:
 minimum_pre_commit_version: "4.0.0"
 
 repos:
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.19.1
+    hooks:
+      - id: jupytext
+        files: ^examples/(notebooks|scripts)/(basic_usage|input_formats|jurisdiction_filtering)\.(ipynb|py)$
+        args: [--sync, --pipe, 'ruff format --stdin-filename {}']
+        additional_dependencies:
+          - ruff==0.15.8
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

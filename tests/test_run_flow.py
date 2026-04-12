@@ -74,7 +74,6 @@ if TYPE_CHECKING:
     from off_data_quality.contracts.findings import Finding
     from off_data_quality.contracts.observations import ObservedFinding
     from off_data_quality.contracts.run import RunResult
-    from off_data_quality.contracts.source_products import SourceProduct
 
 
 class RunResultFactory(Protocol):
@@ -159,32 +158,30 @@ class _RecordingRunRecorder:
 
 
 class _UnusedCheckContextBuilder:
-    requires_reference_check_contexts = False
+    requires_reference_check_contexts = True
 
     @property
     def context_provider(self) -> ContextProviderId:
-        return "source_products"
+        return "enriched_snapshots"
 
     def build_contexts(
         self,
         *,
-        rows: list[SourceProduct],
         reference_check_contexts: Sequence[CheckContext],
     ) -> list[CheckContext]:
         raise AssertionError(
             "Unexpected context build for "
-            f"rows={rows!r}, reference_check_contexts={reference_check_contexts!r}"
+            f"reference_check_contexts={reference_check_contexts!r}"
         )
 
     def iter_contexts(
         self,
         *,
-        rows: list[SourceProduct],
         reference_check_contexts: Sequence[CheckContext],
     ) -> Iterator[CheckContext]:
         raise AssertionError(
             "Unexpected context iteration for "
-            f"rows={rows!r}, reference_check_contexts={reference_check_contexts!r}"
+            f"reference_check_contexts={reference_check_contexts!r}"
         )
 
 
@@ -386,31 +383,32 @@ def test_prepare_run_collects_profile_and_definition_counts(
     default_check_catalog: CheckCatalog,
     tmp_path: Path,
 ) -> None:
-    source_capabilities = resolve_check_capabilities(
+    enriched_capabilities = resolve_check_capabilities(
         default_check_catalog.checks,
-        context_availability_for_provider("source_products"),
+        context_availability_for_provider("enriched_snapshots"),
     )
-    source_check_ids = {
-        capability.check_id for capability in source_capabilities.runnable_capabilities
+    enriched_check_ids = {
+        capability.check_id
+        for capability in enriched_capabilities.runnable_capabilities
     }
     python_check = next(
         check
         for check in default_check_catalog.checks
         if check.definition_language == "python"
-        and check.id in source_check_ids
+        and check.id in enriched_check_ids
         and check.parity_baseline == "legacy"
     )
     dsl_check = next(
         check
         for check in default_check_catalog.checks
         if check.definition_language == "dsl"
-        and check.id in source_check_ids
+        and check.id in enriched_check_ids
         and check.parity_baseline == "legacy"
     )
     active_profile = ActiveCheckProfile(
-        name="source_products",
+        name="legacy",
         description="Active test profile",
-        check_context_provider="source_products",
+        check_context_provider="enriched_snapshots",
         parity_baselines=LEGACY_PARITY_BASELINES,
         jurisdictions=None,
         check_ids=(python_check.id, dsl_check.id),
@@ -507,7 +505,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     assert prepared.run_id
     assert prepared.product_count == 42
     assert prepared.active_check_profile == active_profile
-    assert prepared.check_context_builder.context_provider == "source_products"
+    assert prepared.check_context_builder.context_provider == "enriched_snapshots"
     assert set(prepared.evaluators) == {python_check.id, dsl_check.id}
     assert prepared.python_count == 1
     assert prepared.dsl_count == 1
@@ -519,7 +517,7 @@ def test_prepare_run_collects_profile_and_definition_counts(
     )
     assert prepared.source_input_summary == source_input_summary
     assert prepared.active_dataset_profile == active_dataset_profile
-    assert prepared.requires_reference_check_contexts is False
+    assert prepared.requires_reference_check_contexts is True
     assert prepared.requires_reference_findings is True
     assert prepared.requires_reference_results is True
 
@@ -930,22 +928,11 @@ def test_run_batches_processes_all_batches(
 
 
 @pytest.mark.parametrize(
-    (
-        "context_provider",
-        "expected_product_name",
-        "expected_lang",
-        "expects_reference_results",
-    ),
-    [
-        ("source_products", "Source name", None, False),
-        ("enriched_snapshots", "Enriched name", "fr", True),
-    ],
+    ("expected_product_name", "expected_lang"), [("Enriched name", "fr")]
 )
-def test_execute_batch_uses_selected_context_builder(
-    context_provider: ContextProviderId,
+def test_execute_batch_uses_enriched_context_builder(
     expected_product_name: str,
     expected_lang: str | None,
-    expects_reference_results: bool,
     monkeypatch: pytest.MonkeyPatch,
     run_result_factory: RunResultFactory,
     reference_result_factory: Callable[..., ReferenceResult],
@@ -961,18 +948,14 @@ def test_execute_batch_uses_selected_context_builder(
             }
         },
     )
-    reference_result_loader = (
-        _RecordingReferenceResultLoader([reference_result])
-        if expects_reference_results
-        else None
-    )
+    reference_result_loader = _RecordingReferenceResultLoader([reference_result])
     reference_observer = _RecordingReferenceObserver(requires_reference_results=False)
     observed_contexts: list[CheckContext] = []
     expected_run_result = run_result_factory()
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
         execution=_execution_context(
-            context_provider=context_provider,
+            context_provider="enriched_snapshots",
             reference_result_loader=reference_result_loader,
             reference_observer=reference_observer,
             include_reference_check_contexts=True,
@@ -982,12 +965,9 @@ def test_execute_batch_uses_selected_context_builder(
         observed_contexts=observed_contexts,
     )
 
-    if reference_result_loader is None:
-        assert reference_observer.calls == []
-    else:
-        assert [
-            [product.code for product in call] for call in reference_result_loader.calls
-        ] == [["123"]]
+    assert [
+        [product.code for product in call] for call in reference_result_loader.calls
+    ] == [["123"]]
     assert reference_observer.calls == []
     assert [context.product.product_name for context in observed_contexts] == [
         expected_product_name
@@ -996,7 +976,7 @@ def test_execute_batch_uses_selected_context_builder(
     assert result.run_result == expected_run_result
 
 
-def test_execute_batch_loads_reference_results_for_legacy_parity_without_enriched_contexts(
+def test_execute_batch_loads_reference_results_for_legacy_parity_and_uses_enriched_contexts(
     monkeypatch: pytest.MonkeyPatch,
     run_result_factory: RunResultFactory,
     reference_result_factory: Callable[..., ReferenceResult],
@@ -1010,10 +990,10 @@ def test_execute_batch_loads_reference_results_for_legacy_parity_without_enriche
     result = _execute_batch_with_stubbed_runtime(
         batch=batch,
         execution=_execution_context(
-            context_provider="source_products",
+            context_provider="enriched_snapshots",
             reference_result_loader=reference_result_loader,
             reference_observer=reference_observer,
-            include_reference_check_contexts=False,
+            include_reference_check_contexts=True,
         ),
         expected_run_result=expected_run_result,
         monkeypatch=monkeypatch,

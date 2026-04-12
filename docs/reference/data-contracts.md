@@ -36,7 +36,6 @@ flowchart TB
 
     D --> F
     E --> F
-    L --> D
     L -.-> B
     B --> H
     B --> F
@@ -51,9 +50,23 @@ flowchart TB
 runtime and the public `checks` library API.
 
 Library callers pass rows to `off_data_quality.checks.run(...)`. It validates
-canonical rows, applies explicit column remapping when provided, normalizes the
-structured Open Food Facts product export shape when present, and then executes
-the checks.
+canonical rows, applies explicit column remapping when provided, and then
+executes the checks.
+
+The checks facade also accepts a small set of supported OFF row/document
+representations directly, including complete official CSV rows, full JSONL
+product documents, Parquet rows, and DuckDB relations loaded from those
+formats. It normalizes each supported representation to `SourceProduct` before
+execution.
+
+For flexibility, the facade also accepts sparse canonical-compatible rows and
+ignores extra columns. It does not treat partial subsets of structured OFF
+export/document shapes as separate supported contracts.
+
+If callers want to force the stricter structured-export contract explicitly,
+they can still project those rows with
+`off_data_quality.checks.project_off_product_export_rows(...)` before passing
+the resulting `SourceProduct` values to `checks.run(...)`.
 
 The public `checks` API runs on one canonical contract. Its internal
 preparation step accepts only supported loaded row shapes and fails when the
@@ -70,13 +83,11 @@ shared implementation and contracts live under `src/off_data_quality/`. Wheel
 files use the distribution name `openfoodfacts_data_quality`.
 
 Checks that only need source product fields can stay on this provider and avoid
-enriched snapshots. In migration runs, checks on this provider can still need
-the [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
-when strict comparison requires reference findings.
+enriched snapshots.
 
-Migration runs load full product documents into the migration-owned
-`ProductDocument` contract and project a `SourceProduct` view for the migrated
-runtime.
+Migration runs still load full product documents into the migration-owned
+`ProductDocument` contract, but strict parity now runs on
+`enriched_snapshot` input rather than on source-side `SourceProduct` batches.
 
 ### ProductDocument
 
@@ -85,8 +96,9 @@ not part of the public library API.
 
 Migration source adapters build `ProductDocument` values from JSONL source
 snapshots or DuckDB snapshots with a `products` table. The reference path sends
-that full document to the legacy backend. The migrated runtime receives a
-derived `SourceProduct` view from the same batch record.
+that full document to the legacy backend. Strict parity then compares legacy
+findings against migrated findings built from the derived
+`ReferenceResult.enriched_snapshot`.
 
 Reference point:
 

@@ -17,8 +17,9 @@ COVERAGE_ARGS := --cov=src/off_data_quality --cov=migration --cov=apps --cov-rep
 CLEAN_DIRS := .mypy_cache .pytest_cache .ruff_cache .scannerwork artifacts build dist htmlcov src/openfoodfacts_data_quality.egg-info
 CLEAN_FILES := .coverage coverage.xml
 CACHE_DIRS := data/reference_result_cache
+EXAMPLE_NOTEBOOK_SOURCES := examples/scripts/basic_usage.py examples/scripts/input_formats.py examples/scripts/jurisdiction_filtering.py
 
-.PHONY: build check clean clean-cache coverage deadcode distclean dupcheck format format-check importlint install-hooks lint pyright quality test typecheck
+.PHONY: build check clean clean-cache coverage deadcode distclean dupcheck format format-check importlint install-hooks lint pyright quality sync-examples test typecheck
 
 format:
 	$(RUFF) check --fix $(PYTHON_TARGETS)
@@ -68,6 +69,9 @@ quality:
 
 install-hooks:
 	$(PRE_COMMIT) install --install-hooks
+
+sync-examples:
+	$(PYTHON) -m jupytext --sync $(EXAMPLE_NOTEBOOK_SOURCES)
 
 build:
 	rm -rf build dist src/openfoodfacts_data_quality.egg-info

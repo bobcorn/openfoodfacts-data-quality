@@ -19,12 +19,6 @@ from migration.source.models import (
     SourceSnapshotFormat,
 )
 from migration.source.snapshots import source_snapshot_id_for
-from off_data_quality.contracts.source_products import (
-    SOURCE_PRODUCT_BASE_FIELD_TO_COLUMN,
-    SOURCE_PRODUCT_NUTRIMENT_COLUMNS,
-    SourceProduct,
-    validate_source_product,
-)
 
 _SKIPPED_SOURCE_ROW_EXAMPLE_LIMIT = 20
 _MISSING_OR_BLANK_CODE_REASON = "missing or blank code"
@@ -261,10 +255,7 @@ def source_batch_record_from_document(
 ) -> SourceBatchRecord:
     """Return one batch record from a validated product document."""
     product_document = validate_product_document(document)
-    return SourceBatchRecord(
-        source_product=source_product_from_product_document(product_document),
-        product_document=product_document,
-    )
+    return SourceBatchRecord(product_document=product_document)
 
 
 def validate_product_document(
@@ -283,102 +274,6 @@ def validate_product_document(
     code = _required_product_code(product_document.get("code"))
     product_document["code"] = code
     return ProductDocument(code=code, document=product_document)
-
-
-def source_product_from_product_document(document: ProductDocument) -> SourceProduct:
-    """Project one full product document into the migrated source-product view."""
-    payload = document.document
-    source_product_row = {
-        column: _source_product_base_value(payload, column)
-        for column in SOURCE_PRODUCT_BASE_FIELD_TO_COLUMN.values()
-        if column in payload
-    }
-    source_product_row.update(_source_product_nutriment_values(payload))
-    return validate_source_product(source_product_row)
-
-
-def _source_product_base_value(
-    document: Mapping[str, object],
-    column: str,
-) -> object:
-    value = document.get(column)
-    if column in {"product_name", "ingredients_text"} and isinstance(value, list):
-        return _localized_text(cast(list[object], value), column)
-    return value
-
-
-def _source_product_nutriment_values(
-    document: Mapping[str, object],
-) -> dict[str, object]:
-    projected = {
-        column: document[column]
-        for column in SOURCE_PRODUCT_NUTRIMENT_COLUMNS
-        if column in document
-    }
-    nutriments = document.get("nutriments")
-    if nutriments is None:
-        return projected
-    if isinstance(nutriments, Mapping):
-        nutriments_mapping = cast(Mapping[str, object], nutriments)
-        projected.update(
-            {
-                column: nutriments_mapping[column]
-                for column in SOURCE_PRODUCT_NUTRIMENT_COLUMNS
-                if column in nutriments_mapping
-            }
-        )
-        return projected
-    if isinstance(nutriments, list):
-        projected.update(_nutriment_list_values(cast(list[object], nutriments)))
-        return projected
-    raise ValueError(
-        "ProductDocument field 'nutriments' must be an object, list, or null."
-    )
-
-
-def _nutriment_list_values(values: list[object]) -> dict[str, object]:
-    projected: dict[str, object] = {}
-    supported_columns = frozenset(SOURCE_PRODUCT_NUTRIMENT_COLUMNS)
-    for item in values:
-        if not isinstance(item, Mapping):
-            raise ValueError("ProductDocument field 'nutriments' must contain objects.")
-        item_mapping = cast(Mapping[str, object], item)
-        name = _optional_text(item_mapping.get("name"))
-        value_100g = item_mapping.get("100g")
-        if name is None or value_100g is None:
-            continue
-        column = f"{name}_100g"
-        if column in supported_columns:
-            projected[column] = value_100g
-    return projected
-
-
-def _localized_text(values: list[object], column: str) -> str | None:
-    localized_values: list[tuple[object, str]] = []
-    for item in values:
-        if not isinstance(item, Mapping):
-            raise ValueError(f"ProductDocument field {column!r} must contain objects.")
-        item_mapping = cast(Mapping[str, object], item)
-        text = _optional_text(item_mapping.get("text"))
-        if text is not None:
-            localized_values.append((item_mapping.get("lang"), text))
-
-    main_text = next(
-        (text for language, text in localized_values if language == "main"),
-        None,
-    )
-    if main_text is not None:
-        return main_text
-    if not localized_values:
-        return None
-    return localized_values[0][1]
-
-
-def _optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 def _required_product_code(value: object) -> str:
@@ -744,7 +639,6 @@ __all__ = [
     "iter_source_batches",
     "summarize_source_input",
     "source_batch_record_from_document",
-    "source_product_from_product_document",
     "source_snapshot_adapter_for",
     "source_snapshot_id_for",
     "validate_product_document",

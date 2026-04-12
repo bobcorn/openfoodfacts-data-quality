@@ -15,7 +15,7 @@ from migration.source.product_documents import (
 )
 
 
-def test_duckdb_source_snapshot_yields_product_documents_and_source_products(
+def test_duckdb_source_snapshot_yields_product_documents(
     tmp_path: Path,
 ) -> None:
     db_path = tmp_path / "products.duckdb"
@@ -49,11 +49,9 @@ def test_duckdb_source_snapshot_yields_product_documents_and_source_products(
     assert record.product_document.document["product_name"] == [
         {"lang": "main", "text": "Example"}
     ]
-    assert record.source_product.product_name == "Example"
-    assert record.source_product.energy_kcal_100g == 123.0
 
 
-def test_jsonl_source_snapshot_yields_product_documents_and_source_products(
+def test_jsonl_source_snapshot_yields_product_documents(
     tmp_path: Path,
 ) -> None:
     jsonl_path = tmp_path / "products.jsonl"
@@ -80,8 +78,6 @@ def test_jsonl_source_snapshot_yields_product_documents_and_source_products(
     assert len(batches) == 1
     record = batches[0][0]
     assert record.product_document.backend_input_payload()["code"] == "001"
-    assert record.source_product.product_name == "First"
-    assert record.source_product.energy_kcal_100g == 456.0
 
 
 def test_source_snapshot_format_is_inferred_from_jsonl_content_without_suffix(
@@ -125,6 +121,18 @@ def test_source_batch_record_requires_product_document_code() -> None:
         source_batch_record_from_document({"product_name": "Missing code"})
 
 
+def test_source_batch_record_returns_only_the_validated_product_document() -> None:
+    document = {
+        "code": "123",
+        "product_name": [{"lang": "main", "text": "Example"}],
+        "nutriments": [{"name": "energy-kcal", "100g": 123.0}],
+    }
+
+    record = source_batch_record_from_document(document)
+    assert record.product_document.code == "123"
+    assert record.product_document.document == document
+
+
 def test_jsonl_source_snapshot_count_validates_product_documents(
     tmp_path: Path,
 ) -> None:
@@ -141,7 +149,7 @@ def test_jsonl_source_snapshot_count_validates_product_documents(
 
     assert count_source_products(jsonl_path) == 1
     batches = list(iter_source_batches(jsonl_path, batch_size=10))
-    assert [[row.source_product.code for row in batch] for batch in batches] == [
+    assert [[row.product_document.code for row in batch] for batch in batches] == [
         ["0001"]
     ]
 
@@ -163,7 +171,7 @@ def test_duckdb_source_snapshot_skips_rows_without_nonblank_product_codes(
 
     assert count_source_products(db_path) == 1
     batches = list(iter_source_batches(db_path, batch_size=10))
-    assert [[row.source_product.code for row in batch] for batch in batches] == [
+    assert [[row.product_document.code for row in batch] for batch in batches] == [
         ["0001"]
     ]
 
