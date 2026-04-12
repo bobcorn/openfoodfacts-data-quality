@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from off_data_quality.contracts.context import CheckContext
     from off_data_quality.contracts.observations import ObservedFinding
     from off_data_quality.contracts.run import RunResult
-    from off_data_quality.contracts.source_products import SourceProduct
     from off_data_quality.execution import CheckEvaluator
 
 _SubmitParams = ParamSpec("_SubmitParams")
@@ -251,16 +250,11 @@ class BatchExecutionContext:
 
 @dataclass(frozen=True)
 class ScheduledBatch:
-    """One submitted batch of source rows."""
+    """One submitted batch of source documents."""
 
     batch_index: int
     records: list[SourceBatchRecord]
     source_read_seconds: float = 0.0
-
-    @property
-    def source_products(self) -> list[SourceProduct]:
-        """Return the selected products projected for migrated checks."""
-        return [record.source_product for record in self.records]
 
     @property
     def product_documents(self) -> list[ProductDocument]:
@@ -354,7 +348,6 @@ class SupportsMigratedRunner(Protocol):
     def observe_findings(
         self,
         *,
-        rows: list[SourceProduct],
         reference_check_contexts: list[CheckContext],
     ) -> Iterable[ObservedFinding]: ...
 

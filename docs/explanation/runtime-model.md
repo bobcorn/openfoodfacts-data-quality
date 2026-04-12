@@ -81,7 +81,6 @@ flowchart TB
 
     A --> D
     B -.-> E
-    C --> D
     C --> E
     D --> F
     E --> F
@@ -100,8 +99,8 @@ Migration tooling uses two independent selection axes:
   enter one run
 
 Example: one run can use `SOURCE_DATASET_PROFILE=smoke` to read a small sample
-of products while `CHECK_PROFILE=source_products` still limits the run to checks
-whose required context paths are available from source products.
+of products while `CHECK_PROFILE=focused` still narrows the active check set
+independently of dataset selection.
 
 Changing the dataset profile changes run coverage. It does not make a check
 available on a different context provider, and it does not change the valid

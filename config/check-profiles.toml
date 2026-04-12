@@ -12,12 +12,6 @@ mode = "all"
 check_context_provider = "enriched_snapshots"
 parity_baselines = ["legacy"]
 
-[profiles.source_products]
-description = "Runs shipped source product checks that still compare against legacy behavior."
-mode = "all"
-check_context_provider = "source_products"
-parity_baselines = ["legacy"]
-
 [profiles.focused]
 description = "Runs the current migration workset. Edit check_ids as focus changes."
 mode = "include"

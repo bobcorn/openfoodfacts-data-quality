@@ -2,7 +2,8 @@
 
 # Legacy backend image
 
-Compared runs and enriched snapshot migration runs rely on this image when the
+Strict parity runs and other enriched-snapshot migration flows rely on this
+image when the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
 needs backend materialization.
 
@@ -32,8 +33,8 @@ The publish workflow in
 checks that `main-<sha>` matches the merge base with
 `openfoodfacts/openfoodfacts-server` `main` before it builds and pushes images.
 
-This repository pins one of those published tags through `SERVER_BASE_IMAGE` in
-the root `Dockerfile`.
+This repository pins one published tag through `SERVER_BASE_IMAGE` in the root
+`Dockerfile`.
 
 ## Included data
 
@@ -79,14 +80,11 @@ That includes:
 - [`enriched_snapshots`](../explanation/runtime-model.md#context-providers) runs,
   because the migration reference path materializes
   `CheckContext` data through the backend
-- compared
-  [`source_products`](../explanation/runtime-model.md#context-providers) runs,
-  because reference findings still come from legacy emitted tags
 
 The reference loader checks the
 [reference result cache](run-configuration-and-artifacts.md#reference-result-cache)
-before it starts backend work. With a warm cache, a compared or enriched snapshot run
-can reuse cached data instead of starting a backend worker for covered
+before it starts backend work. With a warm cache, a parity or enriched-snapshot
+run can reuse cached data instead of starting a backend worker for covered
 products. With a cold cache, materialization still uses this image.
 
 The run can skip backend execution when it needs no comparison, no

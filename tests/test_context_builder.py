@@ -14,7 +14,7 @@ from migration.source.models import ProductDocument
 from migration.source.product_documents import validate_product_document
 
 from off_data_quality.checks import prepare_source_products
-from off_data_quality.context import ContextProviderId, build_source_product_contexts
+from off_data_quality.context import build_source_product_contexts
 from off_data_quality.contracts.source_products import (
     SourceProduct,
     validate_source_product,
@@ -258,32 +258,27 @@ def test_build_enriched_snapshot_contexts_rejects_snapshot_code_mismatch(
         )
 
 
-@pytest.mark.parametrize(
-    ("context_provider", "expected_product_name", "expected_lang"),
-    [
-        ("source_products", "Source name", None),
-        ("enriched_snapshots", "Enriched name", "fr"),
-    ],
-)
-def test_check_context_builder_uses_selected_context_provider(
-    context_provider: ContextProviderId,
-    expected_product_name: str,
-    expected_lang: str | None,
+def test_check_context_builder_uses_enriched_snapshot_provider(
     reference_result_factory: ReferenceResultFactory,
 ) -> None:
-    builder = check_context_builder_for(context_provider)
-    row, reference_result = _mismatched_row_and_backend_result(reference_result_factory)
+    builder = check_context_builder_for("enriched_snapshots")
+    _, reference_result = _mismatched_row_and_backend_result(reference_result_factory)
 
     context = builder.build_contexts(
-        rows=[row],
         reference_check_contexts=reference_check_contexts_from_reference_results(
             [reference_result]
         ),
     )[0]
 
-    assert builder.context_provider == context_provider
-    assert builder.requires_reference_check_contexts is (
-        context_provider == "enriched_snapshots"
-    )
-    assert context.product.product_name == expected_product_name
-    assert context.product.lang == expected_lang
+    assert builder.context_provider == "enriched_snapshots"
+    assert builder.requires_reference_check_contexts is True
+    assert context.product.product_name == "Enriched name"
+    assert context.product.lang == "fr"
+
+
+def test_check_context_builder_rejects_source_products_provider() -> None:
+    with pytest.raises(
+        ValueError,
+        match="strict parity only supports the 'enriched_snapshots' context provider",
+    ):
+        check_context_builder_for("source_products")

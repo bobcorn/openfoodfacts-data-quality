@@ -1,40 +1,23 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Collection, Iterable, Mapping
 from typing import Any, cast
 
+from off_data_quality._source_input import (
+    OFF_PRODUCT_EXPORT_COLUMNS,
+    prepare_canonical_source_row,
+    prepare_off_product_export_row,
+    prepare_supported_source_row,
+    project_off_product_export_row,
+)
 from off_data_quality.contracts.source_products import (
     SOURCE_PRODUCT_INPUT_COLUMNS,
-    SOURCE_PRODUCT_NUTRIMENT_COLUMNS,
     SourceProduct,
-    validate_source_product,
 )
 
 _CANONICAL_SOURCE_COLUMNS = frozenset(SOURCE_PRODUCT_INPUT_COLUMNS)
-_CANONICAL_NUTRIMENT_COLUMNS = frozenset(SOURCE_PRODUCT_NUTRIMENT_COLUMNS)
-OFF_PRODUCT_EXPORT_COLUMNS: tuple[str, ...] = (
-    "code",
-    "created_t",
-    "product_name",
-    "quantity",
-    "product_quantity",
-    "serving_size",
-    "serving_quantity",
-    "brands",
-    "categories",
-    "labels",
-    "emb_codes",
-    "ingredients_text",
-    "ingredients_tags",
-    "nutriscore_grade",
-    "nutriscore_score",
-    "categories_tags",
-    "labels_tags",
-    "countries_tags",
-    "no_nutrition_data",
-    "nutriments",
-)
 
 
 def prepare_source_products(
@@ -45,7 +28,7 @@ def prepare_source_products(
     """Prepare one user-provided table or row stream for row-based checks."""
     normalized_columns = _validate_column_mapping(columns)
     prepared_rows: list[SourceProduct] = []
-    for index, row in enumerate(_iter_input_rows(rows)):
+    for index, row in enumerate(_iter_input_rows(rows, operation_name="checks.run()")):
         prepared_rows.append(
             _prepare_source_product_row(
                 row,
@@ -56,16 +39,45 @@ def prepare_source_products(
     return prepared_rows
 
 
-def _iter_input_rows(rows: object) -> Iterable[object]:
+def project_off_product_export_rows(rows: object) -> list[SourceProduct]:
+    """Project loaded Open Food Facts product export rows into SourceProduct values."""
+    projected_rows: list[SourceProduct] = []
+    for index, row in enumerate(
+        _iter_input_rows(
+            rows,
+            operation_name="checks.project_off_product_export_rows()",
+            single_row_hint="checks.project_off_product_export_row(...)",
+        )
+    ):
+        if not isinstance(row, Mapping):
+            raise TypeError(
+                "checks.project_off_product_export_rows() expects each row to be a mapping."
+            )
+        projected_rows.append(
+            prepare_off_product_export_row(
+                cast(Mapping[str, object], row),
+                row_index=index,
+            )
+        )
+    return projected_rows
+
+
+def _iter_input_rows(
+    rows: object,
+    *,
+    operation_name: str,
+    single_row_hint: str | None = None,
+) -> Iterable[object]:
     if isinstance(rows, SourceProduct | Mapping):
+        hint = f" Use {single_row_hint} for one row." if single_row_hint else ""
         raise TypeError(
-            "checks.run() expects an iterable of rows or a table-like object, "
-            "not a single row."
+            f"{operation_name} expects an iterable of rows or a table-like "
+            f"object, not a single row.{hint}"
         )
     if isinstance(rows, str | bytes | os.PathLike):
         raise TypeError(
-            "checks.run() does not read files. Load the file with csv, pandas, "
-            "PyArrow, DuckDB, or another tool, then pass the loaded rows."
+            f"{operation_name} does not read files. Load the file with csv, "
+            "pandas, PyArrow, DuckDB, or another tool, then pass the loaded rows."
         )
 
     if _is_pyarrow_like_table(rows):
@@ -76,7 +88,8 @@ def _iter_input_rows(rows: object) -> Iterable[object]:
         return _duckdb_like_rows(rows)
     if not isinstance(rows, Iterable):
         raise TypeError(
-            "checks.run() expects an iterable of rows or a supported table-like object."
+            f"{operation_name} expects an iterable of rows or a supported "
+            "table-like object."
         )
     return cast(Iterable[object], rows)
 
@@ -102,93 +115,11 @@ def _prepare_source_product_row(
 
     mapping_row = cast(Mapping[str, Any], row)
     if columns:
-        return _prepare_canonical_mapping_row(
-            mapping_row,
-            columns=columns,
-            row_index=row_index,
+        remapped_row = _remap_row_columns(
+            mapping_row, columns=columns, row_index=row_index
         )
-    if "nutriments" in mapping_row:
-        return _prepare_off_product_export_row(mapping_row, row_index=row_index)
-    return _prepare_canonical_mapping_row(
-        mapping_row,
-        columns={},
-        row_index=row_index,
-    )
-
-
-def _prepare_canonical_mapping_row(
-    row: Mapping[str, Any],
-    *,
-    columns: Mapping[str, str],
-    row_index: int,
-) -> SourceProduct:
-    remapped_row = _remap_row_columns(row, columns=columns, row_index=row_index)
-    projected_row = {
-        column: value
-        for column, value in remapped_row.items()
-        if column in _CANONICAL_SOURCE_COLUMNS
-    }
-    return validate_source_product(projected_row)
-
-
-def _prepare_off_product_export_row(
-    row: Mapping[str, Any],
-    *,
-    row_index: int,
-) -> SourceProduct:
-    missing_columns = tuple(
-        column for column in OFF_PRODUCT_EXPORT_COLUMNS if column not in row
-    )
-    if missing_columns:
-        raise ValueError(
-            f"checks.run() row {row_index} includes 'nutriments' but does "
-            "not match the Open Food Facts product export shape. Missing "
-            f"columns: {', '.join(missing_columns)}."
-        )
-
-    overlapping_nutriments = sorted(
-        column for column in _CANONICAL_NUTRIMENT_COLUMNS if column in row
-    )
-    if overlapping_nutriments:
-        raise ValueError(
-            f"checks.run() row {row_index} mixes structured nutriments with "
-            "canonical nutriment columns: "
-            f"{', '.join(overlapping_nutriments)}."
-        )
-
-    return project_off_product_export_row(row)
-
-
-def project_off_product_export_row(row: Mapping[str, object]) -> SourceProduct:
-    """Project one Open Food Facts product export row into SourceProduct."""
-    projected_row: dict[str, object] = {
-        "code": row.get("code"),
-        "created_t": row.get("created_t"),
-        "product_name": _localized_text(row.get("product_name"), "product_name"),
-        "quantity": row.get("quantity"),
-        "product_quantity": row.get("product_quantity"),
-        "serving_size": row.get("serving_size"),
-        "serving_quantity": row.get("serving_quantity"),
-        "brands": row.get("brands"),
-        "categories": row.get("categories"),
-        "labels": row.get("labels"),
-        "emb_codes": row.get("emb_codes"),
-        "ingredients_text": _localized_text(
-            row.get("ingredients_text"),
-            "ingredients_text",
-        ),
-        "ingredients_tags": _tag_values(
-            row.get("ingredients_tags"), "ingredients_tags"
-        ),
-        "nutriscore_grade": row.get("nutriscore_grade"),
-        "nutriscore_score": row.get("nutriscore_score"),
-        "categories_tags": _tag_values(row.get("categories_tags"), "categories_tags"),
-        "labels_tags": _tag_values(row.get("labels_tags"), "labels_tags"),
-        "countries_tags": _tag_values(row.get("countries_tags"), "countries_tags"),
-        "no_nutrition_data": row.get("no_nutrition_data"),
-    }
-    projected_row.update(_nutriment_columns(row.get("nutriments")))
-    return validate_source_product(projected_row)
+        return prepare_canonical_source_row(remapped_row, row_index=row_index)
+    return prepare_supported_source_row(mapping_row, row_index=row_index)
 
 
 def _validate_column_mapping(
@@ -259,81 +190,6 @@ def _remap_row_columns(
     return remapped_row
 
 
-def _localized_text(value: object, column: str) -> str | None:
-    if value is None:
-        return None
-    if not isinstance(value, list):
-        raise ValueError(
-            f"Open Food Facts product export column {column!r} must be a list or null."
-        )
-
-    fallback: str | None = None
-    for item in cast(list[object], value):
-        if not isinstance(item, Mapping):
-            raise ValueError(
-                f"Open Food Facts product export column {column!r} must contain objects."
-            )
-        item_mapping = cast(Mapping[str, object], item)
-        text = _optional_text(item_mapping.get("text"))
-        if text is None:
-            continue
-        if item_mapping.get("lang") == "main":
-            return text
-        if fallback is None:
-            fallback = text
-    return fallback
-
-
-def _tag_values(value: object, column: str) -> list[str] | None:
-    if value is None:
-        return None
-    if not isinstance(value, list):
-        raise ValueError(
-            f"Open Food Facts product export column {column!r} must be a list or null."
-        )
-
-    tags: list[str] = []
-    for item in cast(list[object], value):
-        if not isinstance(item, str):
-            raise ValueError(
-                f"Open Food Facts product export column {column!r} must contain strings."
-            )
-        tags.append(item)
-    return tags
-
-
-def _nutriment_columns(value: object) -> dict[str, object]:
-    if value is None:
-        return {}
-    if not isinstance(value, list):
-        raise ValueError(
-            "Open Food Facts product export column 'nutriments' must be a list or null."
-        )
-
-    flattened: dict[str, object] = {}
-    for item in cast(list[object], value):
-        if not isinstance(item, Mapping):
-            raise ValueError(
-                "Open Food Facts product export column 'nutriments' must contain objects."
-            )
-        item_mapping = cast(Mapping[str, object], item)
-        name = _optional_text(item_mapping.get("name"))
-        value_100g = item_mapping.get("100g")
-        if name is None or value_100g is None:
-            continue
-        column_name = f"{name}_100g"
-        if column_name in _CANONICAL_NUTRIMENT_COLUMNS:
-            flattened[column_name] = value_100g
-    return flattened
-
-
-def _optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 def _is_pyarrow_like_table(value: object) -> bool:
     return callable(getattr(value, "to_pylist", None))
 
@@ -368,7 +224,36 @@ def _is_duckdb_like_relation(value: object) -> bool:
 def _duckdb_like_rows(value: object) -> Iterable[object]:
     relation = cast(Any, value)
     columns = [str(column) for column in relation.columns]
-    return [dict(zip(columns, row, strict=True)) for row in relation.fetchall()]
+    relation_types = [str(type_name) for type_name in getattr(relation, "types", ())]
+    normalized_rows: list[dict[str, object]] = []
+    for row in relation.fetchall():
+        normalized_rows.append(
+            {
+                column: _normalize_duckdb_value(cell, duckdb_type=duckdb_type)
+                for column, cell, duckdb_type in zip(
+                    columns,
+                    row,
+                    relation_types or [""] * len(columns),
+                    strict=True,
+                )
+            }
+        )
+    return normalized_rows
+
+
+def _normalize_duckdb_value(
+    value: object,
+    *,
+    duckdb_type: str,
+) -> object:
+    if duckdb_type != "JSON" or value is None:
+        return value
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return value
 
 
 def _duplicate_values(values: Iterable[str]) -> list[str]:
@@ -386,4 +271,5 @@ __all__ = [
     "OFF_PRODUCT_EXPORT_COLUMNS",
     "prepare_source_products",
     "project_off_product_export_row",
+    "project_off_product_export_rows",
 ]

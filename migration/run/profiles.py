@@ -208,7 +208,13 @@ def _profile_check_context_provider(
         raise ValueError(
             f"Invalid check profile config: profile {selected_name} is missing a valid check_context_provider."
         )
-    return validate_context_provider(raw_check_context_provider.strip())
+    provider = validate_context_provider(raw_check_context_provider.strip())
+    if provider != "enriched_snapshots":
+        raise ValueError(
+            "Invalid check profile config: migration strict parity only supports "
+            'check_context_provider = "enriched_snapshots".'
+        )
+    return provider
 
 
 def _profile_parity_baselines(

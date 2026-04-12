@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from off_data_quality.contracts.context import CheckContext
     from off_data_quality.contracts.observations import ObservedFinding
     from off_data_quality.contracts.run import RunResult
-    from off_data_quality.contracts.source_products import SourceProduct
     from off_data_quality.execution import CheckEvaluator
 
 
@@ -115,7 +114,6 @@ class MigratedRunner:
     def observe_findings(
         self,
         *,
-        rows: list[SourceProduct],
         reference_check_contexts: list[CheckContext],
     ) -> Iterable[ObservedFinding]:
         """Yield normalized migrated findings for one batch."""
@@ -123,7 +121,6 @@ class MigratedRunner:
             observed_migrated_finding(finding)
             for finding in iter_check_findings_with_evaluators(
                 self.check_context_builder.iter_contexts(
-                    rows=rows,
                     reference_check_contexts=reference_check_contexts,
                 ),
                 self.evaluators,

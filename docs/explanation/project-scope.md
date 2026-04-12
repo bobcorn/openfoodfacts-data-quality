@@ -14,8 +14,7 @@ The repository keeps reusable runtime logic in
 `src/off_data_quality/` and migration orchestration in `migration/`.
 
 Python callers can use the shared runtime without the migration tooling.
-Compared runs and enriched snapshot migration runs still depend on the legacy backend
-through the
+Strict parity runs still depend on the legacy backend through the
 [reference path](reference-data-and-parity.md#why-the-reference-path-exists).
 Live backend execution happens only on cache misses.
 
@@ -28,7 +27,7 @@ For the repository map and the architecture overview diagram, see
 - Runtime contracts owned by Python for source products, enriched snapshots,
   reference results, and check context.
 - Packaged checks written in Python and `dsl`.
-- Application runs that mix compared checks with checks that run without
+- Application runs that mix strict-parity checks with checks that run without
   comparison.
 - Runs over whole snapshots or deterministic subsets.
 - Static HTML output plus JSON artifacts for review.
@@ -54,7 +53,7 @@ For the repository map and the architecture overview diagram, see
 
 - The repository is not yet a full replacement for every legacy data-quality
   rule.
-- Compared runs and enriched snapshot migration runs still depend on the
+- Strict parity runs still depend on the
   [ReferenceResult](../reference/data-contracts.md#referenceresult) contract
   and the
   [reference path](reference-data-and-parity.md#why-the-reference-path-exists)

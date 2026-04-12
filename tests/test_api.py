@@ -201,45 +201,232 @@ def test_checks_run_accepts_duckdb_like_relations() -> None:
 
 
 def test_checks_run_accepts_openfoodfacts_product_export_rows() -> None:
-    findings = checks.run(
+    _assert_global_check_runs([_example_off_product_export_row()])
+
+
+def test_checks_run_accepts_duckdb_like_relations_of_openfoodfacts_product_export_rows() -> (
+    None
+):
+    off_product_export_row = _example_off_product_export_row()
+    _assert_global_check_runs(
+        _DuckDBLikeRelation(
+            columns=tuple(off_product_export_row),
+            records=[tuple(off_product_export_row.values())],
+        )
+    )
+
+
+def test_checks_run_accepts_stringified_openfoodfacts_product_export_rows() -> None:
+    _assert_global_check_runs([_stringified_off_product_export_row()])
+
+
+def test_checks_prepare_source_products_decodes_stringified_openfoodfacts_product_export_rows() -> (
+    None
+):
+    [prepared_row] = checks.prepare_source_products(
+        [_stringified_off_product_export_row()]
+    )
+
+    assert prepared_row.code == "123"
+    assert prepared_row.product_name == "Example"
+    assert prepared_row.ingredients_text == "Sugar, salt"
+    assert prepared_row.ingredients_tags == ["en:sugar", "en:salt"]
+    assert prepared_row.energy_kcal_100g == 123.0
+
+
+def test_checks_project_off_product_export_rows_accept_openfoodfacts_product_export_rows() -> (
+    None
+):
+    _assert_global_check_runs_on_projected_off_product_export_rows(
+        [_example_off_product_export_row()]
+    )
+
+
+def test_checks_project_off_product_export_rows_accept_duckdb_like_relations() -> None:
+    off_product_export_row = _example_off_product_export_row()
+    _assert_global_check_runs_on_projected_off_product_export_rows(
+        _DuckDBLikeRelation(
+            columns=tuple(off_product_export_row),
+            records=[
+                tuple(off_product_export_row.values()),
+            ],
+        )
+    )
+
+
+def test_checks_project_off_product_export_rows_accept_stringified_rows() -> None:
+    projected_rows = checks.project_off_product_export_rows(
+        [_stringified_off_product_export_row()]
+    )
+
+    assert projected_rows[0].code == "123"
+    assert projected_rows[0].product_name == "Example"
+    assert projected_rows[0].energy_kcal_100g == 123.0
+
+
+def test_checks_project_off_product_export_rows_reject_missing_shape_columns() -> None:
+    missing_shape_row: dict[str, object] = {
+        "code": "123",
+        "nutriments": [],
+    }
+    with pytest.raises(
+        ValueError,
+        match="does not match the Open Food Facts product export shape",
+    ):
+        checks.project_off_product_export_rows([missing_shape_row])
+
+
+def test_checks_namespace_exposes_off_product_export_adapter() -> None:
+    assert hasattr(checks, "project_off_product_export_rows")
+
+
+def test_checks_run_accepts_full_off_product_documents() -> None:
+    _assert_global_check_runs([_example_full_off_document()])
+
+
+def test_checks_run_rejects_partial_openfoodfacts_structured_rows() -> None:
+    partial_structured_row: dict[str, object] = {"code": "123", "nutriments": []}
+    with pytest.raises(
+        ValueError,
+        match="complete official OFF export row or a canonical-compatible row",
+    ):
+        checks.run([partial_structured_row])
+
+
+def test_checks_prepare_source_products_rejects_partial_openfoodfacts_localized_rows() -> (
+    None
+):
+    with pytest.raises(
+        ValueError,
+        match="complete official OFF export row or a canonical-compatible row",
+    ):
+        checks.prepare_source_products(
+            [
+                {
+                    "code": "123",
+                    "product_name": "[{'lang': 'main', 'text': 'Example'}]",
+                }
+            ]
+        )
+
+
+def test_checks_prepare_source_products_accepts_sparse_rows_with_extra_columns() -> (
+    None
+):
+    [prepared_row] = checks.prepare_source_products(
         [
             {
                 "code": "123",
-                "created_t": 123,
-                "product_name": [
-                    {"lang": "fr", "text": "Exemple"},
-                    {"lang": "main", "text": "Example"},
-                ],
-                "quantity": "500 g",
-                "product_quantity": "500",
-                "serving_size": "50 g",
-                "serving_quantity": "50",
-                "brands": "Brand",
-                "categories": "Supplements",
-                "labels": "No gluten",
-                "emb_codes": "FR 01.001",
-                "ingredients_text": [{"lang": "main", "text": "Sugar, salt"}],
+                "product_name": "Example",
                 "ingredients_tags": ["en:sugar", "en:salt"],
-                "nutriscore_grade": "a",
-                "nutriscore_score": -2,
-                "categories_tags": ["en:supplements"],
                 "labels_tags": ["en:vegan"],
                 "countries_tags": ["en:france"],
-                "no_nutrition_data": False,
-                "nutriments": [
-                    {"name": "energy-kcal", "100g": 123.0},
-                    {"name": "fat", "100g": 3.5},
-                    {"name": "unsupported-nutrient", "100g": 9.0},
-                ],
+                "energy-kcal_100g": 123.0,
+                "fat_100g": 3.5,
+                "unexpected_extra_column": "ignored",
             }
-        ],
-        catalog=_library_test_catalog(),
-        check_ids={"en:global-check"},
+        ]
     )
 
-    assert [(finding.product_id, finding.check_id) for finding in findings] == [
-        ("123", "en:global-check")
-    ]
+    assert prepared_row.code == "123"
+    assert prepared_row.product_name == "Example"
+    assert prepared_row.ingredients_tags == ["en:sugar", "en:salt"]
+    assert prepared_row.energy_kcal_100g == 123.0
+    assert prepared_row.fat_100g == 3.5
+
+
+def test_checks_run_accepts_duckdb_like_relations_of_full_off_product_documents() -> (
+    None
+):
+    full_document = _example_full_off_document()
+    _assert_global_check_runs(
+        _DuckDBLikeRelation(
+            columns=tuple(full_document),
+            records=[tuple(full_document.values())],
+        )
+    )
+
+
+def test_checks_prepare_source_products_decodes_full_off_product_documents() -> None:
+    [prepared_row] = checks.prepare_source_products([_example_full_off_document()])
+
+    assert prepared_row.code == "123"
+    assert prepared_row.product_name == "Example"
+    assert prepared_row.ingredients_text == "Sugar, salt"
+    assert prepared_row.energy_kcal_100g == 123.0
+    assert prepared_row.fat_100g == 3.5
+
+
+def test_checks_prepare_source_products_rejects_invalid_reserved_off_nutriments_values() -> (
+    None
+):
+    with pytest.raises(ValueError, match="nutriments"):
+        checks.prepare_source_products([{"code": "123", "nutriments": "[1, 2, 3]"}])
+
+
+def _example_off_product_export_row() -> dict[str, object]:
+    return {
+        "code": "123",
+        "created_t": 123,
+        "product_name": [
+            {"lang": "fr", "text": "Exemple"},
+            {"lang": "main", "text": "Example"},
+        ],
+        "quantity": "500 g",
+        "product_quantity": "500",
+        "serving_size": "50 g",
+        "serving_quantity": "50",
+        "brands": "Brand",
+        "categories": "Supplements",
+        "labels": "No gluten",
+        "emb_codes": "FR 01.001",
+        "ingredients_text": [{"lang": "main", "text": "Sugar, salt"}],
+        "ingredients_tags": ["en:sugar", "en:salt"],
+        "nutriscore_grade": "a",
+        "nutriscore_score": -2,
+        "categories_tags": ["en:supplements"],
+        "labels_tags": ["en:vegan"],
+        "countries_tags": ["en:france"],
+        "no_nutrition_data": False,
+        "nutriments": [
+            {"name": "energy-kcal", "100g": 123.0},
+            {"name": "fat", "100g": 3.5},
+            {"name": "unsupported-nutrient", "100g": 9.0},
+        ],
+    }
+
+
+def _example_full_off_document() -> dict[str, object]:
+    return {
+        "_id": "123",
+        "code": "123",
+        "product_name": "Example",
+        "quantity": "500 g",
+        "product_quantity": "500",
+        "serving_size": "50 g",
+        "serving_quantity": "50",
+        "ingredients_text": "Sugar, salt",
+        "ingredients_tags": ["en:sugar", "en:salt"],
+        "countries_tags": ["en:france"],
+        "images": {},
+        "nutriments": {
+            "energy-kcal_100g": 123.0,
+            "fat_100g": 3.5,
+        },
+    }
+
+
+def test_checks_project_off_product_export_row_accepts_one_openfoodfacts_product_export_row() -> (
+    None
+):
+    projected_row = checks.project_off_product_export_row(
+        _example_off_product_export_row()
+    )
+
+    assert projected_row.code == "123"
+    assert projected_row.product_name == "Example"
+    assert projected_row.energy_kcal_100g == 123.0
+    assert projected_row.fat_100g == 3.5
 
 
 def test_off_data_quality_root_exposes_checks_and_snapshots() -> None:
@@ -307,3 +494,25 @@ def _assert_global_check_runs(rows: object) -> None:
     assert [(finding.product_id, finding.check_id) for finding in findings] == [
         ("123", "en:global-check")
     ]
+
+
+def _assert_global_check_runs_on_projected_off_product_export_rows(
+    rows: object,
+) -> None:
+    _assert_global_check_runs(checks.project_off_product_export_rows(rows))
+
+
+def _stringified_off_product_export_row() -> dict[str, object]:
+    row = dict(_example_off_product_export_row())
+    row.update(
+        {
+            "product_name": "[{'lang': 'main', 'text': 'Example'}]",
+            "ingredients_text": "[{'lang': 'main', 'text': 'Sugar, salt'}]",
+            "ingredients_tags": "['en:sugar', 'en:salt']",
+            "categories_tags": "['en:supplements']",
+            "labels_tags": "['en:vegan']",
+            "countries_tags": "['en:france']",
+            "nutriments": "[{'name': 'energy-kcal', '100g': 123.0}]",
+        }
+    )
+    return row

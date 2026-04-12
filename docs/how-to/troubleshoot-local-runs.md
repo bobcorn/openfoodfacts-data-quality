@@ -45,8 +45,7 @@ Each one must match a profile defined in `config/check-profiles.toml` or
 The migration source reader accepts JSONL full product documents or a DuckDB
 snapshot with a `products` table and a `code` column. It builds
 [ProductDocument](../reference/data-contracts.md#productdocument) for the
-reference path and [SourceProduct](../reference/data-contracts.md#sourceproduct)
-for the migrated runtime.
+reference path.
 
 When the path suffix is not enough, the runtime uses deterministic content
 detection. If a DuckDB snapshot fails, make sure it exposes a `products`
@@ -90,7 +89,7 @@ local run.
 
 ## Fix missing legacy backend modules
 
-Compared runs and enriched snapshot migration runs depend on the
+Strict parity runs depend on the
 [reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists),
 which still needs the
 [legacy backend environment](../reference/legacy-backend-image.md) for cache

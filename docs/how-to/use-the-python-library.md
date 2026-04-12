@@ -59,8 +59,7 @@ such as `csv`, DuckDB, pandas, or PyArrow, then pass those rows to
 
 `checks.run(...)` accepts row iterables and common table-like objects that are
 already loaded in memory, such as pandas-style, PyArrow-style, and DuckDB-style
-objects. It also normalizes the structured Open Food Facts product export
-shape. It raises an error for file paths.
+objects. It raises an error for file paths.
 
 ```python
 from off_data_quality import checks
@@ -73,6 +72,32 @@ findings = checks.run(
 
 `checks.run(...)` prepares the rows before execution starts. If the rows do not
 match a supported contract, it raises an error immediately.
+
+Supported loaded inputs include:
+
+- canonical-compatible rows, including sparse subsets and extra columns
+- complete official OFF CSV export rows
+- complete official OFF JSONL full documents
+- complete official OFF Parquet rows
+- DuckDB relations materialized from supported OFF rows
+
+If you want to force the stricter structured-export contract explicitly, project
+those rows first:
+
+```python
+from off_data_quality import checks
+
+prepared_rows = checks.project_off_product_export_rows(export_rows)
+findings = checks.run(
+    prepared_rows,
+    check_ids=["en:serving-quantity-over-product-quantity"],
+)
+```
+
+For runnable walkthroughs that use the bundled sample data, see
+[`examples/README.md`](../../examples/README.md).
+That directory includes both plain Python examples in `examples/scripts/` and
+paired Jupyter notebooks in `examples/notebooks/`.
 
 ## Remap column names explicitly
 
@@ -98,6 +123,10 @@ findings = checks.run(
 The library does not infer aliases or read fallback shapes. If a mapped source
 column is missing, the run fails fast. Extra columns that are not part of the
 canonical contract are ignored.
+
+Partial subsets of OFF structured export/document shapes are not treated as
+supported OFF inputs. When you pass OFF-specific structured fields, the row
+must match one supported OFF contract completely.
 
 ## Narrow the active check set
 

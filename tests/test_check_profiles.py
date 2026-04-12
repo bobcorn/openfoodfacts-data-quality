@@ -78,7 +78,7 @@ check_ids = [
     )
 
 
-def test_load_check_profile_filters_all_checks_to_source_products_provider(
+def test_load_check_profile_rejects_source_products_provider_for_migration(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "check-profiles.toml"
@@ -94,39 +94,34 @@ check_context_provider = "source_products"
         encoding="utf-8",
     )
 
-    profile = load_check_profile(config_path)
-
-    assert profile.check_context_provider == "source_products"
-    assert "en:created-missing" in profile.check_ids
-    assert "en:serving-quantity-over-product-quantity" in profile.check_ids
-    assert "en:main-language-code-missing" not in profile.check_ids
-    assert (
-        "en:ingredients-count-lower-than-expected-for-the-category"
-        not in profile.check_ids
-    )
+    with pytest.raises(
+        ValueError,
+        match='strict parity only supports check_context_provider = "enriched_snapshots"',
+    ):
+        load_check_profile(config_path)
 
 
-def test_load_check_profile_rejects_include_checks_unsupported_on_provider(
+def test_load_check_profile_accepts_include_checks_on_enriched_provider(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "check-profiles.toml"
     config_path.write_text(
         """
-default_profile = "source_products"
+default_profile = "focused"
 
-[profiles.source_products]
-description = "Runs a focused source product workset."
+[profiles.focused]
+description = "Runs a focused enriched workset."
 mode = "include"
-check_context_provider = "source_products"
+check_context_provider = "enriched_snapshots"
 check_ids = ["en:main-language-code-missing"]
 """.strip(),
         encoding="utf-8",
     )
 
-    with pytest.raises(
-        ValueError, match="references checks outside context provider source_products"
-    ):
-        load_check_profile(config_path)
+    profile = load_check_profile(config_path)
+
+    assert profile.check_context_provider == "enriched_snapshots"
+    assert profile.check_ids == ("en:main-language-code-missing",)
 
 
 def test_load_check_profile_rejects_unknown_check_ids(tmp_path: Path) -> None:
@@ -168,7 +163,7 @@ default_profile = "all"
 [profiles.all]
 description = "Runs every check with a legacy baseline."
 mode = "all"
-check_context_provider = "source_products"
+check_context_provider = "enriched_snapshots"
 """.strip(),
         encoding="utf-8",
     )
@@ -189,7 +184,7 @@ default_profile = "dsl_focus"
 [profiles.dsl_focus]
 description = "Attempts to use removed migration metadata filters."
 mode = "all"
-check_context_provider = "source_products"
+check_context_provider = "enriched_snapshots"
 migration_target_impls = ["dsl"]
 migration_risks = ["low"]
 """.strip(),
@@ -228,15 +223,12 @@ def test_shipped_legacy_profile_excludes_runtime_only_checks() -> None:
     )
 
 
-def test_shipped_source_products_profile_excludes_runtime_only_checks() -> None:
-    profile = load_check_profile(
-        Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml",
-        profile_name="source_products",
-    )
+def test_shipped_profiles_are_enriched_strict_parity_only() -> None:
+    config_path = Path(__file__).resolve().parents[1] / "config" / "check-profiles.toml"
 
-    assert profile.check_context_provider == "source_products"
-    assert profile.parity_baselines == ("legacy",)
-    assert "ca:source-of-fibre-claim-but-fibre-below-threshold" not in profile.check_ids
+    for profile_name in ("full", "legacy", "focused"):
+        profile = load_check_profile(config_path, profile_name=profile_name)
+        assert profile.check_context_provider == "enriched_snapshots"
 
 
 def test_load_check_catalog_select_evaluators_filters_to_active_check_ids() -> None:

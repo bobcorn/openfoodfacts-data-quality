@@ -11,6 +11,7 @@ from off_data_quality._source_product_preparation import (
     OFF_PRODUCT_EXPORT_COLUMNS,
     prepare_source_products,
     project_off_product_export_row,
+    project_off_product_export_rows,
 )
 from off_data_quality.checks._registry import (
     CheckBinding,
@@ -35,6 +36,7 @@ __all__ = [
     "check_bindings",
     "list",
     "prepare_source_products",
+    "project_off_product_export_rows",
     "project_off_product_export_row",
     "run",
 ]

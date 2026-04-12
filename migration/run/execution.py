@@ -132,7 +132,6 @@ def execute_batch(
     migrated_started = perf_counter()
     migrated_findings = tuple(
         execution.migrated_runner.observe_findings(
-            rows=batch.source_products,
             reference_check_contexts=(
                 resolved_reference_batch.reference_check_contexts
             ),

@@ -58,15 +58,11 @@ The default profiles are:
 
 - `full`
 - `legacy`
-- `source_products`
 - `focused`
 
 `full` runs every shipped check.
 
 `legacy` keeps only checks that still compare against legacy behavior.
-
-`source_products` keeps the `source_products` provider and the `legacy`
-baseline, so it stays useful for provider-specific parity work.
 
 `focused` uses the explicit include list from `config/check-profiles.toml`.
 

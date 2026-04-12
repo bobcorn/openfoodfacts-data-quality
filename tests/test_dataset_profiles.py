@@ -67,7 +67,7 @@ def test_code_list_selection_filters_source_rows(
     batches = list(iter_source_batches(db_path, batch_size=2, selection=selection))
 
     assert count == 2
-    assert [[row.source_product.code for row in batch] for batch in batches] == [
+    assert [[row.product_document.code for row in batch] for batch in batches] == [
         ["0001", "0003"]
     ]
 
@@ -83,12 +83,12 @@ def test_stable_sample_selection_is_repeatable(
     )
 
     first_codes = [
-        row.source_product.code
+        row.product_document.code
         for batch in iter_source_batches(db_path, batch_size=10, selection=selection)
         for row in batch
     ]
     second_codes = [
-        row.source_product.code
+        row.product_document.code
         for batch in iter_source_batches(db_path, batch_size=10, selection=selection)
         for row in batch
     ]
