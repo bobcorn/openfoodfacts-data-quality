@@ -115,9 +115,6 @@ findings = checks.run(
 See [Use the Python library](docs/how-to/use-the-python-library.md) for
 installation and usage details.
 
-Runnable library examples are available in [examples/README.md](examples/README.md),
-including paired Jupyter notebooks in `examples/notebooks/` for demos and walkthroughs.
-
 ## Documentation
 
 Read the full [documentation](docs/index.md).
