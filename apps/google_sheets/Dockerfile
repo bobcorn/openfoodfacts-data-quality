@@ -2,7 +2,7 @@ FROM python:3.14-slim AS wheel-builder
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /workspace
 
@@ -34,7 +34,7 @@ COPY --from=wheel-builder /dist/openfoodfacts_data_quality-*.whl /tmp/
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir /tmp/openfoodfacts_data_quality-*.whl Jinja2==3.1.6 \
-    groupadd --system appuser \
+    && groupadd --system appuser \
     && useradd --system --gid appuser --create-home --home-dir /home/appuser appuser \
     && mkdir -p /app/ui/static /app/ui/templates /app/apps/google_sheets/static /app/apps/google_sheets/templates \
     && chown -R appuser:appuser /app
