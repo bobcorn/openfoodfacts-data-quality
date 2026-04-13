@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from migration.logging_config import configure_cli_logging
 from migration.report.preview import serve
 from migration.run import configured_preview_settings, configured_run_spec
 from migration.site_builder import build_site
+from runtime_support.logging_config import configure_cli_logging
 
 LOGGER = logging.getLogger(__name__)
 

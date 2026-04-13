@@ -164,9 +164,9 @@ OFFICIAL_PARQUET_ROW: dict[str, object] = {
 
 
 def test_frozen_official_rows_prepare_consistently_on_shared_fields() -> None:
-    [jsonl_row] = checks.prepare_source_products([OFFICIAL_JSONL_FULL_DOCUMENT_ROW])
-    [csv_row] = checks.prepare_source_products([OFFICIAL_CSV_ROW])
-    [parquet_row] = checks.prepare_source_products([OFFICIAL_PARQUET_ROW])
+    [jsonl_row] = checks.prepare([OFFICIAL_JSONL_FULL_DOCUMENT_ROW])
+    [csv_row] = checks.prepare([OFFICIAL_CSV_ROW])
+    [parquet_row] = checks.prepare([OFFICIAL_PARQUET_ROW])
 
     prepared_rows = (jsonl_row, csv_row, parquet_row)
     for row in prepared_rows:
@@ -207,8 +207,8 @@ def test_frozen_parquet_row_matches_the_bundled_sample() -> None:
 
 
 def test_frozen_full_fidelity_rows_prepare_consistently_on_nutriments() -> None:
-    [jsonl_row] = checks.prepare_source_products([OFFICIAL_JSONL_FULL_DOCUMENT_ROW])
-    [parquet_row] = checks.prepare_source_products([OFFICIAL_PARQUET_ROW])
+    [jsonl_row] = checks.prepare([OFFICIAL_JSONL_FULL_DOCUMENT_ROW])
+    [parquet_row] = checks.prepare([OFFICIAL_PARQUET_ROW])
 
     _assert_number_equals(jsonl_row.energy_kcal_100g, 0.0)
     _assert_number_equals(parquet_row.energy_kcal_100g, 0.0)
@@ -219,7 +219,7 @@ def test_frozen_full_fidelity_rows_prepare_consistently_on_nutriments() -> None:
 
 
 def test_frozen_official_rows_accept_extra_columns() -> None:
-    [prepared_row] = checks.prepare_source_products(
+    [prepared_row] = checks.prepare(
         [{**OFFICIAL_CSV_ROW, "unexpected_extra_column": "kept out of the contract"}]
     )
 
@@ -239,8 +239,8 @@ def test_frozen_official_rows_accept_sparse_supported_subsets() -> None:
         "serving_quantity": OFFICIAL_JSONL_FULL_DOCUMENT_ROW["serving_quantity"],
     }
 
-    [prepared_csv_row] = checks.prepare_source_products([sparse_csv_row])
-    [prepared_jsonl_row] = checks.prepare_source_products([sparse_jsonl_row])
+    [prepared_csv_row] = checks.prepare([sparse_csv_row])
+    [prepared_jsonl_row] = checks.prepare([sparse_jsonl_row])
 
     assert prepared_csv_row.code == REPRESENTATIVE_CODE
     assert prepared_csv_row.product_name == PRODUCT_NAME

@@ -220,12 +220,8 @@ def test_checks_run_accepts_stringified_openfoodfacts_product_export_rows() -> N
     _assert_global_check_runs([_stringified_off_product_export_row()])
 
 
-def test_checks_prepare_source_products_decodes_stringified_openfoodfacts_product_export_rows() -> (
-    None
-):
-    [prepared_row] = checks.prepare_source_products(
-        [_stringified_off_product_export_row()]
-    )
+def test_checks_prepare_decodes_stringified_openfoodfacts_product_export_rows() -> None:
+    [prepared_row] = checks.prepare([_stringified_off_product_export_row()])
 
     assert prepared_row.code == "123"
     assert prepared_row.product_name == "Example"
@@ -234,50 +230,44 @@ def test_checks_prepare_source_products_decodes_stringified_openfoodfacts_produc
     assert prepared_row.energy_kcal_100g == 123.0
 
 
-def test_checks_project_off_product_export_rows_accept_openfoodfacts_product_export_rows() -> (
+def test_checks_prepare_accepts_openfoodfacts_product_export_rows() -> None:
+    _assert_global_check_runs(checks.prepare([_example_off_product_export_row()]))
+
+
+def test_checks_prepare_accepts_duckdb_like_relations_of_off_product_export_rows() -> (
     None
 ):
-    _assert_global_check_runs_on_projected_off_product_export_rows(
-        [_example_off_product_export_row()]
-    )
-
-
-def test_checks_project_off_product_export_rows_accept_duckdb_like_relations() -> None:
     off_product_export_row = _example_off_product_export_row()
-    _assert_global_check_runs_on_projected_off_product_export_rows(
-        _DuckDBLikeRelation(
-            columns=tuple(off_product_export_row),
-            records=[
-                tuple(off_product_export_row.values()),
-            ],
+    _assert_global_check_runs(
+        checks.prepare(
+            _DuckDBLikeRelation(
+                columns=tuple(off_product_export_row),
+                records=[
+                    tuple(off_product_export_row.values()),
+                ],
+            )
         )
     )
 
 
-def test_checks_project_off_product_export_rows_accept_stringified_rows() -> None:
-    projected_rows = checks.project_off_product_export_rows(
-        [_stringified_off_product_export_row()]
-    )
-
-    assert projected_rows[0].code == "123"
-    assert projected_rows[0].product_name == "Example"
-    assert projected_rows[0].energy_kcal_100g == 123.0
-
-
-def test_checks_project_off_product_export_rows_reject_missing_shape_columns() -> None:
+def test_checks_prepare_rejects_missing_shape_columns_for_structured_export_rows() -> (
+    None
+):
     missing_shape_row: dict[str, object] = {
         "code": "123",
         "nutriments": [],
     }
     with pytest.raises(
         ValueError,
-        match="does not match the Open Food Facts product export shape",
+        match="complete official OFF export row or a canonical-compatible row",
     ):
-        checks.project_off_product_export_rows([missing_shape_row])
+        checks.prepare([missing_shape_row])
 
 
-def test_checks_namespace_exposes_off_product_export_adapter() -> None:
-    assert hasattr(checks, "project_off_product_export_rows")
+def test_checks_namespace_exposes_prepare_and_hides_export_specific_adapter() -> None:
+    assert hasattr(checks, "prepare")
+    assert not hasattr(checks, "project_off_product_export_rows")
+    assert not hasattr(checks, "project_off_product_export_row")
 
 
 def test_checks_run_accepts_full_off_product_documents() -> None:
@@ -293,14 +283,12 @@ def test_checks_run_rejects_partial_openfoodfacts_structured_rows() -> None:
         checks.run([partial_structured_row])
 
 
-def test_checks_prepare_source_products_rejects_partial_openfoodfacts_localized_rows() -> (
-    None
-):
+def test_checks_prepare_rejects_partial_openfoodfacts_localized_rows() -> None:
     with pytest.raises(
         ValueError,
         match="complete official OFF export row or a canonical-compatible row",
     ):
-        checks.prepare_source_products(
+        checks.prepare(
             [
                 {
                     "code": "123",
@@ -310,10 +298,8 @@ def test_checks_prepare_source_products_rejects_partial_openfoodfacts_localized_
         )
 
 
-def test_checks_prepare_source_products_accepts_sparse_rows_with_extra_columns() -> (
-    None
-):
-    [prepared_row] = checks.prepare_source_products(
+def test_checks_prepare_accepts_sparse_rows_with_extra_columns() -> None:
+    [prepared_row] = checks.prepare(
         [
             {
                 "code": "123",
@@ -347,8 +333,8 @@ def test_checks_run_accepts_duckdb_like_relations_of_full_off_product_documents(
     )
 
 
-def test_checks_prepare_source_products_decodes_full_off_product_documents() -> None:
-    [prepared_row] = checks.prepare_source_products([_example_full_off_document()])
+def test_checks_prepare_decodes_full_off_product_documents() -> None:
+    [prepared_row] = checks.prepare([_example_full_off_document()])
 
     assert prepared_row.code == "123"
     assert prepared_row.product_name == "Example"
@@ -357,11 +343,9 @@ def test_checks_prepare_source_products_decodes_full_off_product_documents() -> 
     assert prepared_row.fat_100g == 3.5
 
 
-def test_checks_prepare_source_products_rejects_invalid_reserved_off_nutriments_values() -> (
-    None
-):
+def test_checks_prepare_rejects_invalid_reserved_off_nutriments_values() -> None:
     with pytest.raises(ValueError, match="nutriments"):
-        checks.prepare_source_products([{"code": "123", "nutriments": "[1, 2, 3]"}])
+        checks.prepare([{"code": "123", "nutriments": "[1, 2, 3]"}])
 
 
 def _example_off_product_export_row() -> dict[str, object]:
@@ -414,19 +398,6 @@ def _example_full_off_document() -> dict[str, object]:
             "fat_100g": 3.5,
         },
     }
-
-
-def test_checks_project_off_product_export_row_accepts_one_openfoodfacts_product_export_row() -> (
-    None
-):
-    projected_row = checks.project_off_product_export_row(
-        _example_off_product_export_row()
-    )
-
-    assert projected_row.code == "123"
-    assert projected_row.product_name == "Example"
-    assert projected_row.energy_kcal_100g == 123.0
-    assert projected_row.fat_100g == 3.5
 
 
 def test_off_data_quality_root_exposes_checks_and_snapshots() -> None:
@@ -494,12 +465,6 @@ def _assert_global_check_runs(rows: object) -> None:
     assert [(finding.product_id, finding.check_id) for finding in findings] == [
         ("123", "en:global-check")
     ]
-
-
-def _assert_global_check_runs_on_projected_off_product_export_rows(
-    rows: object,
-) -> None:
-    _assert_global_check_runs(checks.project_off_product_export_rows(rows))
 
 
 def _stringified_off_product_export_row() -> dict[str, object]:

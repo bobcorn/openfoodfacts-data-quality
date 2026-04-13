@@ -6,11 +6,8 @@ from collections.abc import Collection, Iterable, Mapping
 from typing import Any, cast
 
 from off_data_quality._source_input import (
-    OFF_PRODUCT_EXPORT_COLUMNS,
     prepare_canonical_source_row,
-    prepare_off_product_export_row,
     prepare_supported_source_row,
-    project_off_product_export_row,
 )
 from off_data_quality.contracts.source_products import (
     SOURCE_PRODUCT_INPUT_COLUMNS,
@@ -24,42 +21,24 @@ def prepare_source_products(
     rows: object,
     *,
     columns: Mapping[str, str] | None = None,
+    operation_name: str = "checks.prepare()",
 ) -> list[SourceProduct]:
     """Prepare one user-provided table or row stream for row-based checks."""
-    normalized_columns = _validate_column_mapping(columns)
+    normalized_columns = _validate_column_mapping(
+        columns,
+        operation_name=operation_name,
+    )
     prepared_rows: list[SourceProduct] = []
-    for index, row in enumerate(_iter_input_rows(rows, operation_name="checks.run()")):
+    for index, row in enumerate(_iter_input_rows(rows, operation_name=operation_name)):
         prepared_rows.append(
             _prepare_source_product_row(
                 row,
                 columns=normalized_columns,
                 row_index=index,
+                operation_name=operation_name,
             )
         )
     return prepared_rows
-
-
-def project_off_product_export_rows(rows: object) -> list[SourceProduct]:
-    """Project loaded Open Food Facts product export rows into SourceProduct values."""
-    projected_rows: list[SourceProduct] = []
-    for index, row in enumerate(
-        _iter_input_rows(
-            rows,
-            operation_name="checks.project_off_product_export_rows()",
-            single_row_hint="checks.project_off_product_export_row(...)",
-        )
-    ):
-        if not isinstance(row, Mapping):
-            raise TypeError(
-                "checks.project_off_product_export_rows() expects each row to be a mapping."
-            )
-        projected_rows.append(
-            prepare_off_product_export_row(
-                cast(Mapping[str, object], row),
-                row_index=index,
-            )
-        )
-    return projected_rows
 
 
 def _iter_input_rows(
@@ -99,24 +78,28 @@ def _prepare_source_product_row(
     *,
     columns: Mapping[str, str],
     row_index: int,
+    operation_name: str,
 ) -> SourceProduct:
     if isinstance(row, SourceProduct):
         if columns:
             raise ValueError(
-                "checks.run() does not accept columns= when rows are already "
+                f"{operation_name} does not accept columns= when rows are already "
                 "validated SourceProduct values."
             )
         return row
     if not isinstance(row, Mapping):
         raise TypeError(
-            "checks.run() expects each row to be either a mapping or a "
+            f"{operation_name} expects each row to be either a mapping or a "
             "SourceProduct instance."
         )
 
     mapping_row = cast(Mapping[str, Any], row)
     if columns:
         remapped_row = _remap_row_columns(
-            mapping_row, columns=columns, row_index=row_index
+            mapping_row,
+            columns=columns,
+            row_index=row_index,
+            operation_name=operation_name,
         )
         return prepare_canonical_source_row(remapped_row, row_index=row_index)
     return prepare_supported_source_row(mapping_row, row_index=row_index)
@@ -124,6 +107,8 @@ def _prepare_source_product_row(
 
 def _validate_column_mapping(
     columns: Mapping[str, str] | None,
+    *,
+    operation_name: str,
 ) -> dict[str, str]:
     if columns is None:
         return {}
@@ -136,14 +121,14 @@ def _validate_column_mapping(
     )
     if unknown_columns:
         raise ValueError(
-            "checks.run() received unknown canonical columns in columns=: "
+            f"{operation_name} received unknown canonical columns in columns=: "
             f"{', '.join(unknown_columns)}."
         )
 
     duplicate_sources = _duplicate_values(normalized_columns.values())
     if duplicate_sources:
         raise ValueError(
-            "checks.run() columns= maps multiple canonical columns to the "
+            f"{operation_name} columns= maps multiple canonical columns to the "
             f"same source column: {', '.join(duplicate_sources)}."
         )
 
@@ -154,7 +139,7 @@ def _validate_column_mapping(
     )
     if blank_sources:
         raise ValueError(
-            "checks.run() columns= includes blank source names for: "
+            f"{operation_name} columns= includes blank source names for: "
             f"{', '.join(blank_sources)}."
         )
 
@@ -166,6 +151,7 @@ def _remap_row_columns(
     *,
     columns: Mapping[str, str],
     row_index: int,
+    operation_name: str,
 ) -> dict[str, Any]:
     normalized_row = dict(row)
     remapped_row: dict[str, Any] = dict(normalized_row)
@@ -173,13 +159,13 @@ def _remap_row_columns(
     for canonical_column, source_column in columns.items():
         if source_column not in normalized_row:
             raise ValueError(
-                f"checks.run() row {row_index} is missing mapped source "
+                f"{operation_name} row {row_index} is missing mapped source "
                 f"column {source_column!r} for canonical column "
                 f"{canonical_column!r}."
             )
         if canonical_column in normalized_row and source_column != canonical_column:
             raise ValueError(
-                f"checks.run() row {row_index} contains both canonical "
+                f"{operation_name} row {row_index} contains both canonical "
                 f"column {canonical_column!r} and mapped source column "
                 f"{source_column!r}. Remove the duplicate or columns= mapping."
             )
@@ -268,8 +254,5 @@ def _duplicate_values(values: Iterable[str]) -> list[str]:
 
 
 __all__ = [
-    "OFF_PRODUCT_EXPORT_COLUMNS",
     "prepare_source_products",
-    "project_off_product_export_row",
-    "project_off_product_export_rows",
 ]

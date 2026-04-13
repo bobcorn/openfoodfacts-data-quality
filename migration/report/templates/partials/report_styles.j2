@@ -51,7 +51,7 @@
 
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
         margin-top: 24px;
       }
@@ -851,17 +851,7 @@
         border: 0;
       }
 
-      @media (max-width: 960px) {
-        .stats-grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-      }
-
       @media (max-width: 860px) {
-        .stats-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
         .section-bar {
           flex-direction: column;
           align-items: flex-start;

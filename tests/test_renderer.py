@@ -67,8 +67,8 @@ def test_render_report_writes_expected_artifacts(
     assert (
         'class="stat stat--hero stat--detail">\n'
         '            <span class="stat__label"><span class="term" data-tooltip="Checks executed without a legacy comparison baseline.">Runtime Only</span></span>'
-    ) in html
-    assert "grid-template-columns: repeat(5, minmax(0, 1fr));" in html
+    ) not in html
+    assert "grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));" in html
     assert (
         html.index("Mismatching")
         < html.index("Missing Findings")
@@ -205,3 +205,29 @@ def test_render_report_surfaces_skipped_source_rows(
             },
         ],
     }
+
+
+def test_render_report_hides_runtime_only_stat_when_no_runtime_only_checks(
+    tmp_path: Path,
+    run_result_factory: RunResultFactory,
+    legacy_source_root_factory: Callable[[Path], Path],
+) -> None:
+    legacy_root = legacy_source_root_factory(tmp_path)
+
+    render_report(
+        run_result_factory(),
+        tmp_path,
+        legacy_source_root=legacy_root,
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    runtime_only_stat = (
+        '<span class="stat__label"><span class="term" '
+        'data-tooltip="Checks executed without a legacy comparison baseline.">'
+        "Runtime Only</span></span>"
+    )
+
+    assert runtime_only_stat not in html
+    assert 'value="runtime_only"' in html
+    assert "grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));" in html

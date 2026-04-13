@@ -22,9 +22,9 @@ STRUCTURED_EQUIVALENCE_CHECK_ID = "en:serving-quantity-over-product-quantity"
 
 def test_supported_example_samples_prepare_all_rows() -> None:
     prepared_counts = {
-        "jsonl": len(checks.prepare_source_products(_load_jsonl_rows())),
-        "csv": len(checks.prepare_source_products(_load_csv_rows())),
-        "parquet": len(checks.prepare_source_products(_load_parquet_relation())),
+        "jsonl": len(checks.prepare(_load_jsonl_rows())),
+        "csv": len(checks.prepare(_load_csv_rows())),
+        "parquet": len(checks.prepare(_load_parquet_relation())),
         "duckdb_jsonl": _prepare_duckdb_rows(JSONL_DUCKDB_SAMPLE),
         "duckdb_parquet": _prepare_duckdb_rows(PARQUET_DUCKDB_SAMPLE),
     }
@@ -101,7 +101,7 @@ def _load_parquet_relation() -> duckdb.DuckDBPyRelation:
 
 def _prepare_duckdb_rows(path: Path) -> int:
     with duckdb.connect(str(path), read_only=True) as connection:
-        return len(checks.prepare_source_products(connection.sql("from products")))
+        return len(checks.prepare(connection.sql("from products")))
 
 
 def _run_duckdb_rows(path: Path, *, check_ids: list[str]) -> int:

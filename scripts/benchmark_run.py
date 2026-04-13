@@ -14,10 +14,11 @@ from _bootstrap import ROOT, bootstrap_paths
 
 bootstrap_paths()
 
-from migration.logging_config import configure_cli_logging
 from migration.run.orchestrator import MigrationRunner
 from migration.run.settings import configured_run_spec
 from migration.storage import load_recorded_run_benchmark_summary
+
+from runtime_support.logging_config import configure_cli_logging
 
 LOGGER = logging.getLogger(__name__)
 BENCHMARK_ARTIFACT_KIND = "openfoodfacts_data_quality.run_benchmark"

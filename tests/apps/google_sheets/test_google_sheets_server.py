@@ -3,8 +3,11 @@ from __future__ import annotations
 import http.client
 from contextlib import closing
 from threading import Thread
+from unittest.mock import patch
 
 from apps.google_sheets.server import create_server
+
+from runtime_support.logging_config import configure_cli_logging
 
 
 def test_google_sheets_server_supports_head_routes() -> None:
@@ -26,6 +29,16 @@ def test_google_sheets_server_renders_shared_ui_shell() -> None:
     assert '<section class="surface-shell workflow-shell shell">' in decoded_body
     assert '<div class="page-meta">' not in decoded_body
     assert "Google Sheets Demo" in decoded_body
+
+
+def test_google_sheets_server_routes_request_logs_through_logging() -> None:
+    configure_cli_logging()
+
+    with patch("apps.google_sheets.server.LOGGER.info") as logger_info:
+        response, _ = _request("GET", "/healthz")
+
+    assert response.status == 200
+    logger_info.assert_any_call("%s - %s", "127.0.0.1", '"GET /healthz HTTP/1.1" 200 -')
 
 
 def _request(

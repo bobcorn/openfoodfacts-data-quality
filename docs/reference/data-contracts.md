@@ -63,10 +63,9 @@ For flexibility, the facade also accepts sparse canonical-compatible rows and
 ignores extra columns. It does not treat partial subsets of structured OFF
 export/document shapes as separate supported contracts.
 
-If callers want to force the stricter structured-export contract explicitly,
-they can still project those rows with
-`off_data_quality.checks.project_off_product_export_rows(...)` before passing
-the resulting `SourceProduct` values to `checks.run(...)`.
+If callers want to prepare rows once and reuse the normalized result across
+multiple runs, they can call `off_data_quality.checks.prepare(...)` first and
+then pass the resulting `SourceProduct` values to `checks.run(...)`.
 
 The public `checks` API runs on one canonical contract. Its internal
 preparation step accepts only supported loaded row shapes and fails when the

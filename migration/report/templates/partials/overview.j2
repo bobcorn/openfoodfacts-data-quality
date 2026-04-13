@@ -41,10 +41,12 @@
             <strong class="stat__value">{{ affected_products }} / {{ report.product_count }}</strong>
           </div>
 
+          {% if runtime_only_checks %}
           <div class="stat stat--hero stat--detail">
             <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.runtime_only_checks_tooltip }}">{{ terms.stats.runtime_only_checks_label }}</span></span>
             <strong class="stat__value">{{ runtime_only_checks }}</strong>
           </div>
+          {% endif %}
         </div>
 
         {% if report.source_input.skipped_row_count %}

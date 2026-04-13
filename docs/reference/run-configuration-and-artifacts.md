@@ -25,6 +25,8 @@ the parity store and the cache.
 - `MISMATCH_EXAMPLES_LIMIT`: Retained
   [mismatch examples](report-artifacts.md#check-cards) for each side of each
   check.
+- `LOG_INCLUDE_SOURCE`: When `true`, local application logs include logger
+  name and line number.
 - `CHECK_PROFILE`: Named
   [check profile](../explanation/migrated-checks.md#check-profiles) from
   `config/check-profiles.toml`.

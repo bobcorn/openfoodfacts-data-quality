@@ -71,7 +71,7 @@ install-hooks:
 	$(PRE_COMMIT) install --install-hooks
 
 sync-examples:
-	$(PYTHON) -m jupytext --sync $(EXAMPLE_NOTEBOOK_SOURCES)
+	$(PYTHON) scripts/sync_example_notebooks.py $(EXAMPLE_NOTEBOOK_SOURCES)
 
 build:
 	rm -rf build dist src/openfoodfacts_data_quality.egg-info
