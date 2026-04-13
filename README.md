@@ -65,8 +65,7 @@ Use this procedure when you work in the repository.
    ```
 
 4. Open the report at `http://localhost:8000`, unless you changed
-   `MIGRATION_PORT` in `.env`. The local Compose flow binds to `127.0.0.1`
-   by default.
+   `MIGRATION_PORT` in `.env`.
 
 For local run details, see
 [Run the project locally](docs/how-to/run-the-project-locally.md).
