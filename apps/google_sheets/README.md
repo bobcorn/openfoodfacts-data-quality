@@ -92,32 +92,6 @@ The access model is intentionally narrower than the earlier URL-based version:
 The end user does not provide any JSON file, secret, or environment variable.
 There is no client secret in this runtime design.
 
-## Maintainer setup
-
-To build a distributable image, configure the Google app once:
-
-1. Create a Google Cloud project.
-2. Enable `Google Sheets API`.
-3. Enable `Google Picker API`.
-4. Create an OAuth client for a Web application.
-5. Add `http://localhost` and `http://localhost:8501` as authorized JavaScript
-   origins.
-6. Create an API key for Google Picker.
-7. Restrict the API key to the Picker API and localhost referrers.
-8. Note the Google Cloud project number.
-9. If you publish from GitHub Actions, add these repository secrets:
-   - `GOOGLE_SHEETS_CLIENT_ID`
-   - `GOOGLE_SHEETS_API_KEY`
-   - `GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER`
-10. Build the image with:
-   - `GOOGLE_SHEETS_CLIENT_ID`
-   - `GOOGLE_SHEETS_API_KEY`
-   - `GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER`
-
-This setup is much lighter than a `spreadsheets`-scope app that works from an
-arbitrary pasted URL. With `drive.file` and Picker, the app can usually stay
-outside the heavier sensitive-scope verification path.
-
 ## Run it
 
 Run the published demo image:
@@ -147,15 +121,6 @@ local network.
 
 Compose builds the same demo image locally and tags it as
 `google-sheets-demo:local`.
-
-To build one distributable image locally with the Google client ID baked in:
-
-```bash
-/Users/marco/Development/openfoodfacts-data-quality/apps/google_sheets/build_image.sh \
-  your-client-id.apps.googleusercontent.com \
-  your-google-picker-api-key \
-  your-google-cloud-project-number
-```
 
 ## Before the walkthrough
 
@@ -189,6 +154,7 @@ For local Compose builds, `.env` only carries optional builder settings:
 - `GOOGLE_SHEETS_CLIENT_ID`
 - `GOOGLE_SHEETS_API_KEY`
 - `GOOGLE_SHEETS_CLOUD_PROJECT_NUMBER`
+- `LOG_INCLUDE_SOURCE`
 
 End users do not need any environment variables if they run a prebuilt image.
 

@@ -9,7 +9,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: .venv (3.14.3)
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -17,7 +17,7 @@
 # %% [markdown]
 # # Basic usage
 #
-# List the checks, then run them on the sample data.
+# List the checks, prepare reusable rows, then run them on the sample data.
 
 # %% [markdown]
 # Import the reusable row-based API from `off_data_quality`.
@@ -65,10 +65,16 @@ print("All checks")
 print(json.dumps([check.id for check in all_checks], indent=2))
 
 # %% [markdown]
-# Run all checks on the loaded rows.
+# Prepare the loaded rows once if you plan to reuse them across multiple runs.
 
 # %%
-all_findings = checks.run(rows)
+prepared_rows = checks.prepare(rows)
+
+# %% [markdown]
+# Run all checks on the prepared rows.
+
+# %%
+all_findings = checks.run(prepared_rows)
 print()
 print("All findings")
 print(json.dumps({"count": len(all_findings)}, indent=2))
@@ -78,7 +84,7 @@ print(json.dumps({"count": len(all_findings)}, indent=2))
 
 # %%
 selected_checks = checks.list(check_ids=SELECTED_CHECK_IDS)
-selected_findings = checks.run(rows, check_ids=SELECTED_CHECK_IDS)
+selected_findings = checks.run(prepared_rows, check_ids=SELECTED_CHECK_IDS)
 selected_example = None
 for finding in selected_findings:
     selected_example = {

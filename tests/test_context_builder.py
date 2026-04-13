@@ -13,7 +13,7 @@ from migration.run.context_builders import check_context_builder_for
 from migration.source.models import ProductDocument
 from migration.source.product_documents import validate_product_document
 
-from off_data_quality.checks import prepare_source_products
+from off_data_quality.checks import prepare
 from off_data_quality.context import build_source_product_contexts
 from off_data_quality.contracts.source_products import (
     SourceProduct,
@@ -133,7 +133,7 @@ def test_build_source_product_contexts_uses_source_products() -> None:
 
 
 def test_build_source_product_contexts_accepts_prepared_source_products() -> None:
-    prepared_rows = prepare_source_products(
+    prepared_rows = prepare(
         [
             {
                 "code": "123",

@@ -47,7 +47,11 @@ def run_row_checks(
 ) -> list[Finding]:
     """Prepare one row stream and run the selected checks."""
     return run_provider_checks(
-        prepare_source_products(rows, columns=columns),
+        prepare_source_products(
+            rows,
+            columns=columns,
+            operation_name="checks.run()",
+        ),
         provider=SOURCE_PRODUCTS_PROVIDER,
         check_ids=check_ids,
         jurisdictions=jurisdictions,

@@ -11,7 +11,10 @@ from off_data_quality._source_input.codecs import (
     decode_full_document_tag_values,
 )
 from off_data_quality._source_input.contracts import SourceInputProbe
-from off_data_quality._source_input.dispatch import SUPPORTED_SOURCE_INPUT_CONTRACTS
+from off_data_quality._source_input.dispatch import (
+    SUPPORTED_SOURCE_INPUT_CONTRACTS,
+    prepare_supported_source_row,
+)
 
 
 def test_source_input_contract_probes_match_only_their_supported_contract() -> None:
@@ -37,14 +40,19 @@ def test_source_input_contract_probes_match_only_their_supported_contract() -> N
 
 
 def test_source_input_contract_probes_flag_partial_structured_rows_as_invalid() -> None:
-    canonical_probe = _contract_probe("canonical_compatible")
+    product_export_probe = _contract_probe("off_product_export")
     partial_structured_row: dict[str, object] = {"code": "123", "nutriments": []}
 
-    outcome = canonical_probe(partial_structured_row, 0)
+    outcome = product_export_probe(partial_structured_row, 0)
 
     assert outcome.decision == "invalid"
     assert outcome.reason is not None
     assert "complete official OFF export row" in outcome.reason
+
+
+def test_prepare_supported_source_row_rejects_partial_structured_rows() -> None:
+    with pytest.raises(ValueError, match="complete official OFF export row"):
+        prepare_supported_source_row({"code": "123", "nutriments": []}, row_index=0)
 
 
 def test_source_input_contract_probes_flag_partial_full_document_rows_as_invalid() -> (

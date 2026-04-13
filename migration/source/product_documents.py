@@ -1,27 +1,18 @@
 from __future__ import annotations
 
 import gzip
-import hashlib
-import heapq
-import json
-from collections.abc import Collection, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Protocol, cast
-
-import duckdb
 
 from migration.source.datasets import SourceSelection
 from migration.source.models import (
     ProductDocument,
-    SkippedSourceRow,
     SourceBatchRecord,
     SourceInputSummary,
     SourceSnapshotFormat,
 )
 from migration.source.snapshots import source_snapshot_id_for
-
-_SKIPPED_SOURCE_ROW_EXAMPLE_LIMIT = 20
-_MISSING_OR_BLANK_CODE_REASON = "missing or blank code"
 
 
 class SourceSnapshotAdapter(Protocol):
@@ -78,21 +69,25 @@ def iter_source_batches(
     )
 
 
-def source_snapshot_adapter_for(
-    path: Path,
-) -> SourceSnapshotAdapter:
+def source_snapshot_adapter_for(path: Path) -> SourceSnapshotAdapter:
     """Return the explicit adapter for one source snapshot path."""
     resolved_format = resolve_source_snapshot_format(path)
     if resolved_format == SourceSnapshotFormat.DUCKDB:
+        from migration.source._product_documents_duckdb import (
+            DuckDBProductDocumentAdapter,
+        )
+
         return DuckDBProductDocumentAdapter(path)
     if resolved_format == SourceSnapshotFormat.JSONL:
+        from migration.source._product_documents_jsonl import (
+            JsonlProductDocumentAdapter,
+        )
+
         return JsonlProductDocumentAdapter(path)
     raise ValueError(f"Unsupported source snapshot format: {resolved_format!r}.")
 
 
-def resolve_source_snapshot_format(
-    path: Path,
-) -> SourceSnapshotFormat:
+def resolve_source_snapshot_format(path: Path) -> SourceSnapshotFormat:
     """Resolve the source snapshot format by suffix or by file signature."""
     suffixes = tuple(suffix.lower() for suffix in path.suffixes)
     if suffixes[-2:] == (".jsonl", ".gz") or suffixes[-1:] in (
@@ -114,142 +109,6 @@ def resolve_source_snapshot_format(
     )
 
 
-class DuckDBProductDocumentAdapter:
-    """Read full product documents from one DuckDB products table."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def summarize_input(
-        self,
-        *,
-        selection: SourceSelection | None = None,
-    ) -> SourceInputSummary:
-        """Return source-input diagnostics for the selected DuckDB rows."""
-        connection = duckdb.connect(str(self.path), read_only=True)
-        try:
-            _require_code_column(
-                _available_source_columns(connection), source=self.path
-            )
-            if selection is None or selection.kind == "all_products":
-                return _summarize_duckdb_all_products(
-                    connection,
-                    source=self.path,
-                )
-
-            query, parameters = _duckdb_source_query(
-                selection=selection,
-                select_list="count(*)",
-                ordered=False,
-            )
-            result = connection.execute(query, parameters).fetchone()
-            if result is None:
-                raise RuntimeError(
-                    "DuckDB did not return a row count for the products table."
-                )
-            return SourceInputSummary(processed_product_count=int(result[0]))
-        finally:
-            connection.close()
-
-    def iter_batches(
-        self,
-        *,
-        batch_size: int,
-        selection: SourceSelection | None = None,
-    ) -> Iterator[list[SourceBatchRecord]]:
-        """Yield DuckDB product documents as source batch records."""
-        if batch_size <= 0:
-            raise ValueError("batch_size must be a positive integer.")
-
-        connection = duckdb.connect(str(self.path), read_only=True)
-        try:
-            columns = tuple(sorted(_available_source_columns(connection)))
-            _require_code_column(columns, source=self.path)
-            select_list = ", ".join(_quote_identifier(column) for column in columns)
-            query, parameters = _duckdb_source_query(
-                selection=selection,
-                select_list=select_list,
-                ordered=True,
-            )
-            cursor = connection.execute(query, parameters)
-            cursor_columns = [column[0] for column in cursor.description]
-            while True:
-                batch_rows = cursor.fetchmany(batch_size)
-                if not batch_rows:
-                    break
-                yield [
-                    source_batch_record_from_document(
-                        dict(zip(cursor_columns, row, strict=True))
-                    )
-                    for row in batch_rows
-                ]
-        finally:
-            connection.close()
-
-
-class JsonlProductDocumentAdapter:
-    """Read full product documents from one JSON Lines source snapshot."""
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-
-    def summarize_input(
-        self,
-        *,
-        selection: SourceSelection | None = None,
-    ) -> SourceInputSummary:
-        """Return source-input diagnostics for the selected JSONL rows."""
-        if selection is None or selection.kind == "all_products":
-            return _summarize_jsonl_all_products(self.path)
-        if selection.kind == "code_list":
-            return SourceInputSummary(
-                processed_product_count=len(
-                    _selected_jsonl_code_list_documents(self.path, selection.codes)
-                )
-            )
-        _, summary = _selected_jsonl_stable_sample_result(
-            self.path,
-            sample_size=_required_selection_sample_size(selection),
-            seed=_required_selection_seed(selection),
-        )
-        return summary
-
-    def iter_batches(
-        self,
-        *,
-        batch_size: int,
-        selection: SourceSelection | None = None,
-    ) -> Iterator[list[SourceBatchRecord]]:
-        """Yield JSONL product documents as source batch records."""
-        if batch_size <= 0:
-            raise ValueError("batch_size must be a positive integer.")
-
-        batch: list[SourceBatchRecord] = []
-        for document in self._iter_selected_documents(selection=selection):
-            batch.append(source_batch_record_from_document(document))
-            if len(batch) == batch_size:
-                yield batch
-                batch = []
-        if batch:
-            yield batch
-
-    def _iter_selected_documents(
-        self,
-        *,
-        selection: SourceSelection | None,
-    ) -> Iterator[ProductDocument]:
-        if selection is None or selection.kind == "all_products":
-            return _iter_valid_product_documents(self.path)
-        if selection.kind == "code_list":
-            return iter(_selected_jsonl_code_list_documents(self.path, selection.codes))
-        documents, _ = _selected_jsonl_stable_sample_result(
-            self.path,
-            sample_size=_required_selection_sample_size(selection),
-            seed=_required_selection_seed(selection),
-        )
-        return iter(documents)
-
-
 def source_batch_record_from_document(
     document: ProductDocument | Mapping[str, object],
 ) -> SourceBatchRecord:
@@ -258,9 +117,7 @@ def source_batch_record_from_document(
     return SourceBatchRecord(product_document=product_document)
 
 
-def validate_product_document(
-    document: object,
-) -> ProductDocument:
+def validate_product_document(document: object) -> ProductDocument:
     """Return one validated full product document."""
     if isinstance(document, ProductDocument):
         return document
@@ -322,324 +179,13 @@ def _first_nonblank_byte(handle: SupportsBinaryRead) -> bytes | None:
             return bytes([byte])
 
 
-def _iter_nonblank_jsonl_lines(path: Path) -> Iterator[tuple[int, str]]:
-    if tuple(suffix.lower() for suffix in path.suffixes[-2:]) == (".jsonl", ".gz"):
-        with gzip.open(path, "rt", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                if line.strip():
-                    yield line_number, line
-        return
-
-    with path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            if line.strip():
-                yield line_number, line
-
-
-def _iter_jsonl_documents(path: Path) -> Iterator[tuple[int, dict[str, object]]]:
-    for line_number, line in _iter_nonblank_jsonl_lines(path):
-        payload = json.loads(line)
-        if not isinstance(payload, dict):
-            raise ValueError(
-                f"JSONL source line {line_number} is not a product object."
-            )
-        yield line_number, cast(dict[str, object], payload)
-
-
-def _iter_valid_product_documents(path: Path) -> Iterator[ProductDocument]:
-    for line_number, document in _iter_jsonl_documents(path):
-        product_document, skipped_row = _validated_jsonl_product_document(
-            document,
-            line_number=line_number,
-        )
-        if skipped_row is None:
-            assert product_document is not None
-            yield product_document
-
-
-def _selected_jsonl_code_list_documents(
-    path: Path,
-    codes: Sequence[str],
-) -> list[ProductDocument]:
-    selected_codes = set(codes)
-    documents = [
-        validate_product_document(document)
-        for _, document in _iter_jsonl_documents(path)
-        if _raw_product_code(document) in selected_codes
-    ]
-    return sorted(documents, key=lambda document: document.code)
-
-
-def _selected_jsonl_stable_sample_result(
-    path: Path,
-    *,
-    sample_size: int,
-    seed: int,
-) -> tuple[list[ProductDocument], SourceInputSummary]:
-    heap: list[tuple[int, str, int, ProductDocument]] = []
-    skipped_row_count = 0
-    skipped_row_examples: list[SkippedSourceRow] = []
-    for line_number, document in _iter_jsonl_documents(path):
-        product_document, skipped_row = _validated_jsonl_product_document(
-            document,
-            line_number=line_number,
-        )
-        if skipped_row is not None:
-            skipped_row_count = _record_skipped_source_row(
-                skipped_row,
-                skipped_row_count=skipped_row_count,
-                skipped_row_examples=skipped_row_examples,
-            )
-            continue
-        assert product_document is not None
-        index = line_number
-        code = product_document.code
-        stable_hash = _stable_sample_hash(code, seed)
-        entry = (-stable_hash, code, index, product_document)
-        if len(heap) < sample_size:
-            heapq.heappush(heap, entry)
-            continue
-        if entry > heap[0]:
-            heapq.heapreplace(heap, entry)
-    documents = [
-        document
-        for _, _, _, document in sorted(
-            heap,
-            key=lambda entry: (-entry[0], entry[1], entry[2]),
-        )
-    ]
-    return (
-        documents,
-        SourceInputSummary(
-            processed_product_count=len(documents),
-            skipped_row_count=skipped_row_count,
-            skipped_row_examples=tuple(skipped_row_examples),
-        ),
-    )
-
-
-def _stable_sample_hash(code: str, seed: int) -> int:
-    digest = hashlib.sha256(f"{code}::{seed}".encode()).hexdigest()
-    return int(digest, 16)
-
-
-def _required_selection_sample_size(selection: SourceSelection) -> int:
-    if selection.sample_size is None:
-        raise ValueError("stable_sample selections must define sample_size.")
-    return selection.sample_size
-
-
-def _required_selection_seed(selection: SourceSelection) -> int:
-    if selection.seed is None:
-        raise ValueError("stable_sample selections must define seed.")
-    return selection.seed
-
-
-def _duckdb_source_query(
-    *,
-    selection: SourceSelection | None,
-    select_list: str,
-    ordered: bool,
-) -> tuple[str, list[object]]:
-    if selection is None or selection.kind == "all_products":
-        query = f"""
-            select {select_list}
-            from products
-            where code is not null
-              and trim(code) != ''
-        """
-        if ordered:
-            query += " order by code"
-        return query, []
-
-    if selection.kind == "stable_sample":
-        if not ordered:
-            return (
-                """
-                select least(count(*), ?)
-                from products
-                where code is not null
-                  and trim(code) != ''
-                """,
-                [_required_selection_sample_size(selection)],
-            )
-        query = f"""
-            select {select_list}
-            from products
-            where code is not null
-              and trim(code) != ''
-            order by hash(code || ?), code
-            limit ?
-        """
-        return (
-            query,
-            [
-                f"::{_required_selection_seed(selection)}",
-                _required_selection_sample_size(selection),
-            ],
-        )
-
-    placeholders = ", ".join("?" for _ in selection.codes)
-    query = f"""
-        select {select_list}
-        from products
-        where code in ({placeholders})
-    """
-    if ordered:
-        query += " order by code"
-    return query, list(selection.codes)
-
-
-def _available_source_columns(
-    connection: duckdb.DuckDBPyConnection,
-) -> set[str]:
-    return {
-        row[0]
-        for row in connection.execute("describe select * from products").fetchall()
-    }
-
-
-def _require_code_column(
-    available_columns: Collection[str],
-    *,
-    source: Path,
-) -> None:
-    if "code" not in available_columns:
-        raise ValueError(
-            f"Source snapshot {source} must expose a products.code column."
-        )
-
-
-def _summarize_duckdb_all_products(
-    connection: duckdb.DuckDBPyConnection,
-    *,
-    source: Path,
-) -> SourceInputSummary:
-    result = connection.execute(
-        """
-        select
-            count(*) filter (where code is not null and trim(code) != ''),
-            count(*) filter (where code is null or trim(code) = '')
-        from products
-        """
-    ).fetchone()
-    if result is None:
-        raise RuntimeError(
-            f"DuckDB source snapshot {source} did not return aggregate row counts."
-        )
-    processed_product_count = int(result[0] or 0)
-    skipped_row_count = int(result[1] or 0)
-    skipped_row_examples = tuple(
-        SkippedSourceRow(
-            location=f"duckdb rowid {int(rowid)}",
-            reason=_MISSING_OR_BLANK_CODE_REASON,
-        )
-        for (rowid,) in connection.execute(
-            """
-            select rowid
-            from products
-            where code is null
-               or trim(code) = ''
-            order by rowid
-            limit ?
-            """,
-            [_SKIPPED_SOURCE_ROW_EXAMPLE_LIMIT],
-        ).fetchall()
-    )
-    return SourceInputSummary(
-        processed_product_count=processed_product_count,
-        skipped_row_count=skipped_row_count,
-        skipped_row_examples=skipped_row_examples,
-    )
-
-
-def _summarize_jsonl_all_products(path: Path) -> SourceInputSummary:
-    processed_product_count = 0
-    skipped_row_count = 0
-    skipped_row_examples: list[SkippedSourceRow] = []
-    for line_number, document in _iter_jsonl_documents(path):
-        _, skipped_row = _validated_jsonl_product_document(
-            document,
-            line_number=line_number,
-        )
-        if skipped_row is not None:
-            skipped_row_count = _record_skipped_source_row(
-                skipped_row,
-                skipped_row_count=skipped_row_count,
-                skipped_row_examples=skipped_row_examples,
-            )
-            continue
-        processed_product_count += 1
-    return SourceInputSummary(
-        processed_product_count=processed_product_count,
-        skipped_row_count=skipped_row_count,
-        skipped_row_examples=tuple(skipped_row_examples),
-    )
-
-
-def _validated_jsonl_product_document(
-    document: dict[str, object],
-    *,
-    line_number: int,
-) -> tuple[ProductDocument | None, SkippedSourceRow | None]:
-    try:
-        return validate_product_document(document), None
-    except ValueError as exc:
-        reason = _skip_reason_from_product_document_error(exc)
-        if reason is None:
-            raise
-        return (
-            None,
-            SkippedSourceRow(
-                location=f"jsonl line {line_number}",
-                reason=reason,
-            ),
-        )
-
-
-def _record_skipped_source_row(
-    skipped_row: SkippedSourceRow,
-    *,
-    skipped_row_count: int,
-    skipped_row_examples: list[SkippedSourceRow],
-) -> int:
-    skipped_row_count += 1
-    if len(skipped_row_examples) < _SKIPPED_SOURCE_ROW_EXAMPLE_LIMIT:
-        skipped_row_examples.append(skipped_row)
-    return skipped_row_count
-
-
-def _skip_reason_from_product_document_error(
-    error: ValueError,
-) -> str | None:
-    if str(error) not in {
-        "ProductDocument requires a string 'code' field.",
-        "ProductDocument requires a non-empty 'code' field.",
-    }:
-        return None
-    return _MISSING_OR_BLANK_CODE_REASON
-
-
-def _raw_product_code(document: Mapping[str, object]) -> str | None:
-    value = document.get("code")
-    if not isinstance(value, str):
-        return None
-    code = value.strip()
-    return code or None
-
-
-def _quote_identifier(value: str) -> str:
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"'
-
-
 __all__ = [
     "SourceSnapshotAdapter",
     "count_source_products",
     "iter_source_batches",
-    "summarize_source_input",
     "source_batch_record_from_document",
     "source_snapshot_adapter_for",
     "source_snapshot_id_for",
+    "summarize_source_input",
     "validate_product_document",
 ]

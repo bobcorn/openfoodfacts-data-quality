@@ -40,6 +40,7 @@ The main public entry point is:
 It exposes:
 
 - `checks.list(...)`
+- `checks.prepare(...)`
 - `checks.run(...)`
 
 Import the public library from `off_data_quality`. In a source checkout, the
@@ -81,18 +82,22 @@ Supported loaded inputs include:
 - complete official OFF Parquet rows
 - DuckDB relations materialized from supported OFF rows
 
-If you want to force the stricter structured-export contract explicitly, project
-those rows first:
+If you plan to run multiple check selections over the same loaded rows, prepare
+them once first:
 
 ```python
 from off_data_quality import checks
 
-prepared_rows = checks.project_off_product_export_rows(export_rows)
+prepared_rows = checks.prepare(rows)
 findings = checks.run(
     prepared_rows,
     check_ids=["en:serving-quantity-over-product-quantity"],
 )
 ```
+
+`checks.prepare(...)` can save repeated normalization work when you reuse the
+same loaded rows across multiple runs. For a single run, `checks.run(...)`
+already performs that preparation step internally.
 
 For runnable walkthroughs that use the bundled sample data, see
 [`examples/README.md`](../../examples/README.md).

@@ -55,9 +55,7 @@ If you edit one side manually, resync the pair with:
 make sync-examples
 ```
 
-The repository `pre-commit` config also runs `jupytext --sync` for these
-examples, so `pre-commit install --install-hooks` keeps the paired files
-aligned automatically on commits.
-
-The notebooks are intentionally committed without saved outputs so diffs stay
-small and reviewable.
+The repository `pre-commit` config runs the same sync step for these examples.
+That hook also executes the paired notebooks, so changed examples fail fast if
+execution breaks and committed notebooks keep their saved outputs in sync with
+the scripts.

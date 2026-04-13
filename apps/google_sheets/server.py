@@ -20,6 +20,7 @@ from apps.google_sheets.api import (
     prepare_upload_candidates_request,
     validate_request,
 )
+from runtime_support.logging_config import configure_cli_logging
 
 PORT_ENV_VAR = "GOOGLE_SHEETS_PORT"
 DEFAULT_PORT = 8501
@@ -134,7 +135,7 @@ class GoogleSheetsRequestHandler(BaseHTTPRequestHandler):
         self._write_json_response(HTTPStatus.OK, response_payload)
 
     def log_message(self, format: str, *args: object) -> None:
-        super().log_message(format, *args)
+        LOGGER.info("%s - %s", self.client_address[0], format % args)
 
     @property
     def _app_server(self) -> GoogleSheetsHttpServer:
@@ -313,6 +314,7 @@ def create_server(
         GoogleSheetsRequestHandler.do_GET,
         GoogleSheetsRequestHandler.do_HEAD,
         GoogleSheetsRequestHandler.do_POST,
+        GoogleSheetsRequestHandler.log_message,
     )
     server = GoogleSheetsHttpServer(
         (host, port),
@@ -323,9 +325,10 @@ def create_server(
 
 
 def main() -> None:
+    configure_cli_logging()
     port = int(os.environ.get(PORT_ENV_VAR, str(DEFAULT_PORT)))
     server = create_server(host="0.0.0.0", port=port)
-    print(f"Google Sheets app listening on http://0.0.0.0:{port}", flush=True)
+    LOGGER.info("Google Sheets app listening on http://0.0.0.0:%d", port)
     server.serve_forever()
 
 
