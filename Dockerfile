@@ -28,6 +28,8 @@ RUN chmod +x /opt/openfoodfacts-data-quality/migration/legacy_backend/off_runtim
     && mkdir -p /opt/openfoodfacts-data-quality/data
 
 ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     LEGACY_BACKEND_FINGERPRINT="${SERVER_BASE_IMAGE}" \
     PRODUCT_OPENER_FLAVOR_SHORT="off" \
     PYTHONPATH="/opt/openfoodfacts-data-quality/src:/opt/openfoodfacts-data-quality" \
@@ -41,7 +43,10 @@ FROM runtime-base AS demo
 
 COPY examples /opt/openfoodfacts-data-quality/examples
 
-ENV SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products.jsonl" \
+ENV PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products.jsonl" \
     PORT="8000" \
     BATCH_SIZE="1000" \
     BATCH_WORKERS="1" \
@@ -49,6 +54,7 @@ ENV SOURCE_SNAPSHOT_PATH="/opt/openfoodfacts-data-quality/examples/data/products
     MISMATCH_EXAMPLES_LIMIT="20" \
     CHECK_PROFILE="full" \
     SOURCE_DATASET_PROFILE="full" \
-    PARITY_STORE_PATH="/opt/openfoodfacts-data-quality/data/parity_store/parity.duckdb"
+    PARITY_STORE_PATH="/opt/openfoodfacts-data-quality/data/parity_store/parity.duckdb" \
+    LOG_INCLUDE_SOURCE=false
 
 FROM runtime-base AS runtime
