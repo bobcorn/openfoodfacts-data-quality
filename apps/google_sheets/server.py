@@ -328,7 +328,8 @@ def main() -> None:
     configure_cli_logging()
     port = int(os.environ.get(PORT_ENV_VAR, str(DEFAULT_PORT)))
     server = create_server(host="0.0.0.0", port=port)
-    LOGGER.info("Google Sheets app listening on http://0.0.0.0:%d", port)
+    url = f"http://localhost:{port}/"
+    LOGGER.info("Google Sheets app listening on %s", url)
     server.serve_forever()
 
 
