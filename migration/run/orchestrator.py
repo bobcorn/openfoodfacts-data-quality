@@ -209,7 +209,7 @@ class MigrationRunner:
         backend_stderr_path: Path,
         cache_identity: ReferenceResultCacheIdentity | None,
     ) -> LegacyReferenceRunner | NoReferenceRunner:
-        """Build the reference-side runner selected for the prepared run."""
+        """Build the reference runner selected for the prepared run."""
         if not run.requires_reference_results:
             return NoReferenceRunner()
 

@@ -125,7 +125,7 @@ def ingredient_claim_has_unknowns(ingredients: object, claim: str) -> bool:
 def iter_nutrient_family_sets(
     context: CheckContext,
 ) -> list[tuple[str, StringObjectMapping, Severity]]:
-    """Return the nutrient sets that emit family-tag findings."""
+    """Return the nutrient sets that emit family tag findings."""
     family_sets: list[tuple[str, StringObjectMapping, Severity]] = []
 
     input_sets = context.nutrition.input_sets
@@ -164,7 +164,7 @@ def iter_nutrient_family_sets(
 
 
 def _nutrition_set_id(input_set: StringObjectMapping) -> str:
-    """Reproduce the backend set-id normalization for nutrition families."""
+    """Reproduce the backend set id normalization for nutrition families."""
     source = str(input_set.get("source") or "unknown-source")
     preparation = str(input_set.get("preparation") or "unknown-preparation")
     per = str(input_set.get("per") or "unknown-per")

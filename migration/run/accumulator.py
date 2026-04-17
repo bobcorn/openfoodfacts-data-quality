@@ -56,7 +56,7 @@ class _CheckAccumulator:
         self._extend_examples(self.extra_examples, batch.extra, max_examples_per_side)
 
     def build_result(self) -> RunCheckResult:
-        """Build the final summary-first run result for one check."""
+        """Build the final run result for one check with the summary first."""
         comparison_status = self.comparison_status or "compared"
         return RunCheckResult(
             definition=self.definition,

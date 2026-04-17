@@ -59,10 +59,12 @@
                         <input type="checkbox" data-filter-group="outcome" value="mixed">
                         <span>{{ terms.outcomes.mixed.label }}</span>
                       </label>
+                      {% if has_runtime_only_checks %}
                       <label class="filter-option">
                         <input type="checkbox" data-filter-group="outcome" value="runtime_only">
                         <span>{{ terms.outcomes.runtime_only.label }}</span>
                       </label>
+                      {% endif %}
                     </div>
                   </fieldset>
 

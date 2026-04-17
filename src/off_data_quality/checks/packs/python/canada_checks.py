@@ -1,8 +1,8 @@
 """Packaged Canada specific Python quality checks.
 
-These prototype checks intentionally use canonical claim tags together with
-per-100g scalar nutrients until the runtime models Canadian reference amounts
-and serving-of-stated-size rules explicitly.
+These checks use canonical claim tags together with per 100 g scalar nutrients
+until the runtime models Canadian reference amounts and serving size rules
+explicitly.
 
 Source authority: Health Canada.
 Source document: "Nutrition Labelling — Table of Permitted Nutrient Content

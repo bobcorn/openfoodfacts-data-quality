@@ -32,7 +32,7 @@ def prepare_off_product_export_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceProduct:
-    """Normalize one complete OFF product-export row into `SourceProduct`."""
+    """Normalize one complete OFF product export row into `SourceProduct`."""
     missing_columns = tuple(
         column for column in OFF_PRODUCT_EXPORT_COLUMNS if column not in row
     )
@@ -59,7 +59,7 @@ def probe_off_product_export_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceInputProbeResult:
-    """Match complete OFF product-export rows."""
+    """Match complete OFF product export rows."""
     if any(column in row for column in OFF_FULL_DOCUMENT_ONLY_COLUMNS):
         return SourceInputProbeResult.no_match()
 
@@ -93,7 +93,7 @@ def probe_off_product_export_row(
 
 
 def _project_off_product_export_row(row: Mapping[str, object]) -> SourceProduct:
-    """Project one OFF product-export row to `SourceProduct`."""
+    """Project one OFF product export row to `SourceProduct`."""
     projected_row: dict[str, object] = {
         "code": row.get("code"),
         "created_t": row.get("created_t"),

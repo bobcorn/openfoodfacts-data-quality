@@ -107,7 +107,7 @@ def _store_highest_severity(
     findings_by_product_check_and_code: dict[tuple[str, str, str], ObservedFinding],
     finding: ObservedFinding,
 ) -> None:
-    """Keep only the highest-severity finding per product/check/code tuple."""
+    """Keep only the highest severity finding per product/check/code tuple."""
     key = (finding.product_id, finding.check_id, finding.observed_code)
     existing = findings_by_product_check_and_code.get(key)
     if (

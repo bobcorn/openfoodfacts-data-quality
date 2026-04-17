@@ -34,7 +34,7 @@ _SubmitParams = ParamSpec("_SubmitParams")
 
 @dataclass(frozen=True)
 class BatchStageTimings:
-    """Per-batch execution timings for the main runtime stages."""
+    """Execution timings for each batch across the main runtime stages."""
 
     source_read_seconds: float = 0.0
     reference_load_seconds: float = 0.0
@@ -147,7 +147,7 @@ class PreparedRun:
         result_cache_key: str,
         result_cache_path: Path,
     ) -> PreparedRun:
-        """Return this prepared run with the chosen backend-result cache location."""
+        """Return this prepared run with the chosen backend result cache location."""
         return PreparedRun(
             source_snapshot_id=self.source_snapshot_id,
             run_id=self.run_id,
@@ -169,7 +169,7 @@ class PreparedRun:
 
     @property
     def requires_reference_check_contexts(self) -> bool:
-        """Return whether migrated checks need reference-side enriched contexts."""
+        """Return whether migrated checks need enriched reference contexts."""
         return self.check_context_builder.requires_reference_check_contexts
 
     @property
@@ -212,25 +212,25 @@ class RunSpec:
 
     @property
     def profile_config_path(self) -> Path:
-        """Return the shipped check-profile config path."""
+        """Return the shipped check profile config path."""
         return self.project_root / "config" / "check-profiles.toml"
 
     @property
     def dataset_profile_config_path(self) -> Path:
-        """Return the shipped dataset-profile config path."""
+        """Return the shipped dataset profile config path."""
         return self.project_root / "config" / "dataset-profiles.toml"
 
 
 @dataclass(frozen=True, slots=True)
 class PreviewSettings:
-    """Settings used by the local static-preview entrypoint."""
+    """Settings used by the local static preview entrypoint."""
 
     port: int
 
 
 @dataclass(frozen=True)
 class BatchRunPlan:
-    """Static batch-loop configuration for one migration run."""
+    """Static batch loop configuration for one migration run."""
 
     db_path: Path
     batch_size: int
@@ -316,7 +316,7 @@ class SupportsReferenceObserver(Protocol):
 
 
 class SupportsReferenceCheckContextMaterializer(Protocol):
-    """Projection surface for reference-side enriched check contexts."""
+    """Projection surface for enriched reference check contexts."""
 
     def materialize(
         self,
@@ -334,7 +334,7 @@ class SupportsReferenceFindingMaterializer(Protocol):
 
 
 class SupportsReferenceRunner(Protocol):
-    """Reference-side batch runtime used by the migration batch loop."""
+    """Reference batch runtime used by the migration batch loop."""
 
     def resolve(
         self,
@@ -343,7 +343,7 @@ class SupportsReferenceRunner(Protocol):
 
 
 class SupportsMigratedRunner(Protocol):
-    """Migrated-runtime batch executor used by the migration batch loop."""
+    """Migrated runtime batch executor used by the migration batch loop."""
 
     def observe_findings(
         self,
@@ -353,7 +353,7 @@ class SupportsMigratedRunner(Protocol):
 
 
 class SupportsParityRunner(Protocol):
-    """Strict-comparison runner used by the migration batch loop."""
+    """Strict comparison runner used by the migration batch loop."""
 
     def compare(
         self,
@@ -365,7 +365,7 @@ class SupportsParityRunner(Protocol):
 
 
 class SupportsExecutionProgress(Protocol):
-    """Minimal progress-reporting surface needed by the batch loop."""
+    """Minimal progress reporting surface needed by the batch loop."""
 
     @property
     def heartbeat_interval_seconds(self) -> float: ...

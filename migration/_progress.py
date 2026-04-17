@@ -14,7 +14,7 @@ def iter_with_progress[T](
     unit: str,
     logger: logging.Logger,
 ) -> Iterator[T]:
-    """Iterate with periodic progress logs in non-interactive app flows."""
+    """Iterate with periodic progress logs in app flows without prompts."""
     total = len(items)
     if total == 0:
         logger.info("[%s] 0/%d %ss processed.", desc, total, unit)

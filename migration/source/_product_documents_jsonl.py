@@ -38,7 +38,7 @@ class JsonlProductDocumentAdapter:
         *,
         selection: SourceSelection | None = None,
     ) -> SourceInputSummary:
-        """Return source-input diagnostics for the selected JSONL rows."""
+        """Return source input diagnostics for the selected JSONL rows."""
         if selection is None or selection.kind == "all_products":
             return _summarize_jsonl_all_products(self.path)
         if selection.kind == "code_list":

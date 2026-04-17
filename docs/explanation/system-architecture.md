@@ -3,14 +3,14 @@
 # About the system architecture
 
 The repository has a reusable runtime in `src/`, migration tooling in
-`migration/`, app consumers in `apps/`, and a shared presentation layer in
+`migration/`, app consumers in `apps/`, and shared presentation assets in
 `ui/`.
 
 ## Project overview
 
 ```mermaid
 flowchart LR
-    subgraph RUNTIME["Shared runtime in src/off_data_quality"]
+    subgraph RUNTIME["Shared runtime"]
         A["Python check packs"]
         B["DSL check packs"]
         C["Check catalog and metadata"]
@@ -20,49 +20,56 @@ flowchart LR
         C --> D
     end
 
-    subgraph LIB["Library surfaces"]
+    subgraph LIB["Library"]
         E["checks API"]
-        F["snapshots API placeholder"]
+        F["Migration modules"]
     end
 
-    subgraph MIG["Migration tooling"]
+    subgraph MIG["Migration"]
         G["Source loading and reference path"]
         H["Strict parity, artifacts, and report"]
         G --> H
     end
 
-    subgraph APPS["App consumers"]
+    subgraph APPS["Apps"]
         I["Google Sheets app"]
     end
 
-    subgraph UI["Shared presentation layer"]
+    subgraph UI["Shared UI"]
         J["Templates and static assets"]
     end
 
     K["Legacy backend runtime"]
 
     D -->|"exposes"| E
-    D -.->|"reserves"| F
-    D -->|"powers"| G
+    D -->|"exposes"| F
+    F -->|"used by"| G
     E -->|"used by"| I
-    J -->|"shared UI"| I
-    J -->|"renders"| H
+    J -->|"used by"| H
+    J -->|"used by"| I
     K -.->|"materializes reference data"| G
 ```
 
 `src/off_data_quality/` owns the
 [shared runtime](runtime-model.md#why-the-runtime-is-split).
 
-In the diagram, `Checks API` refers to `off_data_quality.checks`. `Snapshots
-API` refers to the reserved `off_data_quality.snapshots` namespace.
+In the diagram, `Library` groups the importable wheel namespaces. `Checks API`
+refers to `off_data_quality.checks`. `Migration imports` refers to the modules
+that migration tooling imports directly for catalog access, context handling,
+contracts, execution, and metadata.
 
-The wheel also exposes stable advanced namespaces for migration tooling:
+Beyond the consumer entry points, the wheel also exposes importable modules
+used by migration tooling:
 
 - `off_data_quality.catalog`
 - `off_data_quality.context`
 - `off_data_quality.contracts`
 - `off_data_quality.execution`
 - `off_data_quality.metadata`
+
+The wheel also reserves the `off_data_quality.snapshots` namespace for future
+snapshot focused APIs, but that placeholder is omitted from this overview to
+keep the diagram focused on current consumers.
 
 `migration/` owns orchestration, source loading, dataset selection, the
 [reference path](reference-data-and-parity.md#why-the-reference-path-exists),
@@ -89,7 +96,7 @@ code.
 - context building and projection
 - the [`checks` Python API](../how-to/use-the-python-library.md)
 - the reserved `snapshots` placeholder namespace
-- the stable advanced namespaces used by migration tooling
+- the importable modules used by migration tooling
 
 ## Migration tooling responsibilities
 
@@ -118,7 +125,7 @@ code.
 
 - the local Google Sheets browser workflow and HTTP server
 - CSV upload and validation round-trips through the public wheel API
-- Google-specific browser integration and local packaging
+- browser integration for Google Sheets and local packaging
 
 ## Shared UI responsibilities
 
@@ -147,8 +154,6 @@ code.
   pool that drives it.
 - `migration/legacy_source.py`: Legacy source analysis used for snippet provenance
   and inventory export workflows.
-- `migration/planning.py`: Migration family catalog loading and planning
-  metadata used by run selection and review.
 - `migration/parity/`: Strict comparison logic.
 - `migration/storage/`: Migration-owned persistence for recorded runs and parity
   review state.

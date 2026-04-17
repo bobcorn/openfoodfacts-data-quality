@@ -11,7 +11,7 @@ def is_object_list(value: object) -> TypeGuard[list[object]]:
 
 
 def object_list_or_empty(value: object) -> list[object]:
-    """Return a list value when present, or a shared empty-list shape otherwise."""
+    """Return a list value when present, or a shared empty list shape otherwise."""
     if is_object_list(value):
         return value
     return []

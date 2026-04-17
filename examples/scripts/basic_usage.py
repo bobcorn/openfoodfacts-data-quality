@@ -20,7 +20,7 @@
 # List the checks, prepare reusable rows, then run them on the sample data.
 
 # %% [markdown]
-# Import the reusable row-based API from `off_data_quality`.
+# Import the reusable checks API from `off_data_quality`.
 #
 # `from off_data_quality import checks` gives us the public surface for listing
 # shipped checks and running them on loaded rows.

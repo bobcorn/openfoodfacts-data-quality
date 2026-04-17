@@ -57,7 +57,7 @@ class RecordedRunBenchmarkSummary:
     record_batch_seconds: float
 
     def as_payload(self) -> dict[str, Any]:
-        """Return a stable JSON-friendly payload."""
+        """Return a stable payload that is safe to serialize as JSON."""
         return {
             "run_id": self.run_id,
             "status": self.status,

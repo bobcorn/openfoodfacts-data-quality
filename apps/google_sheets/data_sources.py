@@ -9,7 +9,7 @@ _CSV_DELIMITERS = ",;\t"
 
 
 def load_csv_table(raw_bytes: bytes) -> TableData:
-    """Parse one uploaded CSV-like file into a rectangular sheet table."""
+    """Parse one uploaded CSV style file into a rectangular sheet table."""
     text = _decode_text(raw_bytes)
     if not text.strip():
         raise ValueError("The uploaded CSV file is empty.")

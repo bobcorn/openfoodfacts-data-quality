@@ -23,7 +23,7 @@ flowchart TB
         H["Read Ordered Batches"]
     end
 
-    subgraph REF["Optional Reference Path"]
+    subgraph REF["Reference Path"]
         I["Load Reference Results"]
         J["Project Reference Findings"]
         K["Project Enriched Check Contexts"]
@@ -78,8 +78,8 @@ One run moves through these stages:
    active dataset profile.
 3. Resolve
    [reference results](reference-data-and-parity.md#why-the-reference-path-exists)
-   when the selected checks need reference findings or enriched snapshot check
-   input.
+   for the current run. They supply enriched snapshot check input and, when
+   needed, reference findings.
 4. Build check contexts and run the selected Python and DSL checks.
 5. Apply strict comparison for checks with a
    [legacy baseline](reference-data-and-parity.md#parity-baselines).
@@ -96,7 +96,8 @@ The run layer resolves:
 - the active
   [dataset profile](../reference/run-configuration-and-artifacts.md#dataset-profiles)
 - the active [check profile](migrated-checks.md#check-profiles)
-- the required [context provider](runtime-model.md#context-providers)
+- the resolved [context provider](runtime-model.md#context-providers), which is
+  currently `enriched_snapshots` in migration runs
 - whether the run needs
   [reference results](reference-data-and-parity.md#why-the-reference-path-exists)
 - the
@@ -112,7 +113,7 @@ Review settings here means the parity store path.
 
 ## Source batches
 
-Source batches come from migration-owned JSONL and DuckDB adapters. Each batch
+Source batches come from JSONL and DuckDB adapters owned by migration. Each batch
 record keeps the full
 [`ProductDocument`](../reference/data-contracts.md#productdocument) for the
 reference path.
@@ -136,7 +137,8 @@ The dataset profile changes run coverage. It does not change the
 
 ## Reference path
 
-If the run needs reference findings or enriched snapshot check input:
+Current migration runs need reference findings or enriched snapshot check
+input, so the reference path resolves:
 
 - `ReferenceResultLoader` returns one ordered
   [`ReferenceResult`](../reference/data-contracts.md#referenceresult) list for
@@ -150,7 +152,9 @@ If the run needs reference findings or enriched snapshot check input:
 - `ReferenceFindingMaterializer` projects normalized reference findings for
   strict comparison.
 
-If the run does not need reference results, this branch is skipped.
+The code still has a no-reference branch, but current migration profile
+validation does not reach it because `check_context_provider` is fixed to
+`enriched_snapshots`.
 
 ## Context building and execution
 
@@ -173,8 +177,8 @@ The batch loop separates reference loading from migrated checks. A parity
 runner compares the two outputs. Batches can execute concurrently, but merged
 results stay ordered by batch index.
 
-Inside the batch loop, `BatchExecutionContext` uses three separate
-migration-owned services:
+Inside the batch loop, `BatchExecutionContext` uses three services owned by
+migration.
 
 ```mermaid
 flowchart TB
@@ -239,7 +243,7 @@ builds the final
 
 `ReportSiteBuilder` then renders the review site. With a parity store, it
 loads the recorded run snapshot. Without one, it uses the in-memory
-`RunResult`.
+[`RunResult`](../reference/data-contracts.md#runresult).
 
 ```mermaid
 flowchart TB

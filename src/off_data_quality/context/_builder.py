@@ -84,13 +84,13 @@ def build_enriched_snapshot_record_context(
 def build_enriched_snapshot_contexts(
     enriched_snapshots: Iterable[EnrichedSnapshotRecord],
 ) -> list[CheckContext]:
-    """Build check contexts from explicit backend-enriched snapshots."""
+    """Build check contexts from explicit snapshots enriched by the backend."""
     return list(iter_enriched_snapshot_contexts(enriched_snapshots))
 
 
 def iter_enriched_snapshot_contexts(
     enriched_snapshots: Iterable[EnrichedSnapshotRecord],
 ) -> Iterator[CheckContext]:
-    """Yield check contexts from explicit backend-enriched snapshots."""
+    """Yield check contexts from explicit snapshots enriched by the backend."""
     for enriched_snapshot in enriched_snapshots:
         yield build_enriched_snapshot_record_context(enriched_snapshot)

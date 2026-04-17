@@ -50,7 +50,7 @@ class CheckCatalog:
         *,
         selection: CheckSelection | None = None,
     ) -> tuple[CheckDefinition, ...]:
-        """Return catalog-ordered checks matching the optional selection filters."""
+        """Return checks in catalog order that match the optional selection filters."""
         resolved_selection = selection or CheckSelection()
         active_id_set = _normalize_active_check_ids(active_check_ids)
         if active_id_set is not None:
@@ -144,7 +144,7 @@ def load_check_catalog(
 
 @cache
 def get_default_check_catalog() -> CheckCatalog:
-    """Return the process-wide default quality check catalog."""
+    """Return the default quality check catalog for this process."""
     return load_check_catalog()
 
 
@@ -244,7 +244,7 @@ def _validate_required_context_paths(
     required_context_paths: tuple[str, ...],
     check_id: str,
 ) -> None:
-    """Ensure declared check dependencies refer to known check-context paths."""
+    """Ensure declared check dependencies refer to known check context paths."""
     unknown_paths = [
         path for path in required_context_paths if path_spec_for(path) is None
     ]
@@ -310,7 +310,7 @@ def _check_selected(
     active_check_ids: set[str] | None,
     selection: CheckSelection,
 ) -> bool:
-    """Return whether one check survives the active-id and metadata filters."""
+    """Return whether one check survives the active id and metadata filters."""
     if active_check_ids is not None and check.id not in active_check_ids:
         return False
     return check.matches_selection(selection)

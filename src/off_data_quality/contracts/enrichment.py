@@ -19,7 +19,7 @@ class EnrichedFlagsSnapshot(FlagsSnapshotFields):
 
 
 class EnrichedCategoryPropsSnapshot(CategoryPropsSnapshotFields):
-    """Stable enriched category-properties payload owned by the Python runtime."""
+    """Stable enriched category properties payload owned by the Python runtime."""
 
 
 class EnrichedNutritionSnapshot(NutritionSnapshotFields):

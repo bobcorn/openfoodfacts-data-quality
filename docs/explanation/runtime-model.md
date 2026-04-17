@@ -87,16 +87,21 @@ flowchart TB
 ```
 
 The current public library entry point for loaded rows is `checks`. The
-repository also keeps `snapshots` as a future library API placeholder. The
-internal provider ids remain `source_products` and `enriched_snapshots`.
+repository also keeps `snapshots` as a reserved namespace for future library
+work. The internal provider ids remain `source_products` and
+`enriched_snapshots`.
 
 ## Context provider and dataset profile are different
 
-Migration tooling uses two independent selection axes:
+Migration tooling resolves two related configuration axes:
 
-- the check context provider, which decides which context paths the provider exposes
+- the check context provider recorded on the active check profile
 - the dataset profile, which decides which products from the source snapshot
   enter one run
+
+The shared runtime supports both provider ids. Current migration profile
+validation accepts only `enriched_snapshots`, so dataset selection is the main
+variable axis during parity runs.
 
 Example: one run can use `SOURCE_DATASET_PROFILE=smoke` to read a small sample
 of products while `CHECK_PROFILE=focused` still narrows the active check set

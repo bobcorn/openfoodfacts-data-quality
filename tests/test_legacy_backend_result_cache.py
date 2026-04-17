@@ -40,7 +40,7 @@ def _prepare_local_backend_result_execution(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> tuple[Path, Path]:
-    """Create the local project/backend inputs needed by cache-key tests."""
+    """Create the local project and backend inputs needed by cache key tests."""
     project_root = tmp_path / "project"
     _write_fingerprint_inputs(
         project_root,

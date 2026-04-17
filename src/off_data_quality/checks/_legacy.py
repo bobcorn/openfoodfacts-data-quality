@@ -57,14 +57,14 @@ def matches_legacy_check_code(code_template: str, observed_code: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class LegacyCheckIndex:
-    """Index checks with a legacy baseline by their observed-code matching strategy."""
+    """Index checks with a legacy baseline by their observed code matching strategy."""
 
     exact_checks_by_code: Mapping[str, tuple[CheckDefinition, ...]]
     templated_checks: tuple[CheckDefinition, ...]
 
     @classmethod
     def build(cls, checks: Iterable[CheckDefinition]) -> LegacyCheckIndex:
-        """Build a reusable observed-code matcher for one check collection."""
+        """Build a reusable observed code matcher for one check collection."""
         exact_checks_by_code: dict[str, list[CheckDefinition]] = {}
         templated_checks: list[CheckDefinition] = []
         for check in checks:

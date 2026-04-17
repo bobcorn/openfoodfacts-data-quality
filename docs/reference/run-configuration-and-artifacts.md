@@ -52,9 +52,12 @@ the parity store and the cache.
 `config/check-profiles.toml` defines named run profiles.
 
 A [check profile](../explanation/migrated-checks.md#check-profiles) is a
-selection preset for one run. It sets the active checks,
+selection preset for one run. It sets the active checks, the migration runtime
 [context provider](../explanation/runtime-model.md#context-providers), and
 [parity baselines](../explanation/reference-data-and-parity.md#parity-baselines).
+
+Current profile validation accepts only
+`check_context_provider = "enriched_snapshots"`.
 
 The default profiles are:
 
@@ -173,7 +176,7 @@ migration runs.
 It stores review history across runs and report data that is not embedded
 in `run.json`, such as batch telemetry and dataset profile metadata.
 
-Benchmark tooling also reads run-level preparation timings from the parity
+Benchmark tooling also reads run preparation timings from the parity
 store. Those timings separate:
 
 - `prepare_run_seconds`
@@ -181,7 +184,7 @@ store. Those timings separate:
 - `dataset_profile_load_seconds`
 - `source_row_count_seconds`
 
-The benchmark summary keeps those values outside the per-batch stage timings so
+The benchmark summary keeps those values outside the batch stage timings so
 source setup costs do not get mixed with batch execution costs.
 
 For local commands, the default store path is
@@ -199,7 +202,7 @@ If execution aborts before finalization, the store records the run as `failed`
 or `incomplete`.
 
 When a parity store is enabled, the report renderer reads the recorded store
-snapshot first instead of relying on the in-memory run result.
+snapshot first instead of relying on the run result kept in memory.
 
 ## Reference result cache
 
@@ -218,8 +221,10 @@ of reusing stale data.
 
 The cache is used only for runs that need
 [reference results](../explanation/reference-data-and-parity.md#why-the-reference-path-exists).
-Only runs that need neither reference check contexts nor reference findings can
-skip it entirely.
+In principle, only runs that need neither reference check contexts nor
+reference findings can skip it entirely. Current migration profile validation
+does not create such runs because it fixes `check_context_provider` to
+`enriched_snapshots`.
 
 Its cache key depends on:
 

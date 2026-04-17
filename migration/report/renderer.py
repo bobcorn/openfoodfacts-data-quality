@@ -79,7 +79,7 @@ REPORT_TERMS = {
     },
     "composition": {
         "title": "Run Composition",
-        "tooltip": "Run composition shows how active checks are distributed across compared outcomes and runtime only execution.",
+        "tooltip": "Run composition shows how active checks are distributed across outcomes in the current run.",
         "match_status": "Match",
         "mismatch_status": "Mismatch",
         "runtime_only_status": "Runtime Only",
@@ -218,6 +218,7 @@ def _render_report_snapshot(
         ),
         "compared_checks": run_result.compared_check_count,
         "runtime_only_checks": run_result.runtime_only_check_count,
+        "has_runtime_only_checks": run_result.runtime_only_check_count > 0,
         "missing_findings": sum(check.missing_count for check in run_result.checks),
         "extra_findings": sum(check.extra_count for check in run_result.checks),
         "affected_products": len(

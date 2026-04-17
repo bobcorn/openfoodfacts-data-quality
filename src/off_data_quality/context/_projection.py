@@ -88,7 +88,7 @@ def ingredient_tags_from_ingredients(ingredients: Sequence[object]) -> list[str]
 def build_claim_nutrients(
     nutrition: MappingViewModel | dict[str, object],
 ) -> dict[str, float | None]:
-    """Materialize claim-facing scalar nutrients from the first as-sold set."""
+    """Materialize claim related scalar nutrients from the first as sold set."""
     nutrients = first_non_estimated_as_sold_nutrients(nutrition)
     return {
         "energy_kcal": nutrient_value(nutrients, "energy-kcal"),

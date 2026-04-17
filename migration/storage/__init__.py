@@ -1,4 +1,4 @@
-"""Migration-owned persistence for run and parity review data."""
+"""Persistence owned by migration for run and parity review data."""
 
 from migration.storage.run_queries import (
     RecordedDatasetProfile,

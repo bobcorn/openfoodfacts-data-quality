@@ -3,9 +3,9 @@
 This directory provides the same walkthroughs in two forms:
 
 - runnable Python scripts in `scripts/` using `py:percent`
-- paired Jupyter notebooks in `notebooks/` for demos and step-by-step exploration
+- paired Jupyter notebooks in `notebooks/` for demos and guided exploration
 
-The scripts are the review-friendly source of truth. The notebooks are paired
+The scripts are the easier to review source of truth. The notebooks are paired
 views kept in sync with Jupytext.
 
 ## Run the scripts

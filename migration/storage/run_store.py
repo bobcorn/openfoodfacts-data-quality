@@ -45,7 +45,7 @@ class NoopRunRecorder(AbstractContextManager["NoopRunRecorder"]):
 
 
 class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
-    """Persist one migration run into a project-owned DuckDB parity store."""
+    """Persist one migration run into a project owned DuckDB parity store."""
 
     def __init__(
         self,
@@ -181,7 +181,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         )
 
     def record_final_result(self, run_result: RunResult) -> None:
-        """Persist the finalized per-check summary and mark the run complete."""
+        """Persist the finalized summary for each check and mark the run complete."""
         connection = self._require_connection()
         check_summary_rows = [
             self._check_summary_row(check_result) for check_result in run_result.checks
@@ -660,7 +660,7 @@ class DuckDBRunRecorder(AbstractContextManager["DuckDBRunRecorder"]):
         failure_type: str | None = None,
         failure_message: str | None = None,
     ) -> None:
-        """Persist a terminal non-completed status before closing the store."""
+        """Persist a terminal unfinished status before closing the store."""
         connection = self._require_connection()
         connection.execute(
             """

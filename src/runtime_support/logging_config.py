@@ -15,7 +15,7 @@ def configure_cli_logging(
     *,
     environ: Mapping[str, str] | None = None,
 ) -> None:
-    """Configure the root logger for local CLI-oriented entrypoints."""
+    """Configure the root logger for local CLI entrypoints."""
     logging.basicConfig(
         level=logging.INFO,
         format=configured_cli_log_format(environ=environ),

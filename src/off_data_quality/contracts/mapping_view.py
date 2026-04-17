@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class MappingViewModel(BaseModel):
-    """Base model with a stable mapping view for adapter-friendly contracts."""
+    """Base model with a stable mapping view for contracts used by adapters."""
 
     def as_mapping(self) -> dict[str, Any]:
         """Serialize one section while dropping absent optional fields."""

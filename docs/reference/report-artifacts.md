@@ -32,7 +32,7 @@ The report is a summary view. It does not inline every finding from the
 run.
 
 When the source snapshot contains rows that were skipped before execution, the
-report also shows a source-input warning with the skipped-row count and example
+report also shows a source input warning with the skipped row count and example
 locations.
 
 ## Summary counters
@@ -87,7 +87,7 @@ fit inside the configured cap. It omits UI fields used only by the report:
 - snippet panel payloads
 - snippet warning messages
 
-The root payload also includes `source_input`, which records source-boundary
+The root payload also includes `source_input`, which records source boundary
 diagnostics such as skipped-row counts and example locations.
 
 ## snippets.json

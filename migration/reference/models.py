@@ -41,7 +41,7 @@ class ReferenceResult(BaseModel, frozen=True, extra="forbid"):
 def reference_check_contexts_from_reference_results(
     reference_results: list[ReferenceResult],
 ) -> list[CheckContext]:
-    """Project reference results onto reference-side enriched check contexts."""
+    """Project reference results into enriched check contexts for comparison."""
     return [
         build_enriched_snapshot_context(
             code=result.code,
