@@ -27,12 +27,12 @@ def _empty_string_list() -> list[str]:
 
 
 def _empty_nutrition_input_sets() -> list[NutritionInputSet]:
-    """Build an empty nutrition-input-set list with a concrete static type."""
+    """Build an empty nutrition input set list with a concrete static type."""
     return []
 
 
 class SnapshotSectionModel(MappingViewModel):
-    """Immutable snapshot section with a mapping-like view for adapters."""
+    """Immutable snapshot section with a view that behaves like a mapping for adapters."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -66,7 +66,7 @@ class ProductCoreFields(SnapshotSectionModel):
 
 
 class ProductSnapshotFields(ProductCoreFields):
-    """Shared enriched-product fields used across stable and internal adapters."""
+    """Shared enriched product fields used across stable and internal adapters."""
 
     lc: str | None = None
     lang: str | None = None

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../dsl/schema/definitions.schema.json
-# Canada prototype checks deliberately operate on canonical claim tags and
-# per-100g OFF nutrient scalars until reference-amount modeling is introduced.
+# Canada checks operate on canonical claim tags and per 100 g OFF nutrient
+# scalars until reference amount modeling is introduced.
 # Source authority: Health Canada.
 # Source document: "Nutrition Labelling — Table of Permitted Nutrient Content
 # Statements and Claims" (published September 2, 2025).

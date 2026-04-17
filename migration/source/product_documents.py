@@ -52,7 +52,7 @@ def summarize_source_input(
     *,
     selection: SourceSelection | None = None,
 ) -> SourceInputSummary:
-    """Return source-input diagnostics for one selected snapshot view."""
+    """Return source input diagnostics for one selected snapshot view."""
     return source_snapshot_adapter_for(path).summarize_input(selection=selection)
 
 

@@ -63,7 +63,7 @@ class SourceSelection:
         return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
     def as_payload(self) -> dict[str, Any]:
-        """Return the JSON-serializable payload for persistence and review."""
+        """Return the payload that can be serialized to JSON for persistence and review."""
         payload: dict[str, Any] = {"kind": self.kind}
         if self.kind == "stable_sample":
             payload["sample_size"] = self.sample_size
@@ -217,7 +217,7 @@ def _profile_codes(
     selected_profile: StringObjectMapping,
     selected_name: str,
 ) -> tuple[str, ...]:
-    """Return the normalized explicit code set for one code-list profile."""
+    """Return the normalized explicit code set for one code list profile."""
     raw_codes = selected_profile.get("codes")
     raw_codes_path = selected_profile.get("codes_path")
     if raw_codes is not None and raw_codes_path is not None:
@@ -279,7 +279,7 @@ def _resolve_relative_path(
 
 
 def _load_codes_from_path(path: Path, *, context: str) -> tuple[str, ...]:
-    """Load one newline-delimited code list."""
+    """Load one code list with one value per line."""
     if not path.exists():
         raise FileNotFoundError(f"Dataset code list not found for {context}: {path}")
     return _normalize_codes(
@@ -289,7 +289,7 @@ def _load_codes_from_path(path: Path, *, context: str) -> tuple[str, ...]:
 
 
 def _normalize_codes(raw_codes: Sequence[object], *, context: str) -> tuple[str, ...]:
-    """Return unique product codes with stable first-seen ordering."""
+    """Return unique product codes with stable order based on first appearance."""
     normalized: list[str] = []
     seen: set[str] = set()
     for raw_code in raw_codes:

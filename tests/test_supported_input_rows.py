@@ -60,7 +60,7 @@ PARQUET_SAMPLE = EXAMPLES_DATA_DIR / "products.parquet"
 
 # These projections are copied from one real product that exists in the bundled
 # samples derived from official OFF exports. They intentionally keep only the
-# supported source-side columns that the checks facade consumes.
+# supported source columns that the checks facade consumes.
 OFFICIAL_JSONL_FULL_DOCUMENT_ROW: dict[str, object] = {
     "code": REPRESENTATIVE_CODE,
     "created_t": 1489053259,

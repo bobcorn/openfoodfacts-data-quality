@@ -34,7 +34,7 @@ def missing_context_paths(
     required_context_paths: tuple[str, ...],
     availability: ContextAvailability,
 ) -> tuple[str, ...]:
-    """Return required check-context paths the provider cannot expose."""
+    """Return required check context paths the provider cannot expose."""
     return tuple(
         context_path
         for context_path in required_context_paths

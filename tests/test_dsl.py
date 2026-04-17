@@ -372,7 +372,7 @@ def _replace_when(
     check_id: str,
     when: All | AnyOf | Atom | Not,
 ) -> list[DSLDefinition]:
-    """Return one DSL-definition list with a single definition replaced."""
+    """Return one DSL definition list with a single definition replaced."""
     replaced: list[DSLDefinition] = []
     for check in checks:
         if check.id == check_id:

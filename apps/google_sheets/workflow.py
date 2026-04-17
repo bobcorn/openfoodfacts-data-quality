@@ -46,7 +46,7 @@ def validate_table(
     *,
     checked_at: str | None = None,
 ) -> ValidationOutcome:
-    """Run the public row-based checks and prepend derived validation columns."""
+    """Run the public checks API and prepend derived validation columns."""
     source_table = strip_validation_columns(table)
     timestamp = checked_at or _checked_at_timestamp()
     output_headers = (*VALIDATION_HEADERS, *source_table.headers)

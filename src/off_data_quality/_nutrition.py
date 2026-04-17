@@ -15,7 +15,7 @@ from off_data_quality.contracts.structured import NutritionInputSet
 def first_non_estimated_as_sold_nutrients(
     nutrition: Mapping[str, object] | MappingViewModel | ContextSectionModel,
 ) -> StringObjectMapping:
-    """Return the first non-estimated as-sold nutrient set as a mapping."""
+    """Return the first nutrient set for the product as sold that is not estimated."""
     input_sets = nutrition.get("input_sets")
     if not is_object_list(input_sets):
         return {}

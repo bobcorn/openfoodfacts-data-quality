@@ -21,7 +21,7 @@ def prepare_canonical_source_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceProduct:
-    """Normalize one canonical-compatible row into `SourceProduct`."""
+    """Normalize one canonical row into `SourceProduct`."""
     del row_index
     return validate_source_product(select_canonical_source_fields(row))
 
@@ -30,7 +30,7 @@ def probe_canonical_source_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceInputProbeResult:
-    """Match canonical-compatible rows after strict OFF contracts opt out."""
+    """Match canonical rows after strict OFF contracts opt out."""
     del row_index
     if "code" not in row:
         return SourceInputProbeResult.no_match()

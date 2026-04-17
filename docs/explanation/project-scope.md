@@ -27,31 +27,14 @@ For the repository map and the architecture overview diagram, see
 - Runtime contracts owned by Python for source products, enriched snapshots,
   reference results, and check context.
 - Packaged checks written in Python and `dsl`.
-- Application runs that mix strict-parity checks with checks that run without
+- Application runs that mix strict parity checks with checks that run without
   comparison.
 - Runs over whole snapshots or deterministic subsets.
 - Static HTML output plus JSON artifacts for review.
 
-## What is stable enough to build on
-
-- the shared [runtime contracts](../reference/data-contracts.md)
-- the [`CheckContext`](runtime-model.md#checkcontext) model
-- the packaged [check catalog](../reference/check-metadata-and-selection.md)
-- [migration runs](migration-runs.md) as a regular workflow
-- [run and snippet artifacts](../reference/report-artifacts.md)
-- review data from one completed run in the parity store
-
-## What is still evolving
-
-- how broad the DSL should become
-- where whole snapshot runs should live outside short local loops
-- how the report should evolve beyond migration review
-- when the `checks` API and the future `snapshots` API should become durable
-  public interfaces
-
 ## Limits
 
-- The repository is not yet a full replacement for every legacy data-quality
+- The repository is not yet a full replacement for every legacy data quality
   rule.
 - Strict parity runs still depend on the
   [ReferenceResult](../reference/data-contracts.md#referenceresult) contract

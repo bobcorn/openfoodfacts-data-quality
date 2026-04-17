@@ -7,7 +7,7 @@ for selection.
 
 ## Definition languages
 
-The repository supports two definition languages:
+The repository supports two definition languages.
 
 - `python`
 - `dsl`
@@ -28,7 +28,7 @@ For the rationale behind that split, see
 - `legacy_identity`: Derived mapping to the legacy emitted code template when
   the check participates in parity comparison.
 
-Selection, validation, parity, and reporting all depend on this metadata.
+This metadata drives selection, validation, parity comparison, and reporting.
 
 ## Selection inputs
 
@@ -40,14 +40,14 @@ The catalog selects checks by:
 
 Migration [check profiles](../explanation/migrated-checks.md#check-profiles)
 use these filters, then apply provider capability from the selected
-[context provider](../explanation/runtime-model.md#context-providers). The public
-library APIs use the same context-path capability check on the selected runtime
+[context provider](../explanation/runtime-model.md#context-providers). Current
+migration profile validation accepts only `enriched_snapshots`. The public
+library APIs use the same context-path capability check on either runtime
 provider.
 
 ## Parity baseline
 
-`parity_baseline` answers one question: should this check participate in parity
-comparison?
+`parity_baseline` answers whether a check participates in parity comparison.
 
 - `legacy`: The check is compared against legacy behavior.
 - `none`: The check runs without legacy comparison.

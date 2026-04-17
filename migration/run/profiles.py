@@ -271,7 +271,7 @@ def _reject_removed_migration_profile_fields(
     selected_profile: StringObjectMapping,
     selected_name: str,
 ) -> None:
-    """Reject profile fields from the removed migration-planning runtime."""
+    """Reject profile fields from the removed migration planning runtime."""
     removed_fields = [
         field
         for field in (
@@ -294,7 +294,7 @@ def _profile_check_ids(
     selected_name: str,
     mode: _ProfileMode,
 ) -> tuple[str, ...]:
-    """Return normalized requested ids for include-mode profiles."""
+    """Return normalized requested ids for profiles that use include mode."""
     if mode == "all":
         return ()
     raw_check_ids = selected_profile.get("check_ids")
@@ -345,7 +345,7 @@ def _select_included_checks(
     catalog: CheckCatalog,
     requested_profile: _RequestedCheckProfile,
 ) -> tuple[CheckDefinition, ...]:
-    """Resolve include-mode checks with profile-specific error translation."""
+    """Resolve include mode checks with profile specific error translation."""
     try:
         return catalog.select_checks(
             requested_profile.requested_check_ids,
@@ -393,7 +393,7 @@ def _translated_profile_selection_error(
     requested_profile: _RequestedCheckProfile,
     exc: ValueError,
 ) -> ValueError:
-    """Translate catalog selection failures into config-centered error messages."""
+    """Translate catalog selection failures into config focused error messages."""
     message = str(exc)
     if message.startswith("Unknown active check ids:"):
         return ValueError(

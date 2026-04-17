@@ -59,7 +59,7 @@ product documents, Parquet rows, and DuckDB relations loaded from those
 formats. It normalizes each supported representation to `SourceProduct` before
 execution.
 
-For flexibility, the facade also accepts sparse canonical-compatible rows and
+For flexibility, the facade also accepts sparse canonical rows and
 ignores extra columns. It does not treat partial subsets of structured OFF
 export/document shapes as separate supported contracts.
 
@@ -84,13 +84,14 @@ files use the distribution name `openfoodfacts_data_quality`.
 Checks that only need source product fields can stay on this provider and avoid
 enriched snapshots.
 
-Migration runs still load full product documents into the migration-owned
+Migration runs still load full product documents into the migration owned
 `ProductDocument` contract, but strict parity now runs on
-`enriched_snapshot` input rather than on source-side `SourceProduct` batches.
+the `enriched_snapshots` provider rather than on `SourceProduct` batches built
+only from source rows.
 
 ### ProductDocument
 
-`ProductDocument` is the migration-owned full product contract for parity runs. It is
+`ProductDocument` is the full product contract owned by migration for parity runs. It is
 not part of the public library API.
 
 Migration source adapters build `ProductDocument` values from JSONL source

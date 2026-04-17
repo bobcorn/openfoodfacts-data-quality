@@ -43,11 +43,11 @@ separate deployment would install.
 
 ## Scope
 
-This MVP uses CSV input.
+This demo uses CSV input.
 
 The upload step expects the Open Food Facts food CSV export from the official
 [data page](https://world.openfoodfacts.org/data). When you choose a file, the
-app shows how many library-supported columns it includes. Missing the required
+app shows how many columns supported by the library it includes. Missing the required
 `code` column is an error.
 
 Included flows:
@@ -82,7 +82,7 @@ image must still keep the API key restricted to localhost referrers and the
 Picker API, and it should use a dedicated Google Cloud project because quota is
 shared across every user of the image.
 
-The access model is intentionally narrower than the earlier URL-based version:
+The access model is intentionally narrower than the earlier version that used a URL:
 
 - Google Picker selects the spreadsheet from Drive
 - the browser requests the `drive.file` scope
@@ -122,7 +122,7 @@ local network.
 Compose builds the same demo image locally and tags it as
 `google-sheets-demo:local`.
 
-## Before the walkthrough
+## Before you start
 
 1. Create or choose a Google Sheet.
 2. Click `Connect Google`.
@@ -131,19 +131,21 @@ Compose builds the same demo image locally and tags it as
 5. If the sheet already has data, skip the CSV upload step.
 6. If you want to start from local data, upload a CSV file from the page.
 
-## Suggested walkthrough
+## Walkthrough
 
 1. Click `Connect Google`.
 2. Click `Choose spreadsheet`.
 3. Pick the file from Google Drive.
 4. Upload the CSV into the `Data` Google Sheets tab, if needed.
 5. Click `Validate data`.
-6. Show the derived `dq_*` columns and row highlighting in the `Data` Google Sheets tab.
+6. Check that the `Data` tab now shows the derived `dq_*` columns and
+   highlighted rows.
 7. Open the selected sheet in Google Sheets and fix a few rows.
 8. Click `Validate data` again.
 9. Click `Prepare upload candidates`.
-10. Show `Ready for OFF upload`.
-11. Click `Upload to Open Food Facts` and show that the final integration is still pending.
+10. Check that the `Ready for OFF upload` tab is present.
+11. Click `Upload to Open Food Facts` and confirm that the final integration
+    is still pending.
 
 ## Environment variables
 

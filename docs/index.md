@@ -65,6 +65,6 @@ Use these pages based on what you need:
 ## Project notes
 
 - [Lessons learned from the prototype](project/lessons-from-the-prototype.md):
-  Lessons learned while building the prototype.
+  Design lessons from the prototype phase that shaped the current repository.
 - [Roadmap and open questions](project/roadmap-and-open-questions.md): Ongoing
-  direction, open design questions, and risks to watch.
+  work, unresolved design questions, and project risks.

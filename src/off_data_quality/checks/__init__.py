@@ -1,4 +1,4 @@
-"""Public row-based API for listing, preparing, and running checks."""
+"""Public checks API for listing, preparing, and running checks."""
 
 from __future__ import annotations
 

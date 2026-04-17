@@ -35,7 +35,7 @@ def packaged_python_check_pack_module_names() -> tuple[str, ...]:
 
 @cache
 def packaged_runtime_fingerprint() -> str:
-    """Return a stable fingerprint of packaged runtime-contract inputs."""
+    """Return a stable fingerprint of packaged runtime contract inputs."""
     digest = hashlib.sha256()
     package_root = files("off_data_quality")
     for relative_path in _RUNTIME_FINGERPRINT_PACKAGE_PATHS:

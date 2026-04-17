@@ -37,7 +37,8 @@ flowchart LR
 
 ## Definition languages
 
-Each check uses one definition language: Python or the repository DSL.
+Each check uses one definition language. It can be Python or the repository
+DSL.
 
 ### DSL checks
 
@@ -81,7 +82,7 @@ These fields define most of that behavior:
 - `jurisdictions`
 - `legacy_identity`
 
-Selection, validation, parity, and reporting all depend on this metadata.
+This metadata drives selection, validation, parity comparison, and reporting.
 For Python checks, authors declare context paths with `requires=(...)`; the
 catalog exposes them as `required_context_paths`.
 
@@ -103,13 +104,16 @@ Profiles can narrow the active checks by:
 - jurisdiction
 - explicit check ids in profiles with `mode = "include"`
 
+Current migration profile validation accepts only
+`check_context_provider = "enriched_snapshots"`.
+
 ## Why this split matters
 
 The check model keeps rule logic, rule metadata, and run selection explicit.
 
 That separation supports reusable library execution,
 [migration runs](migration-runs.md), [parity comparison](reference-data-and-parity.md#strict-comparison),
-checks that run without comparison, migration planning subsets, and short
+checks that run without comparison, focused profile subsets, and short
 local validation loops without redefining checks for each environment.
 
 ## Related information

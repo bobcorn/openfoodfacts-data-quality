@@ -30,7 +30,7 @@ def prepare_off_full_document_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceProduct:
-    """Normalize one OFF full-document row into `SourceProduct`."""
+    """Normalize one OFF full document row into `SourceProduct`."""
     projected_row: dict[str, object] = {
         column: _off_full_document_base_value(row, column)
         for column in SOURCE_PRODUCT_BASE_FIELD_TO_COLUMN.values()
@@ -52,7 +52,7 @@ def probe_off_full_document_row(
     row: SourceInputRow,
     row_index: int,
 ) -> SourceInputProbeResult:
-    """Match complete OFF full-document rows."""
+    """Match complete OFF full document rows."""
     has_full_document_markers = any(
         column in row for column in OFF_FULL_DOCUMENT_ONLY_COLUMNS
     )

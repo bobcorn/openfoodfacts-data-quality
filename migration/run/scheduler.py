@@ -18,7 +18,7 @@ ProcessBatch = Callable[[ScheduledBatch], BatchExecutionResult]
 
 
 def _in_flight_batches() -> dict[Future[BatchExecutionResult], int]:
-    """Return the typed future-to-batch-index map used by the scheduler."""
+    """Return the typed future to batch index map used by the scheduler."""
     return {}
 
 
@@ -29,7 +29,7 @@ def _completed_batches() -> dict[int, BatchExecutionResult]:
 
 @dataclass
 class BatchScheduler:
-    """Own the in-flight batch queue and ordered merge bookkeeping."""
+    """Own the active batch queue and ordered merge bookkeeping."""
 
     batch_iterator: Iterator[ScheduledBatch]
     executor: SupportsBatchExecutor

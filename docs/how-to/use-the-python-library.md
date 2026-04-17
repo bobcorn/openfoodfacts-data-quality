@@ -58,9 +58,9 @@ The library does not parse files for you. Load rows with the tools you prefer,
 such as `csv`, DuckDB, pandas, or PyArrow, then pass those rows to
 `checks.run(...)`.
 
-`checks.run(...)` accepts row iterables and common table-like objects that are
-already loaded in memory, such as pandas-style, PyArrow-style, and DuckDB-style
-objects. It raises an error for file paths.
+`checks.run(...)` accepts row iterables and common table objects that are
+already loaded in memory, such as pandas, PyArrow, and DuckDB objects. It
+raises an error for file paths.
 
 ```python
 from off_data_quality import checks
@@ -76,7 +76,7 @@ match a supported contract, it raises an error immediately.
 
 Supported loaded inputs include:
 
-- canonical-compatible rows, including sparse subsets and extra columns
+- canonical rows, including sparse subsets and extra columns
 - complete official OFF CSV export rows
 - complete official OFF JSONL full documents
 - complete official OFF Parquet rows
@@ -129,7 +129,7 @@ The library does not infer aliases or read fallback shapes. If a mapped source
 column is missing, the run fails fast. Extra columns that are not part of the
 canonical contract are ignored.
 
-Partial subsets of OFF structured export/document shapes are not treated as
+Partial subsets of OFF structured export or document shapes are not treated as
 supported OFF inputs. When you pass OFF-specific structured fields, the row
 must match one supported OFF contract completely.
 

@@ -31,7 +31,7 @@ class DuckDBProductDocumentAdapter:
         *,
         selection: SourceSelection | None = None,
     ) -> SourceInputSummary:
-        """Return source-input diagnostics for the selected DuckDB rows."""
+        """Return source input diagnostics for the selected DuckDB rows."""
         connection = duckdb.connect(str(self.path), read_only=True)
         try:
             _require_code_column(

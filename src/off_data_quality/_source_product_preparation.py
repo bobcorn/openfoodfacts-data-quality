@@ -23,7 +23,7 @@ def prepare_source_products(
     columns: Mapping[str, str] | None = None,
     operation_name: str = "checks.prepare()",
 ) -> list[SourceProduct]:
-    """Prepare one user-provided table or row stream for row-based checks."""
+    """Prepare a user provided table or row stream for the checks API."""
     normalized_columns = _validate_column_mapping(
         columns,
         operation_name=operation_name,

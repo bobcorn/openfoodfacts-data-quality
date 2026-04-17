@@ -51,8 +51,8 @@ For execution details, see
   current library bridge that defines which check context paths a provider
   can expose
 - `check context provider`
-  run or config selection axis used to choose the context provider for
-  one run
+  run or config field used to choose the context provider for one run; current
+  migration profiles accept only `enriched_snapshots`
 - `check context`
   Python runtime contract used by migrated checks
 - `dataset profile`
@@ -70,7 +70,7 @@ For execution details, see
   explicit migration configuration resolved before orchestration starts; in
   code, the canonical model is `RunSpec`
 - `run result`
-  overall migration summary for one run; in code, the canonical model is
+  migration summary for one run; in code, the canonical model is
   `RunResult`
 - `check profile`
   named run preset loaded from `config/check-profiles.toml`

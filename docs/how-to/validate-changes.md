@@ -19,7 +19,7 @@ test suite with coverage.
 
 ## Run the full local sweep
 
-Run the broader local sweep before you call substantive work done:
+Run the broader local sweep before you consider substantive work done:
 
 ```bash
 make quality

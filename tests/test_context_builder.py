@@ -74,7 +74,7 @@ def _product_document(**overrides: Any) -> ProductDocument:
 def _mismatched_row_and_backend_result(
     reference_result_factory: ReferenceResultFactory,
 ) -> tuple[SourceProduct, ReferenceResult]:
-    # The source products provider owns the canonical row contract even in parity side tests.
+    # The source products provider owns the canonical row contract even in parity tests.
     row = _source_product(product_name="Source name")
     reference_result = reference_result_factory(
         code="123",

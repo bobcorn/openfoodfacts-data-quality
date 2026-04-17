@@ -54,11 +54,11 @@ def test_render_report_writes_expected_artifacts(
     assert "Mismatching" in html
     assert "Missing Findings" in html
     assert "Extra Findings" in html
-    assert "Runtime Only" in html
     assert "Affected Products" in html
     assert "Compared Checks Mismatching" not in html
     assert "Runtime Only Checks" not in html
-    assert 'value="runtime_only"' in html
+    assert "Runtime Only" not in html
+    assert 'value="runtime_only"' not in html
     assert "1 / 2" in html
     assert 'class="stat stat--interactive stat--hero stat--detail stat--fail"' in html
     assert 'class="stat stat--hero stat--detail stat--missing stat--fail"' in html
@@ -74,10 +74,13 @@ def test_render_report_writes_expected_artifacts(
         < html.index("Missing Findings")
         < html.index("Extra Findings")
         < html.index("Affected Products")
-        < html.index("Runtime Only")
     )
     assert ".stat--detail.stat--pass" in html
     assert ".stat--detail.stat--fail" in html
+    assert (
+        'data-tooltip="Run composition shows how active checks are distributed '
+        'across outcomes in the current run."'
+    ) in html
     assert "snippet-language" not in html
     assert ">JSON<" in html
     assert '<span class="disclosure-summary-label">Implementation</span>' not in html
@@ -229,5 +232,54 @@ def test_render_report_hides_runtime_only_stat_when_no_runtime_only_checks(
     )
 
     assert runtime_only_stat not in html
-    assert 'value="runtime_only"' in html
+    assert 'value="runtime_only"' not in html
+    assert "Runtime Only <strong>0</strong>" not in html
     assert "grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));" in html
+
+
+def test_render_report_shows_runtime_only_sections_when_runtime_only_checks_exist(
+    tmp_path: Path,
+    run_result_factory: RunResultFactory,
+    legacy_source_root_factory: Callable[[Path], Path],
+) -> None:
+    legacy_root = legacy_source_root_factory(tmp_path)
+    run_result = run_result_factory().model_copy(deep=True)
+    runtime_only_check = run_result.checks[1].model_copy(
+        update={
+            "comparison_status": "runtime_only",
+            "reference_count": 0,
+            "migrated_count": 1,
+            "matched_count": 0,
+            "missing_count": 0,
+            "extra_count": 0,
+            "missing": [],
+            "extra": [],
+            "passed": None,
+        }
+    )
+    run_result = run_result.model_copy(
+        update={
+            "checks": [run_result.checks[0], runtime_only_check],
+            "compared_check_count": 1,
+            "runtime_only_check_count": 1,
+            "reference_total": 1,
+            "compared_migrated_total": 1,
+            "matched_total": 1,
+            "runtime_only_migrated_total": 1,
+        }
+    )
+
+    render_report(
+        run_result,
+        tmp_path,
+        legacy_source_root=legacy_root,
+    )
+
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+
+    assert "Runtime Only" in html
+    assert 'value="runtime_only"' in html
+    assert (
+        'data-tooltip="Checks executed without a legacy comparison baseline.">'
+        "Runtime Only</span></span>"
+    ) in html

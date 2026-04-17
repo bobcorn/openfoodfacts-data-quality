@@ -97,7 +97,7 @@ def _child_expressions(expression: Expression) -> tuple[Expression, ...] | None:
 
 
 def _validated_path_spec(expression: Atom, check_id: str) -> ContextPathSpec:
-    """Return the path spec after validating the field is DSL-visible."""
+    """Return the path spec after validating that the field is visible to the DSL."""
     spec = path_spec_for(expression.field)
     if spec is None:
         raise ValueError(
@@ -115,7 +115,7 @@ def _validated_path_spec(expression: Atom, check_id: str) -> ContextPathSpec:
 
 
 def _validate_boolean_atom(expression: Atom, field_type: str) -> None:
-    """Validate boolean-only operators."""
+    """Validate boolean operators."""
     if field_type != "boolean":
         raise ValueError(
             f"Operator '{expression.op}' requires a boolean field, but '{expression.field}' is {field_type}."
@@ -159,7 +159,7 @@ def _validate_membership_atom(expression: Atom, check_id: str) -> None:
 
 
 def _validate_scalar_comparison_atom(expression: Atom, check_id: str) -> None:
-    """Validate equality-style operators on scalar values."""
+    """Validate equality operators on scalar values."""
     if isinstance(expression.value, (dict, list)):
         raise ValueError(
             f"Operator '{expression.op}' only accepts scalar values in DSL definition '{check_id}'."

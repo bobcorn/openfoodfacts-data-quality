@@ -41,7 +41,7 @@
             <strong class="stat__value">{{ affected_products }} / {{ report.product_count }}</strong>
           </div>
 
-          {% if runtime_only_checks %}
+          {% if has_runtime_only_checks %}
           <div class="stat stat--hero stat--detail">
             <span class="stat__label"><span class="term" data-tooltip="{{ terms.stats.runtime_only_checks_tooltip }}">{{ terms.stats.runtime_only_checks_label }}</span></span>
             <strong class="stat__value">{{ runtime_only_checks }}</strong>
@@ -94,10 +94,12 @@
 
           <div class="composition-legend">
             {% for segment in composition_segments %}
+            {% if segment.id != "runtime_only" or has_runtime_only_checks %}
             <div class="composition-item">
               <span class="composition-dot composition-dot--{{ segment.id }}"></span>
               <span><span class="term" data-tooltip="{{ segment.tooltip }}">{{ segment.label }}</span> <strong>{{ segment.count }}</strong></span>
             </div>
+            {% endif %}
             {% endfor %}
           </div>
         </div>

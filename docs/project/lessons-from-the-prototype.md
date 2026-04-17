@@ -2,88 +2,97 @@
 
 # Lessons learned from the prototype
 
-This page records lessons learned while building the prototype.
+This page records the design lessons that shaped the current repository. It
+focuses on decisions that changed module boundaries, data contracts, and the
+review workflow.
 
-## Lessons
+### A migration needs a reference model
 
-### Parity needs an explicit comparison model
+Early work treated the migration as a code port. That view broke down once
+parity depended on emitted backend envelopes, normalized findings, cached
+reference data, and strict comparison rules. The repository now models those
+concerns explicitly through
+[`ReferenceResult`](../reference/data-contracts.md#referenceresult),
+[`ObservedFinding`](../reference/data-contracts.md#observedfinding),
+[reference loading](../explanation/reference-data-and-parity.md), and the
+[migration run flow](../explanation/migration-runs.md).
 
-In a migration project, correctness is defined at behavioral level. A rule can
-appear correct in code and still produce different results. Without an
-explicit comparison model, review depends too much on personal judgment. An
-explicit comparison model makes differences visible during review, gives
-parity a clear meaning, and defines where exceptions belong.
+Translated code does not preserve behavior on its own. A migration needs a
+stable description of old output, normalization rules, and comparison rules.
+Once those contracts exist, mismatch review becomes repeatable and changes can
+be discussed with shared evidence.
 
-In this repository, relevant references are the
-[reference path](../explanation/reference-data-and-parity.md#why-the-reference-path-exists)
-and
-[strict comparison](../explanation/reference-data-and-parity.md#strict-comparison).
-The governance layer for mismatches uses the same model.
+### Normalize input at the boundary
 
-### The DSL needs a narrow scope
+The shared runtime now works on one canonical source contract,
+[`SourceProduct`](../reference/data-contracts.md#sourceproduct). Adapters
+absorb the differences between OFF exports, JSONL documents, Parquet rows,
+DuckDB relations, and sparse canonical rows. The migration path keeps its own
+[`ProductDocument`](../reference/data-contracts.md#productdocument) because the
+legacy backend has different needs.
 
-A DSL is useful when a reader can understand the language quickly. Once the
-language supports too many rule patterns, review becomes harder and the
-boundary between rule definition and implementation becomes less clear. A
-narrow DSL keeps simple checks short. More complex logic belongs in Python,
-where the language already supports richer control flow and testing.
+That split kept input variability out of the core runtime. Checks and context
+builders can assume one shape, while unsupported partial inputs fail at ingest.
+Normalization belongs at the edge of the system, where format knowledge already
+exists.
 
-In this repository, relevant references are
-[About migrated checks](../explanation/migrated-checks.md) and
-[How to author checks](../how-to/author-checks.md). `dsl` is used for readable
-predicates over approved fields.
+### Reusable runtime and migration tooling need separate ownership
 
-### Runtime contracts need one clear owner
+As the prototype grew, the repository stopped acting like one application. The
+code under `src/` needed a small public API and stable contracts. The code
+under `migration/` needed freedom to change while the parity workflow was still
+being refined. Local apps in `apps/` benefited from consuming the packaged
+runtime instead of reaching into migration internals. [About the system
+architecture](../explanation/system-architecture.md) and [About the project
+scope](../explanation/project-scope.md) now reflect that split.
 
-If the meaning of the runtime provider is spread across layers, names change and
-behavior becomes harder to test. A contract needs one owner so its vocabulary
-and invariants stay in one place.
+Shared code does not imply shared ownership. Different consumers bring
+different stability expectations, and package boundaries should follow them
+once those expectations are visible.
 
-In this repository, relevant references are
-[data contracts](../reference/data-contracts.md) and
-[CheckContext](../explanation/runtime-model.md#checkcontext).
-[About the system architecture](../explanation/system-architecture.md)
-describes the same boundary. The
-[legacy backend](../reference/glossary.md#legacy-backend) provides reference
-data through a defined interface. The runtime contract remains in Python.
+### Review workflows deserve a real data model
 
-### Reusable runtime behavior and migration behavior need separate boundaries
+Parity work started with transient execution output. That was enough for
+debugging single runs, but it did not support ongoing review. The repository
+later added dataset profiles, stored runs, mismatch rows, snapshots, and
+report artifacts around [`RunResult`](../reference/data-contracts.md#runresult).
+[Report artifacts](../reference/report-artifacts.md) and [run configuration
+and artifacts](../reference/run-configuration-and-artifacts.md) describe that
+model.
 
-A reusable library and a migration run flow serve different purposes. The
-library needs a compact provider and dependable contracts, while the
-migration tooling needs orchestration and review support. When these concerns share
-one layer, it
-becomes harder to decide where a change belongs and which interface it should
-preserve.
+Review becomes part of the system when people use results to decide whether a
+migration is acceptable. Logs are useful during development, but they are a
+weak foundation for audit and comparison. Durable artifacts and stored state
+make the review loop easier to repeat and easier to trust.
 
-In this repository, relevant references are the split between
-`src/off_data_quality/` and `migration/`.
-[About the system architecture](../explanation/system-architecture.md) and
-[About migration runs](../explanation/migration-runs.md) describe the same
-boundary.
+### Keep extension points narrow
 
-### Tooling affects what the project can maintain
+The repository now relies on explicit check metadata, context providers,
+capability checks, check profiles, and a small DSL. More complex logic still
+goes in Python. That division is described in
+[About migrated checks](../explanation/migrated-checks.md), [check metadata
+and selection](../reference/check-metadata-and-selection.md), and [How to
+author checks](../how-to/author-checks.md).
 
-Tooling does not change rule logic directly, but it still affects how safely
-the project can change. Validation and typing make regressions easier to
-find, and packaging and release support make results easier to check and
-reuse.
+Extensibility depends on clear rules more than on generic abstractions. A
+narrow declarative path is easier to review and maintain. A separate
+imperative path gives the project room for exceptions without forcing the DSL
+to absorb every case.
 
-In this repository, relevant references are
-[Validate changes](../how-to/validate-changes.md) and
-[CI and releases](../reference/ci-and-releases.md).
+### Prototype scaffolding should be easy to remove
 
-### Run execution and review need one shared model
+Several intermediate layers were useful during early exploration and later
+became noise. The repository improved when temporary planning layers, older
+public surfaces, and migration rules that no longer matched the execution model
+were removed. [About the system architecture](../explanation/system-architecture.md),
+[About migration runs](../explanation/migration-runs.md), and the
+[roadmap](roadmap-and-open-questions.md) reflect the current structure more
+directly.
 
-A run also needs review artifacts, stored context, and a stable place for
-mismatch handling. If execution and review do not share one model, it becomes
-harder to inspect runs consistently because the relevant information is spread
-across files and tools. One shared model connects review to execution and
-gives stored results a defined purpose.
-
-In this repository, relevant references are
-[report artifacts](../reference/report-artifacts.md) and the parity store. The
-migration tooling also separates run execution from report building.
+A prototype earns its keep by exposing the problem. Some of its scaffolding
+should disappear once the real boundaries are clear, because obsolete layers
+kept for historical continuity usually make the codebase harder to explain and
+harder to change.
 
 ## Related information
 

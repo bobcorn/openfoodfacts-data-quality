@@ -28,7 +28,7 @@ def list_row_checks(
     jurisdictions: Collection[CheckJurisdiction] | None = None,
     catalog: CheckCatalog | None = None,
 ) -> tuple[CheckDefinition, ...]:
-    """Return checks available on the canonical row-based contract."""
+    """Return checks available for the canonical row contract."""
     return list_provider_checks(
         provider=SOURCE_PRODUCTS_PROVIDER,
         check_ids=check_ids,

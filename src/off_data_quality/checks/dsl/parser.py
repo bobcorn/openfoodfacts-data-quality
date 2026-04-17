@@ -164,7 +164,7 @@ def _mapping_items(value: object) -> list[StringObjectMapping]:
 
 
 def _parse_pack_metadata(value: object) -> CheckPackMetadata:
-    """Return the required pack-level metadata block for one DSL file."""
+    """Return the required pack level metadata block for one DSL file."""
     payload = _require_mapping(value, label="DSL metadata")
     return CheckPackMetadata(
         parity_baseline=_parse_parity_baseline(payload.get("parity_baseline")),

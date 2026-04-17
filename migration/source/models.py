@@ -5,7 +5,7 @@ from enum import StrEnum
 
 
 class SourceSnapshotFormat(StrEnum):
-    """Supported full-document source snapshot formats for migration runs."""
+    """Supported full document source snapshot formats for migration runs."""
 
     DUCKDB = "duckdb"
     JSONL = "jsonl"
@@ -25,7 +25,7 @@ class ProductDocument:
 
 @dataclass(frozen=True, slots=True)
 class SourceBatchRecord:
-    """One migration source record used by the strict-parity migration runtime."""
+    """One migration source record used by strict parity runs."""
 
     product_document: ProductDocument
 
@@ -38,7 +38,7 @@ class SkippedSourceRow:
     reason: str
 
     def as_payload(self) -> dict[str, str]:
-        """Return a stable JSON-friendly payload."""
+        """Return a stable payload that is safe to serialize as JSON."""
         return {
             "location": self.location,
             "reason": self.reason,
@@ -54,7 +54,7 @@ class SourceInputSummary:
     skipped_row_examples: tuple[SkippedSourceRow, ...] = ()
 
     def as_payload(self) -> dict[str, object]:
-        """Return a stable JSON-friendly payload."""
+        """Return a stable payload that is safe to serialize as JSON."""
         return {
             "processed_product_count": self.processed_product_count,
             "skipped_row_count": self.skipped_row_count,

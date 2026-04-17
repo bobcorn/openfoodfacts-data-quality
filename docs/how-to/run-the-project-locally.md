@@ -116,13 +116,13 @@ Use a local `.venv` for tests, linting, typing, and repository utilities.
 - Use `SOURCE_DATASET_PROFILE=benchmark_10k` or
   `.venv/bin/python scripts/benchmark_run.py --clear-reference-cache --repeat 2`
   when you want repeatable benchmark loops with machine-readable timing output.
-- The benchmark JSON separates `run_preparation` timings from per-batch
+- The benchmark JSON separates `run_preparation` timings from batch
   `stage_timings`, so you can distinguish source snapshot id and row-count
   costs from batch execution costs.
 - Edit `config/check-profiles.toml` when you need a different set of checks.
-- Keep the tracked sample snapshot for short strict-parity runs.
+- Keep the tracked sample snapshot for short strict parity runs.
 - Switch to a larger local snapshot when you need wider coverage.
-- Use `.venv` for focused Python loops and Docker for strict-parity validation or
+- Use `.venv` for focused Python loops and Docker for strict parity validation or
   report preview.
 
 ## Know what persists

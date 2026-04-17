@@ -158,7 +158,7 @@ def decode_full_document_tag_values(
 
 
 def decode_export_nutriment_columns(value: object) -> dict[str, object]:
-    """Decode OFF product-export nutriments into canonical columns."""
+    """Decode OFF product export nutriments into canonical columns."""
     if value is None:
         return {}
     if isinstance(value, list):
@@ -189,7 +189,7 @@ def decode_export_nutriment_columns(value: object) -> dict[str, object]:
 
 
 def decode_full_document_nutriment_columns(value: object) -> dict[str, object]:
-    """Decode OFF full-document nutriments into canonical columns."""
+    """Decode OFF full document nutriments into canonical columns."""
     if value is None:
         return {}
     if not isinstance(value, Mapping):
@@ -206,7 +206,7 @@ def decode_localized_text_list(
     column: str,
     contract_name: str,
 ) -> str | None:
-    """Decode one list of localized-text objects."""
+    """Decode one list of localized text objects."""
     if value is None:
         return None
     if not isinstance(value, list):

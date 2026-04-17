@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class ReferenceCheckContextMaterializer:
-    """Project reference results onto reference-side enriched check contexts."""
+    """Project reference results into enriched check contexts for comparison."""
 
     def materialize(
         self,
         reference_results: list[ReferenceResult],
     ) -> list[CheckContext]:
-        """Return reference-side enriched check contexts for the migrated runtime."""
+        """Return enriched check contexts built from reference results."""
         return reference_check_contexts_from_reference_results(reference_results)
 
 

@@ -32,7 +32,7 @@ _StartedContextManagerT = TypeVar(
 
 
 class _StartedContextManager(AbstractContextManager[object]):
-    """Context-manager mixin for services that expose explicit start/close hooks."""
+    """Context manager mixin for services that expose explicit start and close hooks."""
 
     def __enter__(self: _StartedContextManagerT) -> _StartedContextManagerT:
         self.start()

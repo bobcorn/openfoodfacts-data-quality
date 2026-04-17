@@ -79,7 +79,7 @@ def _evaluate_atom(expression: Atom, payload: Mapping[str, object]) -> bool:
 
 
 def _matches_missing_or_blank(expression: Atom, value: object) -> bool:
-    """Evaluate null-like operators before any other narrowing."""
+    """Evaluate null related operators before any other narrowing."""
     if expression.op == "is_missing":
         return value is MISSING
     if expression.op == "is_blank":
@@ -96,7 +96,7 @@ def _evaluate_boolean_operator(expression: Atom, value: object) -> bool | None:
 
 
 def _evaluate_scalar_operator(expression: Atom, value: object) -> bool | None:
-    """Evaluate equality-style operators for scalar values."""
+    """Evaluate equality operators for scalar values."""
     comparator = _SCALAR_COMPARATORS.get(expression.op)
     if comparator is None:
         return None

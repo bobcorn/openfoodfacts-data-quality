@@ -2,9 +2,9 @@
 
 # About reference and parity
 
-Some runs need reference results before they can compare migrated behavior with
-legacy behavior. The sections below cover that path and the review rules around
-it.
+Current migration runs need reference results before they can compare migrated
+behavior with legacy behavior or build enriched snapshot contexts. The
+sections below cover that path and the review rules around it.
 
 ## What `reference` means
 
@@ -47,13 +47,13 @@ flowchart TB
     subgraph COMP["Compared Run"]
         A["Selected Source Batch"]
         B["Reference Path"]
-        C["Migrated Runtime<br/>(enriched snapshots)"]
+        C["Migrated Runtime<br/>(projected CheckContext)"]
         D["Reference Findings"]
         E["Migrated Findings"]
         F["Strict Comparison"]
         A --> B
-        A --> C
         B --> D
+        B --> C
         C --> E
         D --> F
         E --> F
@@ -66,13 +66,6 @@ flowchart TB
 
     H -.-> B
     I -.-> B
-
-    subgraph RTO["Runtime Only Run"]
-        J["Selected Source Batch"]
-        K["Migrated Runtime"]
-        L["Migrated Findings"]
-        J --> K --> L
-    end
 ```
 
 ## Strict comparison
@@ -107,8 +100,10 @@ checks that run without comparison in the same profile.
 
 The parity model keeps comparison explicit.
 
-Reference data is loaded only when selected checks need it. Checks that run
-without comparison skip that path. Strict parity preserves fidelity to trusted
+Reference data is loaded when selected checks need reference findings or
+enriched snapshot contexts. In current migration profiles, that means the
+reference path still runs for runtime-only checks because migration profiles
+accept only `enriched_snapshots`. Strict parity preserves fidelity to trusted
 backend behavior because it compares migrated findings on enriched snapshots
 against validated reference findings instead of assuming the migrated
 implementation is already correct.

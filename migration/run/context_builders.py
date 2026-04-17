@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class SupportsCheckContextBuilder(Protocol):
-    """Context-building strategy selected for one strict-parity migration runtime."""
+    """Context builder selected for one strict parity migration run."""
 
     @property
     def context_provider(self) -> ContextProviderId: ...
@@ -35,7 +35,7 @@ class SupportsCheckContextBuilder(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class EnrichedSnapshotContextBuilder:
-    """Build migrated check contexts from reference-side enriched contexts."""
+    """Build migrated check contexts from enriched reference contexts."""
 
     context_provider: ContextProviderId = ENRICHED_SNAPSHOTS_PROVIDER.name
     requires_reference_check_contexts: bool = True
@@ -45,7 +45,7 @@ class EnrichedSnapshotContextBuilder:
         *,
         reference_check_contexts: Sequence[CheckContext],
     ) -> list[CheckContext]:
-        """Build runtime contexts from reference-side enriched contexts."""
+        """Build runtime contexts from enriched reference contexts."""
         return list(reference_check_contexts)
 
     def iter_contexts(
@@ -53,7 +53,7 @@ class EnrichedSnapshotContextBuilder:
         *,
         reference_check_contexts: Sequence[CheckContext],
     ) -> Iterable[CheckContext]:
-        """Yield runtime contexts from reference-side enriched contexts."""
+        """Yield runtime contexts from enriched reference contexts."""
         return (context for context in reference_check_contexts)
 
 

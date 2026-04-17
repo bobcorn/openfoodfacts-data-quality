@@ -70,7 +70,7 @@ def parse_csv_request(payload: Mapping[str, object]) -> dict[str, object]:
 
 
 def validate_request(payload: Mapping[str, object]) -> dict[str, object]:
-    """Run global data-quality checks against one sheet table payload."""
+    """Run global data quality checks against one sheet table payload."""
     table = table_from_payload(payload.get("table"))
     outcome = validate_table(table)
     return {

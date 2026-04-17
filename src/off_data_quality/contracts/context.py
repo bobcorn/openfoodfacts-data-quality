@@ -47,7 +47,7 @@ def context_field(
 
 
 def _empty_nutrition_input_sets() -> list[NutritionInputSet]:
-    """Build an empty nutrition-input-set list with a concrete static type."""
+    """Build an empty nutrition input set list with a concrete static type."""
     return []
 
 

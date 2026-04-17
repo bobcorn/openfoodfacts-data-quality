@@ -1,1 +1,1 @@
-"""Input sources for the rebuilt OFF Quality prototype."""
+"""Input sources for migration runs."""

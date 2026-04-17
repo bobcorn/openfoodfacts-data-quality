@@ -97,7 +97,7 @@ def configured_source_dataset_profile_name() -> str | None:
 
 
 def _configured_optional_name(env_var: str) -> str | None:
-    """Return one optional name-like environment setting."""
+    """Return one optional environment setting that should look like a name."""
     configured = os.environ.get(env_var)
     if configured is None:
         return None
@@ -117,7 +117,7 @@ def configured_source_snapshot_path(project_root: Path) -> Path:
 
 
 def configured_parity_store_path(project_root: Path) -> Path:
-    """Return the configured migration-owned run store path."""
+    """Return the configured run store path owned by migration."""
     configured = os.environ.get(PARITY_STORE_PATH_ENV_VAR)
     if configured is not None and configured.strip():
         return Path(configured).expanduser().resolve()

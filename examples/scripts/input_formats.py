@@ -113,7 +113,7 @@ with duckdb.connect(str(PARQUET_DUCKDB_SAMPLE), read_only=True) as connection:
 # %% [markdown]
 # Compare the result counts across the supported sample formats.
 #
-# JSONL, Parquet, and the two DuckDB imports keep the same full-fidelity
+# JSONL, Parquet, and the two DuckDB imports keep the same complete
 # source content, so they line up on the same finding count for this check set.
 # The official CSV export is flatter, so some check surfaces can legitimately
 # produce fewer findings even though the format is fully supported.

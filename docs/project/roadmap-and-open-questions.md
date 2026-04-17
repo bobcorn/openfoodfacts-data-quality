@@ -4,8 +4,8 @@
 
 This page tracks repository direction and unresolved design questions.
 
-It is separate from the main how-to, explanation, and reference split because
-it records project status rather than product behavior.
+It is separate from the main guides, explanation pages, and reference pages
+because it records project status rather than product behavior.
 
 ## Current work
 
@@ -36,11 +36,11 @@ review.
 
 ### When should the APIs become durable?
 
-The `checks` API for loaded rows is explicit. The repository also keeps a future
-`snapshots` namespace reserved. The open question is when those library
+The `checks` API for loaded rows is explicit. The repository also keeps a
+future `snapshots` namespace reserved. The open question is when those library
 surfaces should become durable public interfaces.
 
-## Risks to watch
+## Risks
 
 ### Corpus performance
 

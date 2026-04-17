@@ -107,7 +107,7 @@ class ReferenceResultCacheMetadata:
         self,
         expected: ReferenceResultCacheMetadata,
     ) -> dict[str, tuple[str | int | None, str | int | None]]:
-        """Return the stored-versus-expected fields that block cache reuse."""
+        """Return the stored and expected fields that block cache reuse."""
         mismatches: dict[str, tuple[str | int | None, str | int | None]] = {}
         for field_name in (
             "source_snapshot_id",
@@ -248,7 +248,7 @@ def reference_result_cache_path(
     source_snapshot_id: str,
     cache_key: str,
 ) -> Path:
-    """Return the on-disk cache database path for one reference result set."""
+    """Return the on disk cache database path for one reference result set."""
     return cache_dir / f"reference-result-{source_snapshot_id}-{cache_key}.duckdb"
 
 

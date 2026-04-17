@@ -40,7 +40,7 @@ class NoReferenceRunner:
         self,
         product_documents: list[ProductDocument],
     ) -> ResolvedReferenceBatch:
-        """Return an empty reference-side batch projection."""
+        """Return an empty reference batch projection."""
         del product_documents
         return ResolvedReferenceBatch(
             reference_check_contexts=[],
@@ -67,7 +67,7 @@ class LegacyReferenceRunner:
         self,
         product_documents: list[ProductDocument],
     ) -> ResolvedReferenceBatch:
-        """Return the reference-side data needed for one batch execution."""
+        """Return the reference data needed for one batch execution."""
         loaded = self.reference_result_loader.load_many(product_documents)
         reference_results = loaded.reference_results
         reference_check_context_materialization_seconds = 0.0
